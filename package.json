@@ -13,7 +13,8 @@
     "lint": "oxlint",
     "format": "oxfmt",
     "check:routes": "node scripts/check-site.mjs",
-    "images:optimize": "node scripts/optimize-images.mjs"
+    "images:optimize": "node scripts/optimize-images.mjs",
+    "check:content": "node scripts/check-content.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

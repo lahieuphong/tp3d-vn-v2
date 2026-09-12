@@ -36,7 +36,7 @@ export const projects: Project[] = [
     materials: ['walnut', 'travertine', 'linen', 'brushed-metal'],
     products: ['line-sofa', 'round-coffee-table', 'copper-pendant'],
     spaces: ['living', 'kitchen', 'bedroom'],
-    threeScene: { enabled: true, roomId: 'walnut-living', status: 'preview' },
+    threeScene: { enabled: false, roomId: 'walnut-living' },
   },
   {
     id: 'p02',
@@ -67,7 +67,7 @@ export const projects: Project[] = [
     materials: ['natural-oak', 'linen', 'travertine'],
     products: ['form-lounge-chair', 'line-sofa', 'round-coffee-table'],
     spaces: ['living', 'dining', 'bedroom'],
-    threeScene: { enabled: true, roomId: 'quiet-living', status: 'preview' },
+    threeScene: { enabled: false, roomId: 'quiet-living' },
   },
   {
     id: 'p03',
@@ -99,9 +99,8 @@ export const projects: Project[] = [
     products: ['form-lounge-chair', 'copper-pendant', 'round-coffee-table'],
     spaces: ['dining', 'kitchen', 'workspace'],
     threeScene: {
-      enabled: true,
+      enabled: false,
       roomId: 'courtyard-dining',
-      status: 'preview',
     },
   },
 ];

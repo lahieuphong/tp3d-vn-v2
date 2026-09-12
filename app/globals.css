@@ -2423,3 +2423,28 @@ p {
     gap: 44px 28px;
   }
 }
+
+/* Relationship completion: reuse the existing editorial layouts and touch rhythm. */
+.material-palette-links {
+  margin-block: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 24px;
+}
+.material-palette-links > .eyebrow {
+  flex-basis: 100%;
+  margin-bottom: 4px;
+}
+.material-palette-links > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 44px;
+  font-size: 12px;
+}
+[data-project-context] h2,
+[data-project-context] h3,
+.scene-message h2,
+.scene-message > p:not(.eyebrow) {
+  text-wrap: balance;
+}

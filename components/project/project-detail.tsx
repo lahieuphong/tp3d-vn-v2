@@ -1,12 +1,11 @@
 import type { Project } from '@/data/types';
 import Link from 'next/link';
 import { EditorialImage } from '@/components/shared/editorial-image';
-import { SectionHeading } from '@/components/shared/section-heading';
-import { ProjectPreview } from './project-preview';
+import { ProjectSelection } from './project-selection';
 import { MaterialSelection } from '@/components/sections/material-selection';
 import { ObjectSelection } from '@/components/sections/object-selection';
 import { ExperienceBanner } from '@/components/sections/experience-banner';
-import { projects } from '@/data/projects';
+import { getRelatedProjects } from '@/data/relationships';
 export function ProjectDetail({ project: p }: { project: Project }) {
   return (
     <main id="main">
@@ -58,29 +57,31 @@ export function ProjectDetail({ project: p }: { project: Project }) {
           <p>{p.introduction}</p>
         </div>
       </section>
-      <section
-        className="container project-gallery"
-        aria-label={`${p.title} gallery`}
-      >
-        {p.gallery.map((image, i) => (
-          <figure key={image.src}>
-            <EditorialImage src={image.src} alt={image.alt} />
-            <figcaption>
-              <span>
-                0{i + 1} —{' '}
-                {
-                  [
-                    'A quieter perspective',
-                    'Material in conversation',
-                    'Room for everyday life',
-                  ][i]
-                }
-              </span>
-              <span>INTERIOR STUDY</span>
-            </figcaption>
-          </figure>
-        ))}
-      </section>
+      {p.gallery.length > 0 && (
+        <section
+          className="container project-gallery"
+          aria-label={`${p.title} gallery`}
+        >
+          {p.gallery.map((image, i) => (
+            <figure key={image.src}>
+              <EditorialImage src={image.src} alt={image.alt} />
+              <figcaption>
+                <span>
+                  0{i + 1} —{' '}
+                  {
+                    [
+                      'A quieter perspective',
+                      'Material in conversation',
+                      'Room for everyday life',
+                    ][i]
+                  }
+                </span>
+                <span>INTERIOR STUDY</span>
+              </figcaption>
+            </figure>
+          ))}
+        </section>
+      )}
       <section className="container section design-concept">
         <p className="eyebrow">DESIGN CONCEPT</p>
         <h2>
@@ -93,26 +94,19 @@ export function ProjectDetail({ project: p }: { project: Project }) {
       <MaterialSelection ids={p.materials} />
       <ObjectSelection ids={p.products} title="Within this interior." />
       <ExperienceBanner slug={p.slug} image={p.coverImage.src} compact />
-      <section className="container section">
-        <SectionHeading
-          eyebrow="CONTINUE EXPLORING"
-          title="Related interiors."
-          href="/projects"
-          link="All projects"
-        />
-        <div className="related-projects">
-          {projects
-            .filter((x) => x.slug !== p.slug)
-            .map((x, i) => (
-              <ProjectPreview project={x} index={i} compact key={x.slug} />
-            ))}
-        </div>
+      <ProjectSelection
+        projects={getRelatedProjects(p)}
+        eyebrow="CONTINUE EXPLORING"
+        title="Related interiors."
+        href="/projects"
+        link="All projects"
+      >
         <p className="content-note">
           This is a concept study. Project information and object specifications
           are illustrative. Reference photography does not depict a commissioned
           Tân Phong project.
         </p>
-      </section>
+      </ProjectSelection>
     </main>
   );
 }

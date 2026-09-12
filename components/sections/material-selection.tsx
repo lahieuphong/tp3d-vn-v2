@@ -4,8 +4,12 @@ import { EditorialImage } from '@/components/shared/editorial-image';
 import { TextLink } from '@/components/shared/text-link';
 export function MaterialSelection({ ids }: { ids?: string[] }) {
   const selected = ids
-    ? materials.filter((m) => ids.includes(m.slug)).slice(0, 3)
+    ? ids.flatMap((slug) => {
+        const material = materials.find((item) => item.slug === slug);
+        return material ? [material] : [];
+      })
     : [materials[1], materials[2], materials[3]];
+  if (!selected.length) return null;
   return (
     <section className="material-section">
       <div className="container section material-layout">
@@ -20,10 +24,23 @@ export function MaterialSelection({ ids }: { ids?: string[] }) {
             The warmth of wood. The permanence of stone. The quiet touch of
             linen. A palette to be seen, and felt.
           </p>
+          {selected.length > 3 && (
+            <nav
+              className="material-palette-links"
+              aria-label="Also in this palette"
+            >
+              <p className="eyebrow">ALSO IN THE PALETTE</p>
+              {selected.slice(3).map((material) => (
+                <Link key={material.slug} href={`/materials/${material.slug}`}>
+                  {material.title} <span aria-hidden="true">↗</span>
+                </Link>
+              ))}
+            </nav>
+          )}
           <TextLink href="/materials">Explore the material library</TextLink>
         </div>
         <div className="material-images">
-          {selected.map((m) => (
+          {selected.slice(0, 3).map((m) => (
             <Link
               href={`/materials/${m.slug}`}
               key={m.slug}

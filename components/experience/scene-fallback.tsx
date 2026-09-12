@@ -11,7 +11,7 @@ export function SceneFallback({
   return (
     <div className="scene-message" role={failed ? 'alert' : 'status'}>
       <p className="eyebrow">
-        {failed ? 'A MOMENT OF PAUSE' : 'SPATIAL STUDY / COMING SOON'}
+        {failed ? 'A MOMENT OF PAUSE' : '3D EXPERIENCE'}
       </p>
       <h2>
         {failed ? (
@@ -22,16 +22,16 @@ export function SceneFallback({
           </>
         ) : (
           <>
-            A new perspective
+            This spatial experience
             <br />
-            is <em>taking shape.</em>
+            is <em>being prepared.</em>
           </>
         )}
       </h2>
       <p>
         {failed
           ? 'This experience could not be opened on your device. You can still explore the complete project.'
-          : 'The 3D experience for this interior is being prepared. Explore its spaces, materials and objects in the project story.'}
+          : 'The interior will soon be available to explore in real time.'}
       </p>
       {failed && onRetry && (
         <button className="text-link" onClick={onRetry}>
@@ -39,7 +39,7 @@ export function SceneFallback({
         </button>
       )}
       <Link href={`/projects/${slug}`} className="text-link">
-        Explore the project <span aria-hidden="true">↗</span>
+        Return to project <span aria-hidden="true">→</span>
       </Link>
     </div>
   );

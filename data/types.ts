@@ -1,9 +1,7 @@
 export type ImageAsset = { src: string; alt: string };
-export type ThreeScene = {
-  enabled: boolean;
-  roomId: string;
-  status: 'preview' | 'ready';
-};
+export type ThreeScene =
+  | { enabled: false; roomId?: string }
+  | { enabled: true; roomId: string };
 export type Project = {
   id: string;
   slug: string;
@@ -28,7 +26,6 @@ export type Space = {
   subtitle: string;
   description: string;
   image: ImageAsset;
-  projects: string[];
   products: string[];
   materials: string[];
 };

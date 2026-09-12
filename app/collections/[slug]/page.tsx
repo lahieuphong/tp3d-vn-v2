@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { collections } from '@/data/collections';
-import { projects } from '@/data/projects';
+import { getCollectionContext } from '@/data/relationships';
 import { PageIntro } from '@/components/shared/page-intro';
 import { EditorialImage } from '@/components/shared/editorial-image';
-import { ProjectPreview } from '@/components/project/project-preview';
-import { SectionHeading } from '@/components/shared/section-heading';
+import { ProjectSelection } from '@/components/project/project-selection';
+import { ObjectSelection } from '@/components/sections/object-selection';
+import { MaterialSelection } from '@/components/sections/material-selection';
 export const generateStaticParams = () =>
   collections.map((c) => ({ slug: c.slug }));
 export async function generateMetadata({
@@ -28,6 +29,7 @@ export default async function CollectionPage({
   const { slug } = await params;
   const c = collections.find((x) => x.slug === slug);
   if (!c) notFound();
+  const context = getCollectionContext(c);
   return (
     <main id="main">
       <PageIntro
@@ -38,21 +40,21 @@ export default async function CollectionPage({
       <div className="container collection-hero">
         <EditorialImage src={c.image.src} alt={c.image.alt} priority />
       </div>
-      <section className="container section">
-        <SectionHeading
-          eyebrow="IN DIALOGUE"
-          title="Interiors to explore."
-          href="/collections"
-          link="All collections"
-        />
-        <div className="related-projects">
-          {projects
-            .filter((p) => c.projects.includes(p.slug))
-            .map((p) => (
-              <ProjectPreview project={p} compact key={p.slug} />
-            ))}
-        </div>
-      </section>
+      <ProjectSelection
+        projects={context.projects}
+        eyebrow="IN DIALOGUE"
+        title="Interiors to explore."
+        href="/collections"
+        link="All collections"
+        editorial
+      />
+      <ObjectSelection
+        ids={context.products.map((product) => product.slug)}
+        title="Objects in the conversation."
+      />
+      <MaterialSelection
+        ids={context.materials.map((material) => material.slug)}
+      />
     </main>
   );
 }

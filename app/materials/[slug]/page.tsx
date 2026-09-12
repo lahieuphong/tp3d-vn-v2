@@ -2,10 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { materials } from '@/data/materials';
-import { projects } from '@/data/projects';
+import { getMaterialProjects } from '@/data/relationships';
 import { EditorialImage } from '@/components/shared/editorial-image';
-import { SectionHeading } from '@/components/shared/section-heading';
-import { ProjectPreview } from '@/components/project/project-preview';
+import { ProjectSelection } from '@/components/project/project-selection';
 export const generateStaticParams = () =>
   materials.map((m) => ({ slug: m.slug }));
 export async function generateMetadata({
@@ -56,20 +55,11 @@ export default async function MaterialPage({
           </p>
         </div>
       </section>
-      <section className="container section">
-        <SectionHeading
-          eyebrow="MATERIAL IN CONTEXT"
-          title="A place in the interior."
-        />
-        <div className="related-projects">
-          {projects
-            .filter((p) => p.materials.includes(slug))
-            .slice(0, 2)
-            .map((p) => (
-              <ProjectPreview project={p} compact key={p.slug} />
-            ))}
-        </div>
-      </section>
+      <ProjectSelection
+        projects={getMaterialProjects(slug)}
+        eyebrow="MATERIAL IN CONTEXT"
+        title="A place in the interior."
+      />
     </main>
   );
 }

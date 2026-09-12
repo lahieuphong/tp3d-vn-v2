@@ -5,6 +5,7 @@ import type { Project, Product, Material } from '@/data/types';
 import type { SceneSelection } from './scene-registry';
 import { ExperienceUI } from './experience-ui';
 import { LoadingScreen } from './loading-screen';
+import { SceneFallback } from './scene-fallback';
 import { ExperienceBoundary } from './experience-boundary';
 import { EditorialImage } from '@/components/shared/editorial-image';
 import {
@@ -43,43 +44,53 @@ export function ExperienceShell({
           priority
         />
         <div className="experience-poster-shade" />
-        <ExperienceBoundary key={project.slug} slug={project.slug}>
-          <Suspense fallback={<LoadingScreen />}>
-            <ThreeSceneLoader
-              key={project.threeScene.roomId}
-              roomId={project.threeScene.roomId}
-              slug={project.slug}
-              onSelect={onSelect}
-            />
-          </Suspense>
-        </ExperienceBoundary>
+        {project.threeScene.enabled ? (
+          <ExperienceBoundary key={project.slug} slug={project.slug}>
+            <Suspense fallback={<LoadingScreen />}>
+              <ThreeSceneLoader
+                key={project.threeScene.roomId}
+                roomId={project.threeScene.roomId}
+                slug={project.slug}
+                onSelect={onSelect}
+              />
+            </Suspense>
+          </ExperienceBoundary>
+        ) : (
+          <SceneFallback slug={project.slug} />
+        )}
       </section>
-      <section className="container experience-details">
-        <div>
-          <p className="eyebrow">WITHIN THIS INTERIOR</p>
-          <h2>Get to know the details.</h2>
-        </div>
-        <div className="experience-item-lists">
+      {(products.length > 0 || materials.length > 0) && (
+        <section className="container experience-details">
           <div>
-            <h3>Objects</h3>
-            {products.map((p) => (
-              <Link key={p.slug} href={`/products/${p.slug}`}>
-                {p.title}
-                <span aria-hidden="true">↗</span>
-              </Link>
-            ))}
+            <p className="eyebrow">WITHIN THIS INTERIOR</p>
+            <h2>Get to know the details.</h2>
           </div>
-          <div>
-            <h3>Materials</h3>
-            {materials.map((m) => (
-              <Link key={m.slug} href={`/materials/${m.slug}`}>
-                {m.title}
-                <span aria-hidden="true">↗</span>
-              </Link>
-            ))}
+          <div className="experience-item-lists">
+            {products.length > 0 && (
+              <div>
+                <h3>Objects</h3>
+                {products.map((p) => (
+                  <Link key={p.slug} href={`/products/${p.slug}`}>
+                    {p.title}
+                    <span aria-hidden="true">↗</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+            {materials.length > 0 && (
+              <div>
+                <h3>Materials</h3>
+                {materials.map((m) => (
+                  <Link key={m.slug} href={`/materials/${m.slug}`}>
+                    {m.title}
+                    <span aria-hidden="true">↗</span>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      </section>
+        </section>
+      )}
       <Sheet
         open={!!item}
         onOpenChange={(open) => {

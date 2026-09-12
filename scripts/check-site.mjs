@@ -18,6 +18,33 @@ while (pending.length) {
     !html.includes('Let’s try that again.'),
     `${route}: error boundary rendered`,
   );
+  for (const section of html.matchAll(
+    /<section[^>]*data-project-context[^>]*>([\s\S]*?)<\/section>/g,
+  )) {
+    assert(
+      section[1].includes('class="project-preview'),
+      `${route}: empty project relationship section`,
+    );
+    assert(
+      /href="\/projects\/[^"/]+"/.test(section[1]),
+      `${route}: missing related project link`,
+    );
+  }
+  if (route.startsWith('/experience/')) {
+    assert(
+      html.includes('This spatial experience'),
+      `${route}: missing immediate preparation state`,
+    );
+    assert(
+      html.includes('being prepared.'),
+      `${route}: missing preparation heading`,
+    );
+    assert(
+      !html.includes('Opening your interior experience'),
+      `${route}: misleading loading state`,
+    );
+    assert(!html.includes('<canvas'), `${route}: unexpected WebGL canvas`);
+  }
   const title = html.match(/<title>([^<]+)<\/title>/)?.[1];
   assert(title && !title.includes('Untitled'), `${route}: missing title`);
   for (const match of html.matchAll(/href="(\/[^"?#]*)/g)) {
@@ -50,6 +77,9 @@ for (const route of [
   '/spaces/missing-space',
   '/experience/missing-room',
   '/collections/missing-collection',
+  '/products/missing-product',
+  '/materials/missing-material',
+  '/journal/missing-article',
 ]) {
   const r = await fetch(new URL(route, origin));
   assert.equal(r.status, 404, `Expected 404 for ${route}`);
@@ -59,7 +89,7 @@ console.log(
     {
       pages: visited.size,
       images: images.size,
-      invalidRoutes: 4,
+      invalidRoutes: 7,
       routes: report,
     },
     null,

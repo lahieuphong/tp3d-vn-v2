@@ -5,7 +5,7 @@ import { products } from '@/data/products';
 import { materials } from '@/data/materials';
 import { ExperienceShell } from '@/components/experience/experience-shell';
 export const generateStaticParams = () =>
-  projects.filter((p) => p.threeScene.enabled).map((p) => ({ slug: p.slug }));
+  projects.map((p) => ({ slug: p.slug }));
 export async function generateMetadata({
   params,
 }: {
@@ -24,12 +24,16 @@ export default async function ExperiencePage({
   params: Promise<{ slug: string }>;
 }) {
   const p = getProject((await params).slug);
-  if (!p || !p.threeScene.enabled) notFound();
+  if (!p) notFound();
   return (
     <ExperienceShell
       project={p}
-      products={products.filter((x) => p.products.includes(x.slug))}
-      materials={materials.filter((x) => p.materials.includes(x.slug))}
+      products={p.products.flatMap((slug) =>
+        products.filter((item) => item.slug === slug),
+      )}
+      materials={p.materials.flatMap((slug) =>
+        materials.filter((item) => item.slug === slug),
+      )}
     />
   );
 }

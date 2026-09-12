@@ -2,10 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { products } from '@/data/products';
-import { projects } from '@/data/projects';
+import { getProductProjects } from '@/data/relationships';
 import { EditorialImage } from '@/components/shared/editorial-image';
-import { SectionHeading } from '@/components/shared/section-heading';
-import { ProjectPreview } from '@/components/project/project-preview';
+import { ProjectSelection } from '@/components/project/project-selection';
 export const generateStaticParams = () =>
   products.map((p) => ({ slug: p.slug }));
 export async function generateMetadata({
@@ -53,20 +52,11 @@ export default async function ProductPage({
           </p>
         </div>
       </section>
-      <section className="container section">
-        <SectionHeading
-          eyebrow="IN CONTEXT"
-          title="At home in these interiors."
-        />
-        <div className="related-projects">
-          {projects
-            .filter((x) => x.products.includes(slug))
-            .slice(0, 2)
-            .map((x) => (
-              <ProjectPreview project={x} compact key={x.slug} />
-            ))}
-        </div>
-      </section>
+      <ProjectSelection
+        projects={getProductProjects(slug)}
+        eyebrow="IN CONTEXT"
+        title="At home in these interiors."
+      />
     </main>
   );
 }

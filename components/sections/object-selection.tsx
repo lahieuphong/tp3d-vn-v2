@@ -10,8 +10,12 @@ export function ObjectSelection({
   title?: string;
 }) {
   const selected = ids
-    ? products.filter((p) => ids.includes(p.slug))
+    ? ids.flatMap((slug) => {
+        const product = products.find((item) => item.slug === slug);
+        return product ? [product] : [];
+      })
     : products;
+  if (!selected.length) return null;
   return (
     <section className="container section objects-section">
       <SectionHeading
