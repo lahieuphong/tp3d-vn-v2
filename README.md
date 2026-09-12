@@ -5,8 +5,8 @@ An English-language editorial interior website built from an empty workspace. Vi
 ## Run locally
 
 ```sh
-npm install
-npm run dev -- --port 3000
+yarn install
+yarn dev --port 3000
 ```
 
 Open the Local URL printed by the server. Node 22.13+ is required. The checked-in lockfile is authoritative.
@@ -16,8 +16,8 @@ Open the Local URL printed by the server. Node 22.13+ is required. The checked-i
 The default build remains configured for Cloudflare Sites. Vercel builds switch to Vinext's Nitro adapter and emit the Vercel Build Output API structure under `.vercel/output`.
 
 ```sh
-npm run build:vercel
-npx vercel deploy --prod --yes --project tp3d-vn-v2
+yarn build:vercel
+yarn dlx vercel@latest deploy --prod --yes --project tp3d-vn-v2
 ```
 
 The local build verifies the Build Output API structure. Deploy from source so native dependencies are rebuilt for Vercel's Linux runtime. `vercel.json` selects the custom Vercel build command, and the project name provides the `tp3d-vn-v2.vercel.app` production alias.
@@ -25,11 +25,11 @@ The local build verifies the Build Output API structure. Deploy from source so n
 ## Validation
 
 ```sh
-npm run lint
-npm run check:content
-npx tsc --noEmit
-npm run build
-node scripts/check-site.mjs http://localhost:3000
+yarn lint
+yarn check:content
+yarn tsc --noEmit
+yarn build
+yarn check:routes http://localhost:3000
 ```
 
 The route check crawls every linked content page, verifies headings/titles/image availability, and checks seven invalid detail routes, populated relationship sections and immediate 3D preparation states. `check:content` validates all content references, expected room/material membership, related projects and empty results. It requires a running server. Generated shadcn primitives and their supplied mobile hook are excluded from lint; authored application components remain fully linted. Images use a documented local WebP srcset implementation rather than runtime image optimization.

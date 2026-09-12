@@ -10,13 +10,13 @@ The existing art direction, fonts, image assets and homepage section order are p
 - All four products and six materials resolve project context. Walnut resolves Walnut Residence; Travertine resolves Walnut Residence and Quiet House.
 - Every project has two related interiors, ranked by shared style, rooms, materials and objects.
 - Optional project/object/material/gallery/related-space/experience-detail sections guard resolved content. A single project uses the existing image-and-copy editorial layout. Explicit object/material selections retain their authored order; material palettes beyond three photographs remain reachable through text links.
-- `npm run check:content` validates unique slugs, references, expected relationships, order, ranking, missing/empty relationships and current disabled-scene flags.
+- `yarn check:content` validates unique slugs, references, expected relationships, order, ranking, missing/empty relationships and current disabled-scene flags.
 
 ## Production and browser checks
 
-- `npm run build`: passed.
-- `npx tsc --noEmit`: passed.
-- `npm run lint`: passed for authored code; existing generated UI exclusions remain documented in README.
+- `yarn build`: passed.
+- `yarn tsc --noEmit`: passed.
+- `yarn lint`: passed for authored code; existing generated UI exclusions remain documented in README.
 - `git diff --check`: passed.
 - Production HTTP crawl: 39 content routes returned 200; 46 referenced image/source-set paths returned 200. Seven invalid detail routes (project, space, collection, product, material, journal, experience) returned 404. Populated context sections and immediate preparation copy were asserted.
 - Chrome layout measurements covered all 39 routes at 375, 390, 768 and 1024px, and a partial additional route sweep at 1440px. No document overflow, broken images, empty project contexts, zero-height project previews, canvases or scene/model requests were found in completed measurements. The large sweep was stopped to release browser memory; it is not reported as a complete 234-case run.
