@@ -1,0 +1,66 @@
+{
+  "/images/bedroom.webp": {
+    "width": 1600,
+    "height": 1067
+  },
+  "/images/chair.webp": {
+    "width": 1400,
+    "height": 1400
+  },
+  "/images/classic.webp": {
+    "width": 1600,
+    "height": 1068
+  },
+  "/images/dining.webp": {
+    "width": 1600,
+    "height": 1068
+  },
+  "/images/hero.webp": {
+    "width": 2400,
+    "height": 1600
+  },
+  "/images/kitchen.webp": {
+    "width": 1600,
+    "height": 1067
+  },
+  "/images/linen.webp": {
+    "width": 1400,
+    "height": 2100
+  },
+  "/images/living.webp": {
+    "width": 1600,
+    "height": 2133
+  },
+  "/images/pendant.webp": {
+    "width": 1400,
+    "height": 2100
+  },
+  "/images/quiet.webp": {
+    "width": 1600,
+    "height": 1067
+  },
+  "/images/sofa.webp": {
+    "width": 1600,
+    "height": 900
+  },
+  "/images/stone.webp": {
+    "width": 1200,
+    "height": 1800
+  },
+  "/images/table.webp": {
+    "width": 1400,
+    "height": 2100
+  },
+  "/images/textile.webp": {
+    "width": 1400,
+    "height": 2100
+  },
+  "/images/wood.webp": {
+    "width": 1200,
+    "height": 1800
+  },
+  "/images/workspace.webp": {
+    "width": 1600,
+    "height": 2133
+  }
+}

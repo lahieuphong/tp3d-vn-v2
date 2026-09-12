@@ -1,5 +1,7 @@
 /* oxlint-disable next/no-img-element -- Images are pre-optimized into local WebP srcsets; no runtime image service is needed. */
 import type { CSSProperties } from 'react';
+import { imageDimensions } from '@/data/images';
+
 export function EditorialImage({
   src,
   alt,
@@ -17,19 +19,26 @@ export function EditorialImage({
 }) {
   const responsive = src.startsWith('/images/') && src.endsWith('.webp');
   const base = src.replace(/\.webp$/, '');
+  const dimensions = imageDimensions[src];
+  const responsiveWidths = [720, 1280].filter(
+    (width) => !dimensions || width < dimensions.width,
+  );
+  const srcSet = responsive
+    ? [
+        ...responsiveWidths.map((width) => `${base}-${width}.webp ${width}w`),
+        `${src} ${dimensions?.width ?? 1600}w`,
+      ].join(', ')
+    : undefined;
+
   return (
     <div className={`editorial-image ${className}`}>
       <img
         src={src}
-        srcSet={
-          responsive
-            ? `${base}-720.webp 720w, ${base}-1280.webp 1280w, ${src} ${base.endsWith('hero') ? 2400 : 1600}w`
-            : undefined
-        }
+        srcSet={srcSet}
         sizes={sizes ?? (priority ? '100vw' : '(max-width: 760px) 100vw, 66vw')}
         alt={alt}
-        width="1600"
-        height="1100"
+        width={dimensions?.width ?? 1600}
+        height={dimensions?.height ?? 1100}
         loading={priority ? 'eager' : 'lazy'}
         fetchPriority={priority ? 'high' : 'auto'}
         decoding="async"

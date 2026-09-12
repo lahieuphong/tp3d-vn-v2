@@ -1,3 +1,5 @@
+import generatedImageDimensions from './image-dimensions.json';
+
 export const images = {
   hero: '/images/hero.webp',
   living: '/images/living.webp',
@@ -16,4 +18,10 @@ export const images = {
   table: '/images/table.webp',
   workspace: '/images/workspace.webp',
 };
+
+export const imageDimensions = generatedImageDimensions as Record<
+  string,
+  { width: number; height: number }
+>;
+
 export const photo = (src: string, alt: string) => ({ src, alt });

@@ -11,6 +11,17 @@ npm run dev -- --port 3000
 
 Open the Local URL printed by the server. Node 22.13+ is required. The checked-in lockfile is authoritative.
 
+## Deploy to Vercel
+
+The default build remains configured for Cloudflare Sites. Vercel builds switch to Vinext's Nitro adapter and emit the Vercel Build Output API structure under `.vercel/output`.
+
+```sh
+npm run build:vercel
+npx vercel deploy --prod --yes --project tp3d-vn-v2
+```
+
+The local build verifies the Build Output API structure. Deploy from source so native dependencies are rebuilt for Vercel's Linux runtime. `vercel.json` selects the custom Vercel build command, and the project name provides the `tp3d-vn-v2.vercel.app` production alias.
+
 ## Validation
 
 ```sh

@@ -31,8 +31,12 @@ while (pending.length) {
     )
       pending.push(href);
   }
-  for (const match of html.matchAll(/(?:src|srcSet)="(\/images\/[^" ]+)/g))
-    images.add(match[1]);
+  for (const match of html.matchAll(/\b(?:src|srcset)="([^"]+)"/gi)) {
+    for (const candidate of match[1].split(',')) {
+      const image = candidate.trim().split(/\s+/)[0];
+      if (image.startsWith('/images/')) images.add(image);
+    }
+  }
   report.push({ route, title });
 }
 await Promise.all(
