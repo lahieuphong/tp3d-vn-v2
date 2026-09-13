@@ -1,59 +1,58 @@
-# Homepage Hero: continuous architectural motion
+# Tân Phong — editorial motion opening
 
-Only the first Homepage Hero changes. The original photograph, priority srcset, crop, text, typography, CTA, metadata, header and normal document flow remain. No section below the Hero, global stylesheet, data relationship, image asset, dependency or deployment configuration is modified.
+The first Homepage Hero has been replaced with an ivory editorial motion stage. The existing fonts, palette, brand navigation and two local project photographs are reused. Everything from **THE ART OF FEELING AT HOME** onward is preserved; production HTML below the Hero was compared against the preceding revision and is identical.
 
-## Timeline
+## Five-scene master timeline
 
-Every track has the same duration and identical first/last visual values:
+Desktop uses a 17-second loop, tablet 15 seconds, and mobile 13 seconds. The following times describe desktop; other sizes use the same normalized clock with different geometry.
 
-| Phase | Portion of loop | Composition                                                                                                                |
-| ----- | --------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| A     | 0–20%           | Full interior; photograph gently scales from 1 to 1.02.                                                                    |
-| B     | 14–32%          | Two broad walnut/ivory partitions enter from opposite sides.                                                               |
-| C     | 27–61%          | The existing image closes into an aspect-aware central square, rests briefly, then opens to full frame with a closer crop. |
-| D     | 64–80%          | Material planes cross into the composition; desktop adds a low charcoal plane.                                             |
-| E     | 80–100%         | Planes retreat, the photograph returns to its exact original crop, and the loop continues.                                 |
+| Time   | Composition           | Transformation                                                                                                                                                                                   |
+| ------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 0–3s   | Identity / object     | Oversized serif SPACES, staggered SHAPED and italic for living.; a small crop window and walnut sample on ivory.                                                                                 |
+| 3–6s   | Architectural opening | The crop window becomes an angled quadrilateral and expands beyond the viewport. Text passes both behind and in front of the image. Mobile retains a rectangular expansion.                      |
+| 6–9s   | The Walnut Residence  | Full-room photography with a new project title and location composition. A broad material plane rises into the lower part of the frame.                                                          |
+| 9–13s  | Material to space     | The plane contracts into a square, rotates on desktop, and opens into a circular image aperture. The second interior expands to fill the stage.                                                  |
+| 13–17s | Quiet House / return  | The room settles to the right of oversized Quiet / space. typography. A walnut band expands into a full material surface, conceals the scene reset, then contracts back into the opening sample. |
 
-Desktop (1024px and above) runs a 13-second cycle with one image and three planes. Tablet (761–1023px) runs 11 seconds with two planes. Mobile (760px and below) runs 10 seconds with two narrower planes, a larger central opening and less photo scaling. No variant uses rotation. The cinematic easing is `cubic-bezier(0.76, 0, 0.24, 1)`.
+The material square uses an aspect-aware size and a computed full-cover scale. Each image track interpolates compatible mask primitives throughout; the walnut mask stays completely closed between its appearances. Every track's first and last values match. Easing is `cubic-bezier(0.76, 0, 0.24, 1)`, without spring or bounce.
 
-One image DOM node supplies every crop and mask. Only transform, clip-path and opacity animate. The existing solid dark shade stays above all material planes, increasing before ivory enters to protect text contrast. Header, copy, metadata and CTA never receive animation or pointer interception.
+## Structure and content
 
-## Playback and first paint
+- `components/sections/home-hero.tsx` composes the motion shell and server-rendered stage.
+- `components/hero/hero-scenes.ts` derives project titles, location, year and photography from the existing project data, alongside Hero-specific editorial copy.
+- `components/hero/hero-stage.tsx` renders the image apertures, typography and two material surfaces.
+- `components/hero/hero-motion.tsx` owns the client boundary, stable Explore Spaces link, scroll link and accessible pause/resume control.
+- `components/hero/hero-motion-timeline.ts` defines the five-scene choreography and responsive variants.
+- `components/hero/hero-motion-controller.ts` coordinates loading, visibility, native Web Animations API tracks and cleanup.
+- `components/hero/hero-motion.css` scopes composition styles to the Hero. The header reads an animated color property only while it has its existing `over-hero` class; its scrolled state remains unchanged.
+- `scripts/check-hero-motion.mjs` covers geometry and controller lifecycle with deterministic browser/animation doubles.
 
-- SSR and the no-JavaScript state render the original static Hero immediately. There is no pre-paint script, intro overlay, session marker or delayed text reveal.
-- `HeroMotion` mounts the controller after hydration. Motion starts only after the priority image is usable and IntersectionObserver reports positive visibility.
-- At least 25% visible: normal playback. Less than 25% visible: all tracks run at one-quarter speed. Zero visible area: every owned animation is paused.
-- Scrolling back resumes the same Animation objects and current times. No wheel, touch, focus or scroll handler blocks normal navigation.
-- Hidden tabs and `pagehide` pause playback. `pageshow` waits for a fresh visibility observation before resuming a cached page.
-- Resizing preserves normalized loop progress when rebuilding the square aperture and responsive variant, including when the Hero was paused offscreen.
-- Reduced motion immediately restores the original full-frame static Hero and cancels all effects. Disabling that preference resumes the saved phase when visible.
-- Unmount cancels effects, disconnects observers and removes listeners. A late image decode cannot restart a disposed controller. Unsupported APIs keep the static fallback.
+No animation library was added. No shared header markup, global stylesheet, image asset, data relationship, section below the Hero or deployment configuration was modified.
 
-There is no animation library, duplicated full-resolution image, video, canvas, Three.js, GLB preload, WebGL renderer, infinite JavaScript frame loop, fixed stage or scroll pinning.
+## Loading, interaction and lifecycle
 
-## Validation
+Scene 01 is the server-rendered and no-JavaScript fallback. Its heading, photograph, navigation and Explore Spaces link are usable before hydration. There is one semantic h1; changing display typography does not generate live announcements.
 
-Completed for this revision:
+The first photograph retains priority loading and responsive WebP sources. After hydration and primary-image decode, the controller assigns the second image's responsive source. Both images must be usable before the master timeline starts. A failed secondary request keeps the editorial opening static instead of revealing a missing image. Only two image nodes are used; no cloned full-resolution photography, GLB preload or WebGL work is introduced.
 
-- `yarn build:vercel`: production build passed. The existing Vinext default-global-error dynamic-import warning remains in framework code.
-- `yarn lint`, `yarn exec tsc --noEmit`, `git diff --check`: passed.
-- `node scripts/check-hero-motion.mjs`: passed. It exercises the real timeline/controller with deterministic DOM and WAAPI doubles, including six viewport geometries (375, 390, 768, 1024, 1440, 1920px), square aperture ratios, loop boundaries, slow/pause/resume, hidden-tab/BFCache races, offscreen resize, reduced motion, image failure, API fallback and cleanup.
-- Production HTTP regression: 39 routes, 46 image paths and 7 invalid-route checks passed.
-- Production SSR: static state, one priority Hero image, one page heading, stable content/links, scoped motion CSS and no old intro/bootstrap verified.
-- Hero-specific client assets: approximately 2.3 KB gzipped combined JavaScript and CSS, excluding the existing React/runtime chunks.
+IntersectionObserver plays the shared clock when visible, slows it to one-quarter speed below 25% visibility, and pauses all effects at zero visible area. Scrolling back resumes the same effects and phase. Hidden tabs and `pagehide` pause; `pageshow` refreshes visibility before resuming. The manual pause remains in force across scroll and tab changes.
 
-Not yet verified in a real browser: visual choreography, compositor synchronization, scroll/menu/CTA interaction, measured layout shift/overflow at all six viewport widths, and console/hydration warnings. The browser tool cannot initialize in this session (`CUA_REPL_ENABLED_SURFACES is required`). Deterministic controller checks are not represented as browser tests.
+Resize rebuilds compatible geometry at the saved normalized phase. A visible manual pause preserves the displayed frame when resizing; an offscreen resize does not start work. Reduced motion cancels the master timeline and restores the static ivory opening. Unmount disconnects observers, removes image/media/page listeners and cancels every owned effect, including the header color property. Late image decoding cannot restart an unmounted Hero.
 
-The reference website returned HTTP 403, and the supplied attachment directory contains the written brief only. The choreography follows the detailed A–E motion specification; it is not represented as a visually observed reference sequence.
+The Hero occupies 100svh in normal document flow. CTA and navigation remain outside the transforming surfaces. There is no scroll pin, wheel interception, timer-driven scene switch, perpetual JavaScript frame callback, carousel, video, canvas or Three.js.
 
-## Files
+## Validation for this revision
 
-- `components/sections/home-hero.tsx`: original content inside `HeroMotion`.
-- `components/hero/hero-motion.tsx`: client shell and decorative surfaces.
-- `components/hero/hero-motion-controller.ts`: visibility, image readiness, playback and cleanup.
-- `components/hero/hero-motion-timeline.ts`: responsive timelines and playback policy.
-- `components/hero/hero-motion.css`: isolated visual layers and static/reduced-motion fallback.
-- `scripts/check-hero-motion.mjs`: lifecycle and geometry regression checks.
-- `docs/HERO-MOTION.md`: implementation and QA record.
+Completed:
 
-The former `hero-intro.tsx` and `hero-motion-policy.ts` are removed; the one-shot/session behavior is no longer used.
+- `yarn build:vercel`: production build passed. The existing framework warning about the default global error module's dynamic import remains non-blocking.
+- `yarn exec tsc --noEmit`, `yarn lint`, `git diff --check`: passed.
+- `node scripts/check-hero-motion.mjs`: passed for 375×812, 390×844, 768×1024, 1024×768, 1440×900 and 1920×1080 timeline geometry, compatible masks, loop boundaries, two-image loading gate, image failure, scroll pause/resume, manual pause, hidden-tab/BFCache races, resize, reduced motion and cleanup.
+- Production HTTP checks: 39 content routes, 46 image paths and 7 invalid-route responses passed.
+- SSR checks: new static scene, two image nodes, one semantic h1, deferred secondary source, priority primary source, navigation/CTA and absence of the old Hero content layout passed.
+- All rendered content between Introduction and the end of the main element is byte-for-byte identical to the preceding Hero revision.
+- Hero-specific client JavaScript and CSS total approximately 5 KB with gzip, excluding reused React/runtime chunks.
+
+Still pending in a real browser: screenshots at all six viewports, observed choreography/compositor behavior, measured text/mask clipping and overflow, CTA/menu interaction, orientation changes, actual reduced-motion rendering, and console/hydration warnings. The available browser tool fails to initialize (`CUA_REPL_ENABLED_SURFACES is required`). Permission to use an isolated Playwright headless runner was requested; deterministic checks are not presented as browser QA.
+
+The current request's attachment directory contains the written brief, not a recording. The implementation follows its explicit five-scene motion specification; visual equivalence to the referenced recording has not been verified.

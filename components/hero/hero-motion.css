@@ -1,92 +1,442 @@
-/* Only the visual stage changes. Existing Hero sizing, crop, typography,
-   content positions and the global header continue to use the original styles. */
-.home-hero {
+@property --tp-hero-ink {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: #292823;
+}
+/* Scoped to the opening only; the original page grid and following sections remain untouched. */
+.editorial-motion-hero {
+  height: 100svh;
+  position: relative;
   isolation: isolate;
   overflow: clip;
-  background: var(--walnut);
+  background: var(--background);
+  color: var(--foreground);
+  --emh-edge: clamp(24px, 4.45vw, 86px);
+  --emh-display: min(16.3vw, 27svh);
 }
-.home-hero > .editorial-image {
-  z-index: 1;
-  pointer-events: none;
+body:has(.editorial-motion-hero) > .site-header.over-hero {
+  color: var(--tp-hero-ink, var(--foreground));
 }
-.hero-motion-planes {
+.emh-stage {
   position: absolute;
   inset: 0;
-  z-index: 2;
-  overflow: clip;
   pointer-events: none;
-  user-select: none;
+}
+.emh-image {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.emh-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.emh-image-primary {
+  z-index: 3;
+  clip-path: polygon(57% 22%, 85% 22%, 85% 72%, 57% 72%);
+}
+.emh-image-primary img {
+  object-position: center 58%;
+  transform: scale(1.45);
+  transform-origin: 70% 55%;
+}
+.emh-image-secondary {
+  z-index: 7;
+  clip-path: inset(50% 50% 50% 50% round 50%);
+}
+.emh-image-secondary img {
+  object-position: 56% center;
+}
+.emh-identity {
+  position: absolute;
+  inset: 0;
+  font-size: var(--emh-display);
+  line-height: 0.78;
+  letter-spacing: -0.055em;
+  font-weight: 400;
+}
+.emh-word {
+  position: absolute;
+  white-space: nowrap;
+}
+.emh-word-1 {
+  left: var(--emh-edge);
+  top: 21%;
+  z-index: 2;
+}
+.emh-word-2 {
+  left: 20%;
+  top: 41%;
+  z-index: 4;
+  opacity: 0;
+}
+.emh-word-3 {
+  left: 7%;
+  top: 65%;
+  z-index: 4;
+  opacity: 0;
+  font-size: 0.92em;
+  letter-spacing: -0.045em;
+}
+.emh-note {
+  position: absolute;
+  z-index: 4;
+  left: var(--emh-edge);
+  top: 15%;
+  font: 10px/1.5 var(--font-body);
+  letter-spacing: 0.17em;
+}
+.emh-note span {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted-foreground);
+  font-size: 9px;
+  letter-spacing: 0.11em;
+}
+.emh-caption {
+  font: 10px/1.8 var(--font-body);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.emh-residence {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  opacity: 0;
+}
+.emh-residence > .emh-caption:first-child {
+  position: absolute;
+  left: var(--emh-edge);
+  top: 18%;
+}
+.emh-project-title {
+  position: absolute;
+  left: var(--emh-edge);
+  bottom: 17%;
+  font: 400 min(8.5vw, 15svh)/0.9 var(--font-display);
+  letter-spacing: -0.04em;
+}
+.emh-project-title em {
+  font-size: 1.3em;
+}
+.emh-location {
+  position: absolute;
+  right: var(--emh-edge);
+  top: 18%;
+  text-align: right;
+}
+.emh-material {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  background: var(--paper);
+  transform: translateY(102%);
+  overflow: hidden;
+  transform-origin: center;
+}
+.emh-material-type {
+  display: flex;
+  gap: 6vw;
+  justify-content: center;
+  position: absolute;
+  width: 100%;
+  top: 12%;
+  font: 400 min(7vw, 13svh)/1 var(--font-display);
+  letter-spacing: -0.04em;
+}
+.emh-material-type span:last-child {
+  font-style: italic;
+}
+.emh-quiet {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  opacity: 0;
+}
+.emh-quiet > .emh-caption:first-child {
+  position: absolute;
+  left: var(--emh-edge);
+  top: 30%;
+}
+.emh-quiet-title {
+  position: absolute;
+  left: var(--emh-edge);
+  top: 37%;
+  font: 400 min(12vw, 21svh)/0.82 var(--font-display);
+  letter-spacing: -0.055em;
+}
+.emh-quiet > .emh-caption:last-child {
+  position: absolute;
+  left: var(--emh-edge);
+  bottom: 20%;
+}
+.emh-walnut {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  background: var(--walnut);
+  clip-path: inset(76% 6% 12% 89%);
+}
+.emh-swatch-label {
+  position: absolute;
+  right: 6%;
+  top: 89%;
+  z-index: 12;
+  font-size: 8px;
+  line-height: 1.6;
+  letter-spacing: 0.16em;
+}
+.emh-swatch-label span {
+  display: none;
+}
+.emh-opening-caption {
+  position: absolute;
+  left: var(--emh-edge);
+  bottom: 16%;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.emh-controls {
+  position: absolute;
+  bottom: 20px;
+  left: var(--emh-edge);
+  right: var(--emh-edge);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  font: 10px/1.5 var(--font-body);
+  letter-spacing: 0.13em;
+}
+.emh-explore {
+  display: inline-flex;
+  align-items: center;
+  gap: 48px;
+  min-height: 44px;
+  border-bottom: 1px solid currentColor;
+}
+.emh-explore span {
+  font-size: 19px;
+}
+.emh-edition {
+  display: flex;
+  gap: 20px;
+}
+.emh-edition span {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}
+.emh-actions {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+}
+.emh-scroll,
+.emh-motion-toggle {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  gap: 22px;
+}
+.emh-scroll span {
+  font-size: 17px;
+}
+.emh-motion-toggle {
+  border: 0;
+  background: none;
+  color: inherit;
+  padding: 8px 0;
+  font: inherit;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}
+.editorial-motion-hero[data-hero-ready='false'] .emh-motion-toggle {
   visibility: hidden;
 }
-.home-hero[data-hero-motion='playing'] .hero-motion-planes,
-.home-hero[data-hero-motion='slow'] .hero-motion-planes,
-.home-hero[data-hero-motion='paused'] .hero-motion-planes {
-  visibility: visible;
-}
-.hero-motion-plane {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-}
-.hero-motion-plane-left {
-  left: 0;
-  width: 28%;
-  background: var(--walnut);
-  transform: translateX(-101%);
-}
-.hero-motion-plane-right {
-  right: 0;
-  width: 46%;
-  background: var(--paper);
-  transform: translateX(101%);
-}
-.hero-motion-plane-sill {
-  right: 0;
-  left: 0;
-  top: 78%;
-  background: var(--foreground);
-  transform: translateY(101%);
-}
-.home-hero > .hero-shade {
-  z-index: 3;
-  pointer-events: none;
-}
-.home-hero > .hero-content,
-.home-hero > .hero-bottom {
-  z-index: 4;
-}
-@media (max-width: 1023px) {
-  .hero-motion-plane-left {
-    width: 22%;
+@media (min-width: 761px) and (max-width: 1023px) {
+  .editorial-motion-hero {
+    --emh-display: 18vw;
+    --emh-edge: 36px;
   }
-  .hero-motion-plane-right {
-    width: 36%;
+  .emh-word-1 {
+    top: 23%;
   }
-  .hero-motion-plane-sill {
+  .emh-word-2 {
+    top: 41%;
+    left: 12%;
+  }
+  .emh-word-3 {
+    top: 63%;
+    left: 5%;
+  }
+  .emh-edition {
     display: none;
+  }
+  .emh-image-primary {
+    clip-path: polygon(49% 29%, 88% 29%, 88% 74%, 49% 74%);
+  }
+  .emh-opening-caption {
+    bottom: 15%;
+  }
+  .emh-quiet-title {
+    font-size: 15vw;
   }
 }
 @media (max-width: 760px) {
-  .hero-motion-plane-left {
-    width: 18%;
+  .editorial-motion-hero {
+    --emh-edge: 24px;
+    --emh-display: min(22vw, 14svh);
   }
-  .hero-motion-plane-right {
-    width: 30%;
+  .emh-note {
+    top: 15%;
+    font-size: 9px;
+  }
+  .emh-note span {
+    font-size: 8px;
+  }
+  .emh-word-1 {
+    top: 24%;
+    left: 6%;
+  }
+  .emh-word-2 {
+    top: 36%;
+    left: 12%;
+  }
+  .emh-word-3 {
+    top: 64%;
+    left: 7%;
+    font-size: 0.92em;
+  }
+  .emh-image-primary {
+    clip-path: polygon(39% 37%, 87% 37%, 87% 69%, 39% 69%);
+  }
+  .emh-image-primary img {
+    transform: scale(1.18);
+    transform-origin: 58% center;
+    object-position: 61% center;
+  }
+  .emh-image-secondary img {
+    object-position: 65% center;
+  }
+  .emh-opening-caption {
+    bottom: 19%;
+    max-width: 25ch;
+    font-size: 11px;
+    line-height: 1.6;
+  }
+  .emh-caption {
+    font-size: 9px;
+  }
+  .emh-residence > .emh-caption:first-child {
+    top: 17%;
+  }
+  .emh-location {
+    top: 17%;
+  }
+  .emh-project-title {
+    bottom: 25%;
+    font-size: min(13vw, 9svh);
+  }
+  .emh-project-title em {
+    font-size: 1.4em;
+  }
+  .emh-material-type {
+    top: 13%;
+    gap: 5vw;
+    font-size: 10vw;
+  }
+  .emh-quiet > .emh-caption:first-child {
+    top: 21%;
+  }
+  .emh-quiet-title {
+    top: 27%;
+    font-size: min(20vw, 13svh);
+  }
+  .emh-quiet > .emh-caption:last-child {
+    bottom: 20%;
+  }
+  .emh-walnut {
+    clip-path: inset(76% 8% 16% 80%);
+  }
+  .emh-swatch-label {
+    right: 8%;
+    top: 85%;
+    font-size: 7px;
+  }
+  .emh-controls {
+    bottom: max(18px, env(safe-area-inset-bottom));
+    gap: 20px;
+    align-items: flex-end;
+  }
+  .emh-explore {
+    gap: 20px;
+    font-size: 9px;
+  }
+  .emh-edition {
+    display: none;
+  }
+  .emh-actions {
+    gap: 0;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  .emh-scroll {
+    min-height: 44px;
+    font-size: 8px;
+    gap: 12px;
+  }
+  .emh-motion-toggle {
+    font-size: 8px;
+    min-height: 44px;
   }
 }
-/* CSS restores the static frame immediately while JS cancels WAAPI effects.
-   No JavaScript (or failed hydration) also means the original static Hero. */
+@media (max-height: 540px) {
+  .emh-note,
+  .emh-opening-caption,
+  .emh-swatch-label {
+    display: none;
+  }
+  .editorial-motion-hero {
+    --emh-display: min(14vw, 24svh);
+  }
+  .emh-word-1 {
+    top: 25%;
+  }
+  .emh-word-2 {
+    top: 42%;
+  }
+  .emh-word-3 {
+    top: 66%;
+  }
+  .emh-controls {
+    bottom: 10px;
+  }
+  .emh-actions {
+    flex-direction: row;
+    gap: 20px;
+  }
+  .emh-scroll {
+    font-size: 0;
+  }
+  .emh-project-title {
+    bottom: 20%;
+  }
+  .emh-residence > .emh-caption:first-child,
+  .emh-location {
+    top: 26%;
+  }
+  .emh-quiet > .emh-caption:first-child {
+    display: none;
+  }
+  .emh-quiet > .emh-caption:last-child {
+    bottom: 18%;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
-  .home-hero .hero-motion-planes {
+  /* The controller cancels WAAPI; this also protects the frame before its event runs. */
+  .emh-motion-toggle {
     visibility: hidden !important;
-  }
-  .home-hero > .editorial-image {
-    clip-path: none !important;
-  }
-  .home-hero > .editorial-image img {
-    transform: none !important;
-  }
-  .home-hero > .hero-shade {
-    opacity: 0.31 !important;
   }
 }
