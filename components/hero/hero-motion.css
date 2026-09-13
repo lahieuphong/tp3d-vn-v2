@@ -1,0 +1,292 @@
+/* Hero-only choreography. All dimensions, image crop and settled typography
+   continue to come from the existing global design system. */
+.home-hero {
+  --hero-intro-ms: 3600;
+  --hero-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --hero-open-delay: 1.3s;
+  --hero-open-duration: 1.25s;
+  --hero-type-delay: 2.2s;
+  --hero-meta-delay: 2.88s;
+  isolation: isolate;
+  overflow: clip;
+  background: var(--background);
+}
+.home-hero > .editorial-image {
+  z-index: 2;
+  background: var(--foreground);
+}
+.home-hero > .hero-shade {
+  z-index: 3;
+}
+.home-hero > .hero-content,
+.home-hero > .hero-bottom {
+  z-index: 4;
+}
+.hero-intro {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  user-select: none;
+  overflow: clip;
+}
+.hero-intro-plane {
+  position: absolute;
+  inset: 0;
+}
+.hero-intro-plane-left {
+  right: 32%;
+  background: var(--paper);
+}
+.hero-intro-plane-right {
+  left: 40%;
+  background: var(--walnut);
+}
+.hero-intro-plane-sill {
+  top: 74%;
+  background: var(--foreground);
+}
+.hero-intro-brand {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: var(--foreground);
+}
+.hero-intro-brand span {
+  padding-left: 0;
+}
+.home-hero[data-hero-motion='full'] .hero-intro {
+  display: block;
+}
+.home-hero[data-hero-motion='full'] .hero-intro-brand {
+  animation: tp-hero-brand 0.95s var(--hero-ease) both;
+}
+.home-hero[data-hero-motion='full'] .hero-intro-plane-left {
+  animation: tp-hero-plane-left 1.55s 0.55s var(--hero-ease) both;
+}
+.home-hero[data-hero-motion='full'] .hero-intro-plane-right {
+  animation: tp-hero-plane-right 1.55s 0.65s var(--hero-ease) both;
+}
+.home-hero[data-hero-motion='full'] .hero-intro-plane-sill {
+  animation: tp-hero-plane-sill 1.35s 0.85s var(--hero-ease) both;
+}
+.home-hero[data-hero-motion='full'] > .editorial-image,
+.home-hero[data-hero-motion='full'] > .hero-shade {
+  animation: tp-hero-aperture var(--hero-open-duration) var(--hero-open-delay)
+    var(--hero-ease) both;
+}
+.home-hero[data-hero-motion='full'] > .editorial-image img {
+  animation: tp-hero-photo-arrive 1.7s var(--hero-open-delay) var(--hero-ease)
+    both;
+}
+body:has(.home-hero[data-hero-motion='full']) > .site-header.over-hero {
+  animation: tp-hero-nav-in 0.55s 2.05s
+    var(--hero-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+.home-hero[data-hero-motion='full'] .hero-content > * {
+  animation: tp-hero-copy-in 0.65s var(--hero-type-delay) var(--hero-ease) both;
+}
+.home-hero[data-hero-motion='full'] .hero-content h1 {
+  animation-delay: calc(var(--hero-type-delay) + 0.12s);
+}
+.home-hero[data-hero-motion='full'] .hero-description {
+  animation-delay: calc(var(--hero-type-delay) + 0.24s);
+}
+.home-hero .hero-description {
+  --hero-rest-opacity: 0.93;
+}
+.home-hero[data-hero-motion='full'] .hero-links {
+  animation-delay: calc(var(--hero-type-delay) + 0.36s);
+}
+.home-hero[data-hero-motion='full'] .hero-bottom > * {
+  animation: tp-hero-copy-in 0.52s var(--hero-meta-delay) var(--hero-ease) both;
+}
+.home-hero[data-hero-motion='full'] .hero-bottom > :nth-child(2) {
+  animation-delay: calc(var(--hero-meta-delay) + 0.1s);
+}
+.home-hero[data-hero-motion='full'] .hero-bottom > :nth-child(3) {
+  animation-delay: calc(var(--hero-meta-delay) + 0.2s);
+}
+.home-hero[data-hero-motion='short'] > .editorial-image,
+.home-hero[data-hero-motion='short'] .hero-content > *,
+.home-hero[data-hero-motion='short'] .hero-bottom > * {
+  animation: tp-hero-soft-in 0.55s var(--hero-ease) both;
+}
+body:has(.home-hero[data-hero-motion='short']) > .site-header.over-hero {
+  animation: tp-hero-soft-in 0.4s ease-out both;
+}
+.home-hero[data-hero-motion='settled'][data-hero-ambient='on']
+  > .editorial-image
+  img {
+  /* One finite breath; it returns to the exact original crop and releases itself. */
+  animation: tp-hero-breathe 12s ease-in-out;
+}
+@keyframes tp-hero-brand {
+  0% {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  28%,
+  58% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+@keyframes tp-hero-plane-left {
+  0% {
+    transform: translateX(-102%);
+  }
+  55% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-8%);
+  }
+}
+@keyframes tp-hero-plane-right {
+  0% {
+    transform: translateX(102%);
+  }
+  55% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(8%);
+  }
+}
+@keyframes tp-hero-plane-sill {
+  0% {
+    transform: translateY(102%);
+  }
+  60% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(10%);
+  }
+}
+@keyframes tp-hero-aperture {
+  0% {
+    clip-path: inset(50% 50% 50% 50%);
+  }
+  18% {
+    clip-path: inset(24% 42% 24% 42%);
+  }
+  100% {
+    clip-path: inset(0);
+  }
+}
+@keyframes tp-hero-photo-arrive {
+  from {
+    transform: scale(1.045);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+@keyframes tp-hero-nav-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes tp-hero-copy-in {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: var(--hero-rest-opacity, 1);
+    transform: none;
+  }
+}
+@keyframes tp-hero-soft-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: var(--hero-rest-opacity, 1);
+  }
+}
+@keyframes tp-hero-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.018);
+  }
+}
+@media (min-width: 761px) and (max-width: 1100px) {
+  .home-hero {
+    --hero-intro-ms: 3200;
+    --hero-open-delay: 1.1s;
+    --hero-open-duration: 1.1s;
+    --hero-type-delay: 1.8s;
+    --hero-meta-delay: 2.48s;
+  }
+  .hero-intro-plane-sill {
+    display: none;
+  }
+  body:has(.home-hero[data-hero-motion='full']) > .site-header.over-hero {
+    animation-delay: 1.65s;
+  }
+}
+@media (max-width: 760px) {
+  .home-hero {
+    --hero-intro-ms: 2800;
+    --hero-open-delay: 0.95s;
+    --hero-open-duration: 0.9s;
+    --hero-type-delay: 1.52s;
+    --hero-meta-delay: 2.08s;
+  }
+  .hero-intro-plane-sill {
+    display: none;
+  }
+  .home-hero[data-hero-motion='full'] .hero-intro-plane-left {
+    animation-delay: 0.35s;
+    animation-duration: 1.25s;
+  }
+  .home-hero[data-hero-motion='full'] .hero-intro-plane-right {
+    animation-delay: 0.45s;
+    animation-duration: 1.25s;
+  }
+  .home-hero[data-hero-motion='full'] > .editorial-image img {
+    animation-duration: 1.2s;
+  }
+  body:has(.home-hero[data-hero-motion='full']) > .site-header.over-hero {
+    animation-delay: 1.4s;
+  }
+}
+.home-hero[data-hero-motion='reduced'] > .editorial-image,
+.home-hero[data-hero-motion='reduced'] .hero-content > *,
+.home-hero[data-hero-motion='reduced'] .hero-bottom > * {
+  animation: tp-hero-soft-in 0.18s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-hero .hero-intro {
+    display: none !important;
+  }
+  .home-hero[data-hero-motion] > .editorial-image,
+  .home-hero[data-hero-motion] .hero-content > *,
+  .home-hero[data-hero-motion] .hero-bottom > * {
+    animation: tp-hero-soft-in 0.18s ease-out both !important;
+  }
+  .home-hero > .hero-shade,
+  .home-hero > .editorial-image img,
+  body:has(.home-hero) > .site-header.over-hero {
+    animation: none !important;
+  }
+}

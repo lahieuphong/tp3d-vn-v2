@@ -1,9 +1,10 @@
+import { HeroIntro } from '@/components/hero/hero-intro';
 import { EditorialImage } from '@/components/shared/editorial-image';
 import { TextLink } from '@/components/shared/text-link';
 import { images } from '@/data/images';
 export function HomeHero() {
   return (
-    <section className="home-hero" aria-labelledby="hero-title">
+    <HeroIntro>
       <EditorialImage
         src={images.hero}
         alt="A sunlit contemporary living room with sculptural furniture, cream upholstery and warm walnut details"
@@ -31,8 +32,8 @@ export function HomeHero() {
         <a href="#introduction">
           SCROLL TO DISCOVER <span aria-hidden="true">↓</span>
         </a>
-        <span>INTERIOR / 2026</span>
+        <span data-hero-finish>INTERIOR / 2026</span>
       </div>
-    </section>
+    </HeroIntro>
   );
 }
