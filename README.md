@@ -33,13 +33,14 @@ yarn build
 yarn check:routes http://localhost:3000
 ```
 
-The route check requires a running server; it crawls every linked content page, verifies headings/titles/image availability, and checks seven invalid detail routes, populated relationship sections and immediate 3D preparation states. `check:content` validates all content references, expected room/material membership, related projects and empty results. `check:assets` validates publication states, provider URLs, model specifications, server-rendered asset sections and outbound analytics without making third-party requests. Generated shadcn primitives and their supplied mobile hook are excluded from lint; authored application components remain fully linted. Images use a documented local WebP srcset implementation rather than runtime image optimization.
+The route check requires a running server; it crawls every linked content page, verifies headings/titles/image availability, and checks eight unavailable detail routes, populated relationship sections and immediate 3D preparation states. `check:content` validates all content references, expected room/material membership, related projects and empty results. `check:assets` validates publication states, provider URLs, model specifications, server-rendered asset sections and outbound analytics without making third-party requests. Generated shadcn primitives and their supplied mobile hook are excluded from lint; authored application components remain fully linted. Images use a documented local WebP srcset implementation rather than runtime image optimization.
 
 ## Content and routes
 
 - `/`: editorial discovery homepage
 - `/spaces` and `/spaces/[slug]`: five room types
 - `/projects` and `/projects/[slug]`: three residential studies
+- `/worlds`: four curated digital interiors linking to Sketchfab
 - `/collections` and `/collections/[slug]`: five style collections
 - `/products` and `/products/[slug]`: four furniture/object studies
 - `/materials` and `/materials/[slug]`: six materials
@@ -47,7 +48,7 @@ The route check requires a running server; it crawls every linked content page, 
 - `/about`, `/contact`
 - `/experience/[slug]`: dedicated future scene entry for each project
 
-This is 39 content routes. Unknown detail slugs return 404.
+This is 40 content routes. Unknown detail slugs return 404. Worlds intentionally has no detail route in this release.
 
 All relationships and content live in `data/`. Edit `data/projects.ts`, `spaces.ts`, `collections.ts`, `products.ts`, `materials.ts` and `journal.ts`. Each project stores `id`, `slug`, `title`, `location`, `year`, `style`, `area`, `description`, `coverImage`, `gallery`, `materials`, `products`, `spaces` and `threeScene`.
 
@@ -56,6 +57,8 @@ All relationships and content live in `data/`. Edit `data/projects.ts`, `spaces.
 Shared layout is in `components/layout`; homepage sections in `components/sections`; detail templates in `components/project` and `components/space`; the experience integration in `components/experience`. Design tokens, grids, typography and responsive styles live in `app/globals.css`. The planning record is `docs/DESIGN-DIRECTION.md`.
 
 ## Replace photography
+
+The new Worlds gallery uses locally optimized previews of the four supplied Sketchfab scenes. Its data, source credits, layout and QA notes are documented in [3D Worlds](docs/3D-WORLDS.md). It does not embed a viewer or load Three.js.
 
 Image paths are centralized in `data/images.ts`. Add a source JPG under `assets/reference-images` and run:
 

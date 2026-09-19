@@ -1,0 +1,21 @@
+/* Accommodate one new destination without changing the header's height or type. */
+.desktop-nav a {
+  white-space: nowrap;
+}
+.nav-label-short {
+  display: none;
+}
+@media (min-width: 761px) and (max-width: 900px) {
+  .site-header .desktop-nav {
+    gap: 16px;
+  }
+  .site-header {
+    gap: 16px;
+  }
+  .nav-label-full {
+    display: none;
+  }
+  .nav-label-short {
+    display: inline;
+  }
+}

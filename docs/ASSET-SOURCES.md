@@ -23,6 +23,17 @@ All photography is used as placeholder/editorial reference under the Pexels lice
 
 Images were downloaded from images.pexels.com and resized/compressed to local WebP variants. Original downloads are retained under assets/reference-images. Timber species and stone varieties are not inferred from photographs.
 
+## 3D Worlds previews
+
+The four `world-*` image sets are scene previews from the supplied Sketchfab models by [dylanheyes](https://sketchfab.com/dylanheyes), listed as [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) in Sketchfab's public model metadata on 2026-09-19. These are separate from the Pexels reference photographs above. Credits, source links and the licence are shown with every World; the gallery identifies the previews as cropped/resized renders and does not claim authorship of these scenes.
+
+- [Modern Kitchen](https://sketchfab.com/3d-models/modern-kitchen-9843a830b96142a9a53f45f25304d93c)
+- [White Modern Living Room](https://sketchfab.com/3d-models/white-modern-living-room-afb8cb0cbee1488caf61471ef14041e9)
+- [Minimalistic Modern Bedroom](https://sketchfab.com/3d-models/minimalistic-modern-bedroom-4f3db3cb57bd4bce886f7b9a13273a2f)
+- [Modern Bathroom](https://sketchfab.com/3d-models/modern-bathroom-9ba7e0a094694335bd8f4656611c0676)
+
+Original 1920 × 1080 previews are retained in `assets/reference-images/world-*.jpg`. WebP versions at 720, 1280 and 1600 px use the same image pipeline as the existing site. `assets/world-preview-sources.json` records each original thumbnail URL, model UID, author and licence metadata. No 3D model was downloaded. The twelve WebP files total approximately 1 MB; the browser selects the appropriate variant and lazy-loads gallery images.
+
 ## Typography
 
 - Cormorant Garamond — Google Fonts, SIL Open Font License. https://fonts.google.com/specimen/Cormorant+Garamond

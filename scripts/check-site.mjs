@@ -45,6 +45,50 @@ while (pending.length) {
     );
     assert(!html.includes('<canvas'), `${route}: unexpected WebGL canvas`);
   }
+  if (route === '/worlds') {
+    assert.equal(
+      (html.match(/data-world="/g) ?? []).length,
+      4,
+      'Worlds: missing scene sections',
+    );
+    assert.equal(
+      (html.match(/class="text-link world-enter-link"/g) ?? []).length,
+      4,
+      'Worlds: missing CTA',
+    );
+    assert.doesNotMatch(
+      html,
+      /<iframe|<canvas|<script[^>]+src="https:\/\/(?:.*\.)?sketchfab\.com/,
+      'Worlds must remain a static gallery',
+    );
+    const entries = [
+      ...html.matchAll(
+        /<article[^>]*data-world="([^"]+)"[^>]*>([\s\S]*?)<\/article>/g,
+      ),
+    ];
+    for (const [, slug, body] of entries) {
+      const sceneLinks = [
+        ...body.matchAll(
+          /<a[^>]+href="(https:\/\/sketchfab\.com\/3d-models\/[^"]+)"[^>]*>/g,
+        ),
+      ];
+      assert.equal(
+        sceneLinks.length,
+        2,
+        `${slug}: image and CTA should link to the scene`,
+      );
+      assert.equal(
+        sceneLinks[0][1],
+        sceneLinks[1][1],
+        `${slug}: mismatched scene links`,
+      );
+      for (const [tag] of sceneLinks) {
+        assert.match(tag, /target="_blank"/);
+        assert.match(tag, /rel="noopener noreferrer"/);
+      }
+      assert.match(body, /opens in a new tab/);
+    }
+  }
   const title = html.match(/<title>([^<]+)<\/title>/)?.[1];
   assert(title && !title.includes('Untitled'), `${route}: missing title`);
   for (const match of html.matchAll(/href="(\/[^"?#]*)/g)) {
@@ -72,7 +116,7 @@ await Promise.all(
     assert.equal(r.status, 200, `Missing image ${image}`);
   }),
 );
-for (const route of [
+const invalidRoutes = [
   '/projects/missing-project',
   '/spaces/missing-space',
   '/experience/missing-room',
@@ -80,7 +124,9 @@ for (const route of [
   '/products/missing-product',
   '/materials/missing-material',
   '/journal/missing-article',
-]) {
+  '/worlds/modern-kitchen',
+];
+for (const route of invalidRoutes) {
   const r = await fetch(new URL(route, origin));
   assert.equal(r.status, 404, `Expected 404 for ${route}`);
 }
@@ -89,7 +135,7 @@ console.log(
     {
       pages: visited.size,
       images: images.size,
-      invalidRoutes: 7,
+      invalidRoutes: invalidRoutes.length,
       routes: report,
     },
     null,

@@ -4,6 +4,7 @@ import { collections } from './collections';
 import { products } from './products';
 import { materials } from './materials';
 import { journal } from './journal';
+import { worlds } from './worlds';
 export const searchEntries = [
   ...projects.map((x) => ({
     title: x.title,
@@ -34,5 +35,11 @@ export const searchEntries = [
     title: x.title,
     category: 'Journal',
     href: `/journal/${x.slug}`,
+  })),
+  { title: '3D Worlds', category: 'Digital interiors', href: '/worlds' },
+  ...worlds.map((world) => ({
+    title: world.title,
+    category: '3D World',
+    href: `/worlds#${world.slug}`,
   })),
 ];

@@ -62,5 +62,21 @@
   "/images/workspace.webp": {
     "width": 1600,
     "height": 2133
+  },
+  "/images/world-modern-bathroom.webp": {
+    "width": 1600,
+    "height": 900
+  },
+  "/images/world-white-modern-living-room.webp": {
+    "width": 1600,
+    "height": 900
+  },
+  "/images/world-modern-kitchen.webp": {
+    "width": 1600,
+    "height": 900
+  },
+  "/images/world-minimalistic-modern-bedroom.webp": {
+    "width": 1600,
+    "height": 900
   }
 }

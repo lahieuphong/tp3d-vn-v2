@@ -1,0 +1,74 @@
+[
+  {
+    "slug": "modern-kitchen",
+    "uid": "9843a830b96142a9a53f45f25304d93c",
+    "name": "Modern Kitchen",
+    "externalUrl": "https://sketchfab.com/3d-models/modern-kitchen-9843a830b96142a9a53f45f25304d93c",
+    "author": "dylanheyes",
+    "authorUrl": "https://sketchfab.com/dylanheyes",
+    "license": {
+      "uri": "https://api.sketchfab.com/v3/licenses/322a749bcfa841b29dff1e8a1bb74b0b",
+      "label": "CC Attribution",
+      "fullName": "Creative Commons Attribution",
+      "requirements": "Author must be credited. Commercial use is allowed.",
+      "url": "http://creativecommons.org/licenses/by/4.0/",
+      "slug": "by"
+    },
+    "previewUrl": "https://media.sketchfab.com/models/9843a830b96142a9a53f45f25304d93c/thumbnails/e4ff907ef6b74fd49a9acda3262cd5b9/bce578f121734854a2d5e5408aceb546.jpeg",
+    "retrieved": "2026-09-19"
+  },
+  {
+    "slug": "white-modern-living-room",
+    "uid": "afb8cb0cbee1488caf61471ef14041e9",
+    "name": "White Modern Living Room",
+    "externalUrl": "https://sketchfab.com/3d-models/white-modern-living-room-afb8cb0cbee1488caf61471ef14041e9",
+    "author": "dylanheyes",
+    "authorUrl": "https://sketchfab.com/dylanheyes",
+    "license": {
+      "uri": "https://api.sketchfab.com/v3/licenses/322a749bcfa841b29dff1e8a1bb74b0b",
+      "label": "CC Attribution",
+      "fullName": "Creative Commons Attribution",
+      "requirements": "Author must be credited. Commercial use is allowed.",
+      "url": "http://creativecommons.org/licenses/by/4.0/",
+      "slug": "by"
+    },
+    "previewUrl": "https://media.sketchfab.com/models/afb8cb0cbee1488caf61471ef14041e9/thumbnails/bf3165db89564e58a35626c6e7d70a7f/453ee2cf4d2549bd94d493e774f5aea1.jpeg",
+    "retrieved": "2026-09-19"
+  },
+  {
+    "slug": "minimalistic-modern-bedroom",
+    "uid": "4f3db3cb57bd4bce886f7b9a13273a2f",
+    "name": "Minimalistic Modern Bedroom",
+    "externalUrl": "https://sketchfab.com/3d-models/minimalistic-modern-bedroom-4f3db3cb57bd4bce886f7b9a13273a2f",
+    "author": "dylanheyes",
+    "authorUrl": "https://sketchfab.com/dylanheyes",
+    "license": {
+      "uri": "https://api.sketchfab.com/v3/licenses/322a749bcfa841b29dff1e8a1bb74b0b",
+      "label": "CC Attribution",
+      "fullName": "Creative Commons Attribution",
+      "requirements": "Author must be credited. Commercial use is allowed.",
+      "url": "http://creativecommons.org/licenses/by/4.0/",
+      "slug": "by"
+    },
+    "previewUrl": "https://media.sketchfab.com/models/4f3db3cb57bd4bce886f7b9a13273a2f/thumbnails/68b0b716971443de9bd11d769896279e/face078eba354bb88cf3a063c314e167.jpeg",
+    "retrieved": "2026-09-19"
+  },
+  {
+    "slug": "modern-bathroom",
+    "uid": "9ba7e0a094694335bd8f4656611c0676",
+    "name": "Modern Bathroom",
+    "externalUrl": "https://sketchfab.com/3d-models/modern-bathroom-9ba7e0a094694335bd8f4656611c0676",
+    "author": "dylanheyes",
+    "authorUrl": "https://sketchfab.com/dylanheyes",
+    "license": {
+      "uri": "https://api.sketchfab.com/v3/licenses/322a749bcfa841b29dff1e8a1bb74b0b",
+      "label": "CC Attribution",
+      "fullName": "Creative Commons Attribution",
+      "requirements": "Author must be credited. Commercial use is allowed.",
+      "url": "http://creativecommons.org/licenses/by/4.0/",
+      "slug": "by"
+    },
+    "previewUrl": "https://media.sketchfab.com/models/9ba7e0a094694335bd8f4656611c0676/thumbnails/82fd335d3c2749aebdb02c0d93973a88/b564bee78b5c412c9a26b6f78f6aa190.jpeg",
+    "retrieved": "2026-09-19"
+  }
+]

@@ -1,4 +1,21 @@
 export type ImageAsset = { src: string; alt: string };
+export type World = {
+  id: string;
+  slug: string;
+  title: string;
+  category: string;
+  /** Edition in which the scene was curated, not its original publication date. */
+  year: string;
+  description: string;
+  image: ImageAsset;
+  sketchfabUid: string;
+  externalUrl: string;
+  credit: {
+    name: string;
+    url: string;
+    license: { label: string; url: string };
+  };
+};
 export type ThreeScene =
   | { enabled: false; roomId?: string }
   | { enabled: true; roomId: string };

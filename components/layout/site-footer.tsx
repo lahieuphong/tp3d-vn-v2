@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { exploreNavigation } from '@/data/navigation';
 export function SiteFooter() {
   return (
     <footer className="site-footer">
@@ -19,13 +20,15 @@ export function SiteFooter() {
         <div className="footer-links">
           <div>
             <p className="eyebrow">EXPLORE</p>
-            {['Spaces', 'Projects', 'Collections', 'Products', 'Materials'].map(
-              (x) => (
-                <Link href={`/${x.toLowerCase()}`} key={x}>
-                  {x}
-                </Link>
-              ),
-            )}
+            {exploreNavigation.map(({ title, href }) => (
+              <Link
+                href={href}
+                key={href}
+                prefetch={href === '/worlds' ? false : undefined}
+              >
+                {title}
+              </Link>
+            ))}
           </div>
           <div>
             <p className="eyebrow">STUDIO</p>

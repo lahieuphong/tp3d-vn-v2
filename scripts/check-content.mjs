@@ -48,6 +48,9 @@ const [
   { products },
   { materials },
   relations,
+  { worlds },
+  { mainNavigation, mobileNavigation, exploreNavigation },
+  { searchEntries },
 ] = await Promise.all(
   [
     'projects',
@@ -56,6 +59,9 @@ const [
     'products',
     'materials',
     'relationships',
+    'worlds',
+    'navigation',
+    'search',
   ].map(load),
 );
 const checkRefs = (owner, refs, catalog) => {
@@ -76,6 +82,7 @@ for (const [name, catalog] of Object.entries({
   collections,
   products,
   materials,
+  worlds,
 })) {
   assert.equal(
     new Set(catalog.map((item) => item.slug)).size,
@@ -169,6 +176,39 @@ assert.equal(
 assert.deepEqual(relations.getSpaceProjects('unknown'), []);
 assert.deepEqual(relations.getProductProjects('unknown'), []);
 assert.deepEqual(relations.getMaterialProjects('unknown'), []);
+const expectedWorlds = {
+  'modern-kitchen': '9843a830b96142a9a53f45f25304d93c',
+  'white-modern-living-room': 'afb8cb0cbee1488caf61471ef14041e9',
+  'minimalistic-modern-bedroom': '4f3db3cb57bd4bce886f7b9a13273a2f',
+  'modern-bathroom': '9ba7e0a094694335bd8f4656611c0676',
+};
+for (const [slug, uid] of Object.entries(expectedWorlds)) {
+  const world = worlds.find((entry) => entry.slug === slug);
+  assert.ok(world, `Missing curated world: ${slug}`);
+  assert.equal(world.sketchfabUid, uid);
+  assert.equal(
+    world.externalUrl,
+    `https://sketchfab.com/3d-models/${slug}-${uid}`,
+  );
+  assert.ok(world.image.alt && world.description && world.credit.name);
+  assert.ok(
+    world.image.src.startsWith('/images/'),
+    'World previews must be local',
+  );
+  assert.ok(searchEntries.some((entry) => entry.href === `/worlds#${slug}`));
+}
+for (const navigation of [
+  mainNavigation,
+  mobileNavigation,
+  exploreNavigation,
+]) {
+  assert.equal(navigation.filter((item) => item.href === '/worlds').length, 1);
+  assert.equal(
+    new Set(navigation.map((item) => item.href)).size,
+    navigation.length,
+  );
+}
+assert.ok(searchEntries.some((entry) => entry.href === '/worlds'));
 console.log(
-  'Content graph passed: 3 projects, 5 spaces, 5 collections, 4 objects, 6 materials; references, empty results, related ranking and scene flags verified.',
+  'Content graph passed: 3 projects, 5 spaces, 5 collections, 4 objects, 6 materials, 4 worlds; references, scene flags, exact external URLs, navigation and search verified.',
 );

@@ -1,8 +1,10 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import { Search, Menu } from 'lucide-react';
+import { mainNavigation, mobileNavigation } from '@/data/navigation';
+import './navigation.css';
 import {
   Sheet,
   SheetTrigger,
@@ -17,7 +19,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-const navigation = ['Spaces', 'Projects', 'Collections', 'Journal', 'About'];
 export function SiteHeader() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
@@ -39,10 +40,10 @@ export function SiteHeader() {
         .then((m) => setEntries(m.searchEntries))
         .catch(() =>
           setEntries(
-            navigation.map((title) => ({
+            mainNavigation.map(({ title, href }) => ({
               title,
               category: 'Explore',
-              href: `/${title.toLowerCase()}`,
+              href,
             })),
           ),
         );
@@ -50,6 +51,23 @@ export function SiteHeader() {
   const close = () => {
     setMenu(false);
     setSearch(false);
+  };
+  const followSectionLink = (
+    event: MouseEvent<HTMLAnchorElement>,
+    href: string,
+  ) => {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    event.preventDefault();
+    close();
+    // Closing the dialog detaches its link. Navigate explicitly so its fragment survives.
+    window.location.assign(href);
   };
   const results = query.trim()
     ? entries.filter((i) =>
@@ -65,23 +83,37 @@ export function SiteHeader() {
       <Link
         className="wordmark"
         href="/"
+        prefetch={pathname === '/worlds' ? false : undefined}
         aria-label="Tân Phong home"
         onClick={close}
       >
         tân phong<span>INTERIORS & OBJECTS</span>
       </Link>
       <nav className="desktop-nav" aria-label="Main navigation">
-        {navigation.map((label) => (
+        {mainNavigation.map(({ title, href, shortTitle }) => (
           <Link
-            key={label}
-            href={`/${label.toLowerCase()}`}
+            key={href}
+            href={href}
+            prefetch={
+              href === '/worlds' || pathname === '/worlds' ? false : undefined
+            }
+            aria-label={shortTitle ? title : undefined}
             aria-current={
-              pathname.startsWith(`/${label.toLowerCase()}`)
+              pathname === href || pathname.startsWith(`${href}/`)
                 ? 'page'
                 : undefined
             }
           >
-            {label}
+            {shortTitle ? (
+              <>
+                <span className="nav-label-full">{title}</span>
+                <span className="nav-label-short" aria-hidden="true">
+                  {shortTitle}
+                </span>
+              </>
+            ) : (
+              title
+            )}
           </Link>
         ))}
       </nav>
@@ -98,7 +130,7 @@ export function SiteHeader() {
               Find your inspiration.
             </DialogTitle>
             <DialogDescription>
-              Search spaces, projects, materials and objects.
+              Search spaces, projects, worlds, materials and objects.
             </DialogDescription>
             <label className="sr-only" htmlFor="site-search">
               Search the collection
@@ -115,12 +147,24 @@ export function SiteHeader() {
               {entries.length === 0 ? (
                 <p>Loading the collection…</p>
               ) : results.length ? (
-                results.slice(0, 12).map((item) => (
-                  <Link key={item.href} href={item.href} onClick={close}>
-                    <span>{item.title}</span>
-                    <small>{item.category} ↗</small>
-                  </Link>
-                ))
+                results.slice(0, 12).map((item) => {
+                  // Native anchors preserve the section fragment for gallery results.
+                  const ResultLink = item.href.includes('#') ? 'a' : Link;
+                  return (
+                    <ResultLink
+                      key={item.href}
+                      href={item.href}
+                      onClick={
+                        item.href.includes('#')
+                          ? (event) => followSectionLink(event, item.href)
+                          : close
+                      }
+                    >
+                      <span>{item.title}</span>
+                      <small>{item.category} ↗</small>
+                    </ResultLink>
+                  );
+                })
               ) : (
                 <p>No results for “{query}”. Try living, walnut or linen.</p>
               )}
@@ -140,18 +184,22 @@ export function SiteHeader() {
             <SheetTitle className="wordmark">tân phong</SheetTitle>
             <SheetDescription>Interiors, considered.</SheetDescription>
             <nav aria-label="Mobile navigation">
-              {[...navigation, 'Products', 'Materials', 'Contact'].map(
-                (label, i) => (
-                  <Link
-                    key={label}
-                    href={`/${label.toLowerCase()}`}
-                    onClick={close}
-                  >
-                    <small>0{i + 1}</small>
-                    {label}
-                  </Link>
-                ),
-              )}
+              {mobileNavigation.map(({ title, href }, i) => (
+                <Link
+                  key={href}
+                  href={href}
+                  prefetch={
+                    href === '/worlds' || pathname === '/worlds'
+                      ? false
+                      : undefined
+                  }
+                  aria-current={pathname === href ? 'page' : undefined}
+                  onClick={close}
+                >
+                  <small>{String(i + 1).padStart(2, '0')}</small>
+                  {title}
+                </Link>
+              ))}
             </nav>
           </SheetContent>
         </Sheet>
