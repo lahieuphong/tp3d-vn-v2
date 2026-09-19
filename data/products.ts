@@ -3,6 +3,7 @@ import { images, photo } from './images';
 export const products: Product[] = [
   {
     slug: 'form-lounge-chair',
+    asset: { available: false },
     title: 'Form Lounge Chair',
     category: 'SEATING',
     collection: 'The Soft Forms Study',
@@ -17,6 +18,7 @@ export const products: Product[] = [
   },
   {
     slug: 'line-sofa',
+    asset: { available: false },
     title: 'Line Sofa',
     category: 'SOFAS',
     collection: 'The Living Collection',
@@ -31,6 +33,7 @@ export const products: Product[] = [
   },
   {
     slug: 'round-coffee-table',
+    asset: { available: false },
     title: 'Round Coffee Table',
     category: 'TABLES',
     collection: 'The Material Study',
@@ -45,6 +48,7 @@ export const products: Product[] = [
   },
   {
     slug: 'copper-pendant',
+    asset: { available: false },
     title: 'Copper Pendant',
     category: 'LIGHTING',
     collection: 'The Light Collection',

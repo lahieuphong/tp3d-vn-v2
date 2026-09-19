@@ -47,6 +47,28 @@ export type Material = {
   image: ImageAsset;
   color: string;
 };
+export type SketchfabAssetViewer = {
+  provider: 'sketchfab';
+  uid: string;
+  /** Optional public model URL; otherwise derived from the UID. */
+  url?: string;
+};
+export type AssetMarketplace = { provider: 'fab'; url: string };
+export type ProductAsset = {
+  available: boolean;
+  viewer?: SketchfabAssetViewer;
+  marketplace?: AssetMarketplace;
+  poster?: ImageAsset;
+  formats?: string[];
+  software?: string[];
+  textures?: string;
+  polygonCount?: string;
+  vertices?: string;
+  uv?: string;
+  realWorldScale?: boolean;
+  fileSize?: string;
+  version?: string;
+};
 export type Product = {
   slug: string;
   title: string;
@@ -56,6 +78,9 @@ export type Product = {
   dimensions: string;
   material: string;
   image: ImageAsset;
+  /** Reference photography remains explicitly identified, including for assets. */
+  imageRole?: 'reference' | 'model-render';
+  asset: ProductAsset;
 };
 export type Article = {
   slug: string;

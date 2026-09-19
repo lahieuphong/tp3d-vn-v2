@@ -15,7 +15,8 @@
     "format": "oxfmt",
     "check:routes": "node scripts/check-site.mjs",
     "images:optimize": "node scripts/optimize-images.mjs",
-    "check:content": "node scripts/check-content.mjs"
+    "check:content": "node scripts/check-content.mjs",
+    "check:assets": "node scripts/check-assets.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

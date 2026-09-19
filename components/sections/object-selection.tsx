@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { products } from '@/data/products';
 import { EditorialImage } from '@/components/shared/editorial-image';
 import { SectionHeading } from '@/components/shared/section-heading';
+import { AssetAvailability } from '@/components/product/asset-availability';
 export function ObjectSelection({
   ids,
   title = 'Objects with a sense of place.',
@@ -37,6 +38,7 @@ export function ObjectSelection({
                 <p className="eyebrow">{p.category}</p>
                 <h3>{p.title}</h3>
                 <p>{p.collection}</p>
+                <AssetAvailability product={p} />
                 <span className="object-cta">
                   View object <span aria-hidden="true">↗</span>
                 </span>

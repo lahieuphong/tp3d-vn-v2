@@ -1,7 +1,7 @@
 import { projects } from './projects';
 import { products } from './products';
 import { materials } from './materials';
-import type { Collection, Project } from './types';
+import type { Collection, Project, Product } from './types';
 
 /** Project membership is canonical; reverse relationships are always derived. */
 export const getSpaceProjects = (slug: string) =>
@@ -12,6 +12,19 @@ export const getProductProjects = (slug: string) =>
 
 export const getMaterialProjects = (slug: string) =>
   projects.filter((project) => project.materials.includes(slug));
+
+/** Reuse interior membership instead of maintaining a second asset catalog. */
+export function getRelatedProducts(product: Product, limit = 3) {
+  const interiors = getProductProjects(product.slug);
+  const score = (other: Product) =>
+    Number(other.collection === product.collection) * 3 +
+    Number(other.category === product.category) * 2 +
+    interiors.filter((project) => project.products.includes(other.slug)).length;
+  return products
+    .filter((other) => other.slug !== product.slug)
+    .sort((a, b) => score(b) - score(a))
+    .slice(0, Math.max(0, limit));
+}
 
 /** Preserve the collection's editorial order, ignoring unresolved references. */
 export const getCollectionProjects = (collection: Collection) =>

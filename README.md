@@ -27,12 +27,13 @@ The local build verifies the Build Output API structure. Deploy from source so n
 ```sh
 yarn lint
 yarn check:content
+yarn check:assets
 yarn tsc --noEmit
 yarn build
 yarn check:routes http://localhost:3000
 ```
 
-The route check crawls every linked content page, verifies headings/titles/image availability, and checks seven invalid detail routes, populated relationship sections and immediate 3D preparation states. `check:content` validates all content references, expected room/material membership, related projects and empty results. It requires a running server. Generated shadcn primitives and their supplied mobile hook are excluded from lint; authored application components remain fully linted. Images use a documented local WebP srcset implementation rather than runtime image optimization.
+The route check requires a running server; it crawls every linked content page, verifies headings/titles/image availability, and checks seven invalid detail routes, populated relationship sections and immediate 3D preparation states. `check:content` validates all content references, expected room/material membership, related projects and empty results. `check:assets` validates publication states, provider URLs, model specifications, server-rendered asset sections and outbound analytics without making third-party requests. Generated shadcn primitives and their supplied mobile hook are excluded from lint; authored application components remain fully linted. Images use a documented local WebP srcset implementation rather than runtime image optimization.
 
 ## Content and routes
 
@@ -63,6 +64,10 @@ node scripts/optimize-images.mjs
 ```
 
 It writes local 720px, 1280px and large WebP variants to `public/images`. Update the image data and meaningful alt text. `<EditorialImage>` reserves aspect ratio, uses `srcset`, lazily loads secondary images and prioritizes the main hero. Font files are self-hosted WOFF2. Image and font provenance is in `docs/ASSET-SOURCES.md`.
+
+## Add digital objects
+
+For individual digital objects, the existing product catalog also supports click-to-load Sketchfab showcases and outbound Fab listings. All current products remain unpublished (`asset.available: false`). See [Digital assets](docs/DIGITAL-ASSETS.md) for the schema, publishing workflow, analytics hook and verification notes. This integration is independent of the project scene architecture below.
 
 ## Add Three.js later
 
