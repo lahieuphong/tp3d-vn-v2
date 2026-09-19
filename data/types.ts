@@ -4,6 +4,10 @@ export type World = {
   slug: string;
   title: string;
   category: string;
+  style: string;
+  type: string;
+  featured: boolean;
+  available: boolean;
   /** Edition in which the scene was curated, not its original publication date. */
   year: string;
   description: string;

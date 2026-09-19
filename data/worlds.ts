@@ -17,6 +17,10 @@ export const worlds: World[] = [
     slug: 'modern-kitchen',
     title: 'Modern Kitchen',
     category: 'Kitchen',
+    style: 'Modern',
+    type: 'Interior',
+    featured: true,
+    available: true,
     year: worldsEdition,
     description:
       'A contemporary kitchen study shaped around material, light and everyday rituals.',
@@ -34,6 +38,10 @@ export const worlds: World[] = [
     slug: 'white-modern-living-room',
     title: 'White Modern Living Room',
     category: 'Living',
+    style: 'Contemporary',
+    type: 'Interior',
+    featured: true,
+    available: true,
     year: worldsEdition,
     description:
       'A light-filled living space composed through soft surfaces and restrained geometry.',
@@ -51,6 +59,10 @@ export const worlds: World[] = [
     slug: 'minimalistic-modern-bedroom',
     title: 'Minimalistic Modern Bedroom',
     category: 'Bedroom',
+    style: 'Minimal',
+    type: 'Interior',
+    featured: true,
+    available: true,
     year: worldsEdition,
     description:
       'A quiet bedroom study defined by proportion, softness and a slower rhythm.',
@@ -68,6 +80,10 @@ export const worlds: World[] = [
     slug: 'modern-bathroom',
     title: 'Modern Bathroom',
     category: 'Bathroom',
+    style: 'Modern',
+    type: 'Interior',
+    featured: false,
+    available: true,
     year: worldsEdition,
     description:
       'A restrained bathroom environment balancing stone, light and clean architectural lines.',

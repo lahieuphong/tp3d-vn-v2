@@ -51,15 +51,13 @@ while (pending.length) {
       4,
       'Worlds: missing scene sections',
     );
-    assert.equal(
-      (html.match(/class="text-link world-enter-link"/g) ?? []).length,
-      4,
-      'Worlds: missing CTA',
-    );
+    assert.match(html, /id="worlds-search"/);
+    assert.match(html, /id="worlds-sort"/);
+    assert.match(html, /class="world-filters"/);
     assert.doesNotMatch(
       html,
       /<iframe|<canvas|<script[^>]+src="https:\/\/(?:.*\.)?sketchfab\.com/,
-      'Worlds must remain a static gallery',
+      'Worlds must not embed a viewer',
     );
     const entries = [
       ...html.matchAll(
@@ -74,13 +72,8 @@ while (pending.length) {
       ];
       assert.equal(
         sceneLinks.length,
-        2,
-        `${slug}: image and CTA should link to the scene`,
-      );
-      assert.equal(
-        sceneLinks[0][1],
-        sceneLinks[1][1],
-        `${slug}: mismatched scene links`,
+        1,
+        `${slug}: the whole card should be one scene link`,
       );
       for (const [tag] of sceneLinks) {
         assert.match(tag, /target="_blank"/);

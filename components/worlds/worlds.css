@@ -1,368 +1,681 @@
-.worlds-hero,
-.worlds-introduction,
-.world-entry {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  column-gap: 32px;
-}
+/* Worlds only: the catalogue shares the site's existing type, palette and grid. */
 .worlds-hero {
-  height: clamp(660px, 85svh, 1000px);
-  padding-top: 128px;
-  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 540px;
+  height: 60svh;
+  max-height: 760px;
+  padding-top: 138px;
+  display: grid;
+  grid-template-columns: 7fr 5fr;
+  column-gap: 48px;
+  grid-template-rows: 1fr auto;
   align-items: center;
 }
-.worlds-hero-copy {
-  grid-column: 1 / 7;
-  padding-block: 0;
-}
-.worlds-hero .eyebrow,
-.worlds-introduction .eyebrow,
-.world-entry-index,
-.worlds-closing .eyebrow {
+.worlds-page .eyebrow {
   color: var(--muted-foreground);
 }
 .worlds-hero h1 {
-  font-size: clamp(70px, min(8.5vw, 12.5svh), 128px);
-  line-height: 0.87;
+  font-size: clamp(72px, 7.6vw, 112px);
+  line-height: 0.94;
+  margin-top: 25px;
   letter-spacing: -0.035em;
-  margin-block: 26px;
 }
-.worlds-hero h1 > * {
-  display: block;
+.worlds-hero-aside {
+  max-width: 34ch;
+  justify-self: end;
+  padding-top: 40px;
 }
-.worlds-hero h1 em {
-  text-transform: lowercase;
-}
-.worlds-hero-description {
+.worlds-hero-aside > p {
   color: var(--muted-foreground);
-  font-size: 16px;
-  max-width: 35ch;
+  font-size: 15px;
 }
-.worlds-index-link {
+.worlds-hero-aside .text-link {
   margin-top: 26px;
-}
-.worlds-hero-preview {
-  grid-column: 7 / -1;
-  margin: 0;
-  align-self: stretch;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-}
-.worlds-hero-preview > .editorial-image {
-  min-height: 0;
-  height: 0;
-  flex: 1;
-  aspect-ratio: auto;
-}
-.worlds-hero-preview img {
-  object-position: 54% center;
-}
-.worlds-hero-preview figcaption {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 16px;
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  color: var(--muted-foreground);
+  font-size: 12px;
 }
 .worlds-hero-edition {
   grid-column: 1 / -1;
   display: flex;
   justify-content: space-between;
-  gap: 20px;
-  padding-block: 24px;
-  margin-top: 28px;
+  align-items: center;
+  gap: 24px;
+  padding-block: 34px 22px;
   border-bottom: 1px solid var(--border);
+  font-size: 10px;
 }
-.worlds-introduction > div:first-child {
-  grid-column: 1 / 7;
+.worlds-hero-edition > span:last-child {
+  display: flex;
+  gap: 24px;
 }
-.worlds-introduction .eyebrow {
-  margin-bottom: 28px;
+.worlds-featured {
+  padding-top: 44px;
 }
-.worlds-introduction-copy {
-  grid-column: 8 / -1;
-  align-self: end;
+.worlds-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+.worlds-section-heading h2 {
+  letter-spacing: 0.17em;
+}
+.worlds-section-heading > p {
+  font-size: 12px;
   color: var(--muted-foreground);
-  padding-bottom: 5px;
 }
-.worlds-external-note {
-  font-size: 13px;
-}
-.worlds-catalogue {
+.worlds-featured-grid {
   display: grid;
-  gap: var(--section);
+  grid-template-columns: 1.65fr 1fr;
+  gap: 32px 40px;
 }
-.world-entry {
-  border-top: 1px solid var(--border);
-  padding-top: 28px;
-  row-gap: 36px;
+.worlds-featured-grid[data-count='3'] > :first-child {
+  grid-row: span 2;
+}
+.worlds-featured-grid[data-count='1'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.world-card {
+  min-width: 0;
   scroll-margin-top: 24px;
 }
-.world-entry-index {
-  grid-column: 1 / 4;
-  grid-row: 1;
+.world-card-link {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 12px 24px;
-  align-self: start;
-  max-width: none;
+  flex-direction: column;
+  height: 100%;
 }
-.world-entry-image {
-  grid-column: 4 / -1;
-  grid-row: 1 / 3;
-  display: block;
-  min-width: 0;
+.world-card-link:focus-visible {
+  outline: 2px solid var(--walnut);
+  outline-offset: 7px;
 }
-.world-entry-image .editorial-image {
-  aspect-ratio: 1.6;
+.world-card-visual {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  perspective: 1200px;
+  background: var(--paper);
 }
-.world-entry-copy {
-  grid-column: 1 / 4;
-  grid-row: 2;
-  min-width: 0;
-  align-self: end;
+.world-card-plane {
+  position: absolute;
+  inset: 0;
+  background: var(--paper);
+  transform: translate(var(--plane-x, 0), var(--plane-y, 0));
 }
-.world-entry h2 {
-  font-size: clamp(42px, 4.5vw, 68px);
+.world-card-visual .editorial-image {
+  height: 100%;
+  aspect-ratio: auto;
+  transform: rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg))
+    translate(var(--image-x, 0px), var(--image-y, 0px));
+  transition: transform 450ms ease;
+}
+.world-card-visual img {
+  transition: transform 500ms ease;
+}
+.world-card-frame {
+  position: absolute;
+  inset: 14px;
+  border: 1px solid rgb(247 245 240 / 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(var(--plane-x, 0px), var(--plane-y, 0px));
+  transition:
+    transform 450ms ease,
+    opacity 450ms ease;
+}
+.world-card-enter {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transform: translate(var(--front-x, 0px), var(--front-y, 0px));
+  transition: transform 450ms ease;
+}
+.world-card-enter > span:first-child {
+  background: var(--background);
+  padding: 7px 10px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  opacity: 0;
+  transform: translateX(5px);
+  transition:
+    opacity 400ms ease,
+    transform 400ms ease;
+}
+.world-card-enter > span:last-child {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  background: var(--background);
+  font-size: 21px;
+  line-height: 1;
+  transition: transform 400ms ease;
+}
+.world-card-copy {
+  padding-top: 20px;
+  transition: transform 450ms ease;
+}
+.world-card-category {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.world-card h3 {
+  margin-top: 10px;
+  font-size: clamp(28px, 2.4vw, 36px);
+  line-height: 1.1;
   text-wrap: balance;
   overflow-wrap: break-word;
 }
-.world-entry-description {
-  margin-top: 28px;
-}
-.world-entry-description > p:first-child {
+.world-card-meta {
+  margin-top: 15px;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font-size: 9px;
+  letter-spacing: 0.065em;
+  text-transform: uppercase;
   color: var(--muted-foreground);
-  font-size: 15px;
-  max-width: 40ch;
 }
-.world-enter-link {
-  margin-top: 26px;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  gap: 32px;
+.world-card-meta > span:first-child {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
 }
-.world-host-note {
-  font-size: 11px;
-  color: var(--muted-foreground);
+.worlds-featured-grid > :first-child .world-card-visual {
+  flex: 1;
+  min-height: 300px;
+}
+.worlds-featured-grid > :not(:first-child) .world-card-visual {
+  aspect-ratio: 2.2;
+}
+.worlds-featured-grid > :not(:first-child) h3 {
+  font-size: clamp(26px, 2.4vw, 34px);
+}
+.worlds-featured-grid > :first-child h3 {
+  font-size: clamp(36px, 3.4vw, 52px);
+}
+.worlds-featured-grid .world-card-meta {
   margin-top: 12px;
 }
-.world-entry-credit {
-  font-size: 11px;
-  line-height: 1.8;
+.worlds-catalog {
+  padding-top: var(--section);
+  scroll-margin-top: 28px;
+}
+.worlds-toolbar {
+  scroll-margin-top: 28px;
+  margin-bottom: 38px;
+}
+.worlds-toolbar-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 32px;
+}
+.worlds-catalog-heading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+.worlds-catalog-heading h2 {
+  font-size: 52px;
+}
+.worlds-results-count {
+  font-size: 10px;
+}
+.worlds-tools {
+  display: flex;
+  gap: 30px;
+  align-items: center;
+}
+.worlds-search {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  width: 220px;
+}
+.worlds-search > svg {
+  flex: 0 0 18px;
   color: var(--muted-foreground);
-  margin-top: 28px;
 }
-.world-entry-credit a {
-  display: inline-block;
-  padding-block: 8px;
-  text-decoration: underline;
-  text-decoration-color: var(--border);
-  text-underline-offset: 4px;
-}
-.world-entry--reversed .world-entry-index,
-.world-entry--reversed .world-entry-copy {
-  grid-column: 10 / -1;
-}
-.world-entry--reversed .world-entry-image {
-  grid-column: 1 / 10;
-}
-.world-entry--reversed .world-entry-copy {
-  align-self: center;
-}
-.world-entry--inset .world-entry-index,
-.world-entry--inset .world-entry-image,
-.world-entry--inset .world-entry-copy {
-  grid-column: 3 / 11;
-}
-.world-entry--inset .world-entry-image,
-.world-entry--panorama .world-entry-image {
-  grid-row: 2;
-}
-.world-entry--inset .world-entry-copy,
-.world-entry--panorama .world-entry-copy {
-  grid-row: 3;
-  display: grid;
-  grid-template-columns: 1.1fr 1fr;
-  gap: 0 10%;
-}
-.world-entry--inset .world-entry-description,
-.world-entry--panorama .world-entry-description {
-  margin-top: 0;
-}
-.world-entry--inset .world-entry-credit,
-.world-entry--panorama .world-entry-credit {
-  grid-column: 1 / -1;
-}
-.world-entry--inset .editorial-image {
-  aspect-ratio: 16 / 9;
-}
-.world-entry--panorama > * {
-  grid-column: 1 / -1;
-}
-.world-entry--panorama .editorial-image {
-  aspect-ratio: 2 / 1;
-}
-.worlds-source-note {
-  color: var(--muted-foreground);
+.worlds-search input {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 12px 0;
+  min-height: 44px;
   font-size: 12px;
-  max-width: 72ch;
-  margin-top: calc(var(--section) * -0.6);
+  color: var(--foreground);
+}
+.worlds-search input::placeholder {
+  color: var(--muted-foreground);
+  opacity: 1;
+}
+.worlds-search input::-webkit-search-cancel-button {
+  display: none;
+}
+.worlds-search button {
+  background: none;
+  border: none;
+  min-width: 32px;
+  min-height: 44px;
+  font-size: 20px;
+  color: var(--muted-foreground);
+}
+.worlds-search:focus-within {
+  border-color: var(--walnut);
+}
+.worlds-sort {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.worlds-sort label {
+  color: var(--muted-foreground);
+}
+.worlds-sort select {
+  font: inherit;
+  color: var(--foreground);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  min-height: 44px;
+  padding: 8px 4px;
+  cursor: pointer;
+}
+.worlds-sort select:focus-visible {
+  outline: 2px solid var(--walnut);
+  outline-offset: 4px;
+}
+.world-filters {
+  min-width: 0;
+  margin: 0;
+  padding-inline: 0;
+  padding-bottom: 0;
+  border: 0;
+  display: flex;
+  gap: 30px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-top: 26px;
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.world-filters button {
+  position: relative;
+  flex: 0 0 auto;
+  background: transparent;
+  color: var(--muted-foreground);
+  border: 0;
+  border-bottom: 1px solid transparent;
+  min-height: 48px;
+  padding: 10px 0 15px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.world-filters button[aria-pressed='true'] {
+  border-bottom-color: var(--foreground);
+  color: var(--foreground);
+}
+.world-filters button:focus-visible {
+  outline-offset: -3px;
+}
+.worlds-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 52px 32px;
+}
+.worlds-load-more {
+  padding-block: 54px 34px;
+  text-align: center;
+}
+.worlds-load-more > .eyebrow {
+  font-size: 10px;
+  margin-inline: auto;
+}
+.worlds-load-more button {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid currentColor;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  gap: 64px;
+}
+.worlds-pagination-count {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  margin: 12px auto 0;
+}
+.worlds-empty {
+  padding-block: 64px;
+  text-align: center;
+}
+.worlds-empty h3 {
+  font-size: 42px;
+}
+.worlds-empty p {
+  font-size: 14px;
+  color: var(--muted-foreground);
+  margin: 16px auto 24px;
+}
+.worlds-empty button {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid currentColor;
+}
+.worlds-notes {
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+  display: flex;
+  justify-content: space-between;
+  gap: 30px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.worlds-notes > p {
+  padding-top: 12px;
+}
+.worlds-credits {
+  width: min(440px, 45%);
+}
+.worlds-credits summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding-block: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+}
+.worlds-credits summary::-webkit-details-marker {
+  display: none;
+}
+.worlds-credits summary:focus-visible {
+  outline: 2px solid var(--walnut);
+  outline-offset: 4px;
+}
+.worlds-credits[open] summary > span {
+  transform: rotate(45deg);
+}
+.worlds-credits p {
+  margin-block: 16px;
+}
+.worlds-credits ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.worlds-credits li {
+  padding-block: 10px;
+}
+.worlds-credits li > * {
+  display: block;
+}
+.worlds-credits a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .worlds-closing {
   text-align: center;
 }
-.worlds-closing > .eyebrow {
-  margin-inline: auto;
-  margin-bottom: 28px;
+.worlds-closing .eyebrow {
+  margin: 0 auto 28px;
 }
 .worlds-closing .text-link {
   margin-top: 30px;
 }
-@media (min-width: 761px) and (max-width: 1100px) {
-  .worlds-hero,
-  .worlds-introduction,
-  .world-entry {
-    column-gap: 24px;
+.world-card[data-reveal] {
+  transition:
+    opacity 550ms ease,
+    transform 550ms ease;
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.world-card[data-reveal='pending'] {
+  opacity: 0;
+  transform: translateY(20px);
+}
+.world-card[data-reveal='visible'] {
+  opacity: 1;
+  transform: translateY(0);
+}
+.world-card-link:focus-visible .world-card-enter > span:first-child {
+  opacity: 1;
+  transform: none;
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .world-card-link[data-tilting] .world-card-visual img {
+    transform: scale(1.035);
+  }
+  .world-card-link[data-tilting] .world-card-frame {
+    opacity: 1;
+  }
+  .world-card-link[data-tilting] .world-card-copy {
+    transform: translateY(-3px);
+  }
+  .world-card-link[data-tilting] .world-card-enter > span:first-child {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  .world-card-link[data-tilting] .world-card-enter > span:last-child {
+    transform: translate(2px, -2px);
+  }
+}
+@media (max-width: 1100px) {
+  .worlds-hero {
+    column-gap: 30px;
+    min-height: 500px;
   }
   .worlds-hero h1 {
-    font-size: clamp(70px, 8.9vw, 100px);
+    font-size: clamp(72px, 8.6vw, 94px);
   }
-  .world-entry-index,
-  .world-entry-copy {
-    grid-column: 1 / 5;
+  .worlds-hero-aside {
+    max-width: 29ch;
   }
-  .world-entry-image {
-    grid-column: 5 / -1;
+  .worlds-featured-grid {
+    gap: 26px;
+    grid-template-columns: 1.25fr 1fr;
   }
-  .world-entry--reversed .world-entry-index,
-  .world-entry--reversed .world-entry-copy {
-    grid-column: 9 / -1;
+  .worlds-featured-grid > :not(:first-child) .world-card-visual {
+    aspect-ratio: 1.8;
   }
-  .world-entry--reversed .world-entry-image {
-    grid-column: 1 / 9;
+  .worlds-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 42px 26px;
   }
-  .world-entry--inset .world-entry-index,
-  .world-entry--inset .world-entry-image,
-  .world-entry--inset .world-entry-copy {
-    grid-column: 2 / 12;
+  .worlds-toolbar-top {
+    align-items: start;
   }
-  .world-entry--panorama > * {
-    grid-column: 1 / -1;
+  .worlds-catalog-heading {
+    display: block;
   }
-  .world-entry h2 {
-    font-size: 42px;
+  .worlds-results-count {
+    margin-top: 14px;
   }
-  .world-entry-image {
-    align-self: start;
+  .worlds-tools {
+    gap: 20px;
+    padding-top: 5px;
   }
-  .world-entry-image .editorial-image {
-    aspect-ratio: 1.1;
+  .worlds-search {
+    width: 200px;
   }
-  .world-entry--inset .editorial-image,
-  .world-entry--panorama .editorial-image {
-    aspect-ratio: 16 / 9;
+  .worlds-sort {
+    gap: 5px;
   }
 }
 @media (max-width: 760px) {
-  .worlds-hero,
-  .worlds-introduction,
-  .world-entry {
+  .worlds-hero {
+    height: auto;
+    min-height: 0;
+    padding-top: 122px;
     grid-template-columns: minmax(0, 1fr);
   }
-  .worlds-hero {
-    min-height: auto;
-    height: auto;
-    grid-template-rows: none;
-    padding-top: 116px;
-  }
-  .worlds-hero-copy {
-    grid-column: 1;
-    padding-block: 0 36px;
-  }
   .worlds-hero h1 {
-    font-size: clamp(72px, 20vw, 112px);
-    margin-block: 28px;
+    font-size: clamp(64px, 16.8vw, 100px);
+    margin-top: 24px;
   }
-  .worlds-desktop-break {
-    display: none;
+  .worlds-hero-aside {
+    justify-self: start;
+    max-width: 34ch;
+    padding-top: 28px;
   }
-  .worlds-hero-description {
-    font-size: 15px;
+  .worlds-hero-aside > p {
+    font-size: 14px;
   }
-  .worlds-hero-preview {
-    grid-column: 1;
-    height: auto;
-  }
-  .worlds-hero-preview > .editorial-image {
-    min-height: 0;
-    height: auto;
-    flex: auto;
-    aspect-ratio: 1.25;
-  }
-  .worlds-hero-preview figcaption {
-    font-size: 9px;
+  .worlds-hero-aside .text-link {
+    margin-top: 16px;
   }
   .worlds-hero-edition {
-    flex-wrap: wrap;
-    font-size: 10px;
-    gap: 12px;
-    margin-top: 20px;
-    padding-block: 24px;
+    padding-block: 30px 20px;
+    gap: 16px;
+    font-size: 9px;
   }
-  .worlds-introduction > div:first-child,
-  .worlds-introduction-copy {
-    grid-column: 1;
+  .worlds-hero-edition > span:last-child {
+    font-size: 8px;
+    gap: 9px;
+    text-align: right;
   }
-  .worlds-introduction {
-    row-gap: 28px;
+  .worlds-featured {
+    padding-top: 32px;
   }
-  .worlds-introduction-copy {
-    font-size: 15px;
+  .worlds-section-heading {
+    display: block;
+    margin-bottom: 22px;
   }
-  .worlds-introduction .eyebrow {
-    margin-bottom: 24px;
+  .worlds-section-heading > p {
+    margin-top: 8px;
   }
-  .world-entry {
-    row-gap: 24px;
-    padding-top: 24px;
+  .worlds-featured-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 32px;
   }
-  .world-entry > .world-entry-index,
-  .world-entry > .world-entry-image,
-  .world-entry > .world-entry-copy {
-    grid-column: 1;
+  .worlds-featured-grid[data-count='3'] > :first-child {
     grid-row: auto;
   }
-  .world-entry .world-entry-copy {
-    display: block;
-  }
-  .world-entry h2 {
-    font-size: clamp(42px, 11.5vw, 64px);
-    max-width: 15ch;
-    text-wrap: pretty;
-  }
-  .world-entry .editorial-image {
+  .worlds-featured-grid > :first-child .world-card-visual {
+    flex: auto;
+    min-height: 0;
     aspect-ratio: 4 / 3;
   }
-  .world-entry .world-entry-description {
-    margin-top: 22px;
+  .worlds-featured-grid > :not(:first-child) .world-card-visual {
+    aspect-ratio: 16 / 9;
   }
-  .world-enter-link {
-    margin-top: 22px;
+  .worlds-featured-grid > :first-child h3 {
+    font-size: 36px;
   }
-  .world-entry-credit {
-    margin-top: 20px;
+  .worlds-featured-grid > :not(:first-child) h3 {
+    font-size: 30px;
   }
-  .worlds-source-note {
-    margin-top: -28px;
+  .world-card-copy {
+    padding-top: 16px;
+  }
+  .world-card h3 {
+    font-size: 34px;
+    max-width: 21ch;
+  }
+  .world-card-meta {
+    font-size: 9px;
+    margin-top: 12px;
+  }
+  .worlds-catalog {
+    padding-top: 76px;
+  }
+  .worlds-toolbar-top {
+    display: block;
+  }
+  .worlds-catalog-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .worlds-catalog-heading h2 {
+    font-size: 44px;
+  }
+  .worlds-results-count {
+    margin: 0;
+    font-size: 9px;
+  }
+  .worlds-tools {
+    justify-content: space-between;
+    gap: 20px;
+    padding-top: 22px;
+  }
+  .worlds-search {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+  }
+  .worlds-search input {
+    font-size: 16px;
+  }
+  .worlds-sort {
+    font-size: 12px;
+  }
+  .worlds-sort label {
+    display: none;
+  }
+  .world-filters {
+    min-width: 0;
+    margin: 0;
+    padding-inline: 0;
+    padding-bottom: 0;
+    border: 0;
+    gap: 24px;
+    padding-top: 20px;
+  }
+  .worlds-toolbar {
+    margin-bottom: 30px;
+  }
+  .worlds-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 38px;
+  }
+  .worlds-load-more {
+    padding-block: 42px 30px;
+  }
+  .worlds-notes {
+    display: block;
+    padding-top: 10px;
+  }
+  .worlds-credits {
+    width: 100%;
+    margin-top: 8px;
+  }
+  .worlds-closing h2 {
+    font-size: 42px;
   }
 }
-@media (hover: none), (prefers-reduced-motion: reduce) {
-  .worlds-page .image-link:hover img {
+@media (hover: none) and (prefers-reduced-motion: no-preference) {
+  .world-card[data-reveal='pending'] img {
+    transform: scale(1.025);
+  }
+  .world-card[data-reveal='visible'] img {
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .world-card[data-reveal] {
+    opacity: 1;
     transform: none;
+    transition: none;
+  }
+  .world-card-visual .editorial-image,
+  .world-card-visual img,
+  .world-card-plane,
+  .world-card-frame,
+  .world-card-enter,
+  .world-card-copy {
+    transform: none;
+    transition: none;
   }
 }

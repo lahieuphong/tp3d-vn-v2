@@ -58,7 +58,7 @@ Shared layout is in `components/layout`; homepage sections in `components/sectio
 
 ## Replace photography
 
-The new Worlds gallery uses locally optimized previews of the four supplied Sketchfab scenes. Its data, source credits, layout and QA notes are documented in [3D Worlds](docs/3D-WORLDS.md). It does not embed a viewer or load Three.js.
+The Worlds catalogue uses locally optimized previews of the four supplied Sketchfab scenes, with featured studies, category/search/sort controls, twelve-item pagination and a subtle pointer depth effect. Its data, source credits, layout and QA notes are documented in [3D Worlds](docs/3D-WORLDS.md). It does not embed a viewer or load Three.js. Run `yarn check:worlds` to validate catalogue behaviour against 4/12/30/100-record fixtures.
 
 Image paths are centralized in `data/images.ts`. Add a source JPG under `assets/reference-images` and run:
 

@@ -182,6 +182,11 @@ const expectedWorlds = {
   'minimalistic-modern-bedroom': '4f3db3cb57bd4bce886f7b9a13273a2f',
   'modern-bathroom': '9ba7e0a094694335bd8f4656611c0676',
 };
+for (const world of worlds) {
+  assert.ok(world.style && world.type);
+  assert.equal(typeof world.featured, 'boolean');
+  assert.equal(typeof world.available, 'boolean');
+}
 for (const [slug, uid] of Object.entries(expectedWorlds)) {
   const world = worlds.find((entry) => entry.slug === slug);
   assert.ok(world, `Missing curated world: ${slug}`);
