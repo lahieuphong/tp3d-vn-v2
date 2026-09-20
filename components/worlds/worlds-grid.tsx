@@ -30,11 +30,12 @@ export function WorldsGrid({
   }, [focusFrom]);
   return (
     <div className="worlds-grid" ref={ref}>
-      {worlds.map((world) => (
+      {worlds.map((world, visibleIndex) => (
         <WorldCard
           key={world.id}
           world={world}
           index={indices.get(world.id) ?? 0}
+          priority={visibleIndex < 4}
         />
       ))}
     </div>

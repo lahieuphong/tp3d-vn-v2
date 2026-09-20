@@ -26,7 +26,7 @@ export function WorldCardMedia({
       <span className="world-card-frame" aria-hidden="true" />
       {world.available && (
         <span className="world-card-enter" aria-hidden="true">
-          <span>ENTER WORLD</span>
+          <span>EXPLORE</span>
           <span>↗</span>
         </span>
       )}

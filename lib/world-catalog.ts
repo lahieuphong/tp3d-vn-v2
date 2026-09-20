@@ -1,6 +1,7 @@
 import type { World } from '@/data/types';
 
-export const WORLD_PAGE_SIZE = 12;
+/** A browse-first desktop catalogue. The grid remains efficient for much larger sets. */
+export const WORLD_PAGE_SIZE = 24;
 export type WorldQuery = { category: string; q: string; sort: 'newest' | 'az' };
 export const defaultWorldQuery: WorldQuery = {
   category: '',

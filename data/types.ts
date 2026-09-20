@@ -11,9 +11,22 @@ export type World = {
   /** Edition in which the scene was curated, not its original publication date. */
   year: string;
   description: string;
+  /** A shorter line for compact catalogue contexts. */
+  shortDescription?: string;
   image: ImageAsset;
+  /** Optional alternate editorial stills for a future gallery. */
+  gallery?: ImageAsset[];
+  /** A controlled catalogue ratio; never generated randomly in the grid. */
+  layout?: 'portrait' | 'landscape' | 'square' | 'wide';
   sketchfabUid: string;
   externalUrl: string;
+  purchaseUrl?: string;
+  formats?: string[];
+  software?: string[];
+  textures?: string;
+  polygonCount?: string;
+  fileSize?: string;
+  realWorldScale?: boolean;
   credit: {
     name: string;
     url: string;

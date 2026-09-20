@@ -24,11 +24,17 @@ export const worlds: World[] = [
     year: worldsEdition,
     description:
       'A contemporary kitchen study shaped around material, light and everyday rituals.',
+    shortDescription: 'Pale stone, linear cabinetry and a measured rhythm of light.',
+    layout: 'wide',
     image: {
       src: '/images/world-modern-kitchen.webp',
       alt: 'Modern Kitchen scene: a pale stone island, three dark stools and pendant lights beside a tall window',
     },
     sketchfabUid: '9843a830b96142a9a53f45f25304d93c',
+    formats: ['GLB'],
+    software: ['Blender'],
+    textures: 'PBR textures',
+    realWorldScale: true,
     externalUrl:
       'https://sketchfab.com/3d-models/modern-kitchen-9843a830b96142a9a53f45f25304d93c',
     credit,
@@ -45,11 +51,17 @@ export const worlds: World[] = [
     year: worldsEdition,
     description:
       'A light-filled living space composed through soft surfaces and restrained geometry.',
+    shortDescription: 'Soft surfaces and restrained geometry in a light-filled room.',
+    layout: 'landscape',
     image: {
       src: '/images/world-white-modern-living-room.webp',
       alt: 'White Modern Living Room scene: a curved pale sofa and low table facing a quiet media wall',
     },
     sketchfabUid: 'afb8cb0cbee1488caf61471ef14041e9',
+    formats: ['GLB'],
+    software: ['Blender'],
+    textures: 'PBR textures',
+    realWorldScale: true,
     externalUrl:
       'https://sketchfab.com/3d-models/white-modern-living-room-afb8cb0cbee1488caf61471ef14041e9',
     credit,
@@ -66,11 +78,17 @@ export const worlds: World[] = [
     year: worldsEdition,
     description:
       'A quiet bedroom study defined by proportion, softness and a slower rhythm.',
+    shortDescription: 'A softer study in proportion, timber and long views.',
+    layout: 'portrait',
     image: {
       src: '/images/world-minimalistic-modern-bedroom.webp',
       alt: 'Minimalistic Modern Bedroom scene: a low upholstered bed, timber floor and tall windows framing trees',
     },
     sketchfabUid: '4f3db3cb57bd4bce886f7b9a13273a2f',
+    formats: ['GLB'],
+    software: ['Blender'],
+    textures: 'PBR textures',
+    realWorldScale: true,
     externalUrl:
       'https://sketchfab.com/3d-models/minimalistic-modern-bedroom-4f3db3cb57bd4bce886f7b9a13273a2f',
     credit,
@@ -87,11 +105,17 @@ export const worlds: World[] = [
     year: worldsEdition,
     description:
       'A restrained bathroom environment balancing stone, light and clean architectural lines.',
+    shortDescription: 'Stone, timber and diffuse light held in calm balance.',
+    layout: 'square',
     image: {
       src: '/images/world-modern-bathroom.webp',
       alt: 'Modern Bathroom scene: a freestanding bath by a frosted window, twin basins and a timber vanity',
     },
     sketchfabUid: '9ba7e0a094694335bd8f4656611c0676',
+    formats: ['GLB'],
+    software: ['Blender'],
+    textures: 'PBR textures',
+    realWorldScale: true,
     externalUrl:
       'https://sketchfab.com/3d-models/modern-bathroom-9ba7e0a094694335bd8f4656611c0676',
     credit,

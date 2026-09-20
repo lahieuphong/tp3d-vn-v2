@@ -71,9 +71,9 @@ for (const count of [4, 12, 30, 100]) {
   }));
   const sorted = selectWorlds(fixtures, defaults);
   assert.equal(sorted.length, count);
-  assert.equal(getVisibleWorlds(sorted, 1).length, Math.min(count, 12));
-  assert.equal(getVisibleWorlds(sorted, 2).length, Math.min(count, 24));
-  assert.equal(getVisibleWorlds(sorted, 3).length, Math.min(count, 36));
+  assert.equal(getVisibleWorlds(sorted, 1).length, Math.min(count, 24));
+  assert.equal(getVisibleWorlds(sorted, 2).length, Math.min(count, 48));
+  assert.equal(getVisibleWorlds(sorted, 3).length, Math.min(count, 72));
   assert.equal(getVisibleWorlds(sorted, 100).length, count);
   assert.equal(
     getFeaturedWorlds(fixtures).length,
@@ -103,13 +103,17 @@ for (const count of [4, 12, 30, 100]) {
     worlds: fixtures,
     initialQuery: defaults,
   });
-  assert.equal((html.match(/data-world="/g) ?? []).length, Math.min(12, count));
-  assert.equal(html.includes('LOAD MORE'), count > 12);
+  const shown = Math.min(24, count);
+  assert.equal((html.match(/data-world="/g) ?? []).length, shown);
+  assert.equal(html.includes('LOAD MORE'), count > 24);
   assert.equal(
     (html.match(/loading="lazy"/g) ?? []).length,
-    Math.min(12, count),
+    Math.max(0, shown - 4),
   );
-  assert.doesNotMatch(html, /<iframe|<canvas|<link[^>]+rel="preload"/);
+  assert.doesNotMatch(html, /<iframe|<canvas/);
+  assert.ok(
+    (html.match(/<link[^>]+rel="preload"/g) ?? []).length <= Math.min(4, shown),
+  );
   assert.ok(
     (
       render(FeaturedWorlds, { worlds: fixtures }).match(/data-world-card/g) ??
@@ -162,5 +166,5 @@ assert.equal(
   0,
 );
 console.log(
-  'Worlds passed: 4/12/30/100-record SSR, 12-item pagination, derived categories/featured, combined search, sorting, URL state, empty and unavailable states.',
+  'Worlds passed: 4/12/30/100-record SSR, 24-item pagination, derived categories/featured, combined search, sorting, URL state, empty and unavailable states.',
 );
