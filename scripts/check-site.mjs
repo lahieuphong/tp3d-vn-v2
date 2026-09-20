@@ -66,20 +66,17 @@ while (pending.length) {
     ];
     for (const [, slug, body] of entries) {
       const sceneLinks = [
-        ...body.matchAll(
-          /<a[^>]+href="(https:\/\/sketchfab\.com\/3d-models\/[^"]+)"[^>]*>/g,
-        ),
+        ...body.matchAll(/<a[^>]+href="(\/worlds\/[^"]+)"[^>]*>/g),
       ];
       assert.equal(
         sceneLinks.length,
         1,
-        `${slug}: the whole card should be one scene link`,
+        `${slug}: the whole card should be one detail link`,
       );
-      for (const [tag] of sceneLinks) {
-        assert.match(tag, /target="_blank"/);
-        assert.match(tag, /rel="noopener noreferrer"/);
-      }
-      assert.match(body, /opens in a new tab/);
+      assert.equal(sceneLinks[0][1], `/worlds/${slug}`);
+      assert.doesNotMatch(sceneLinks[0][0], /target="_blank"/);
+      assert.match(body, /class="world-card-overlay"/);
+      assert.doesNotMatch(body, /world-card-copy/);
     }
   }
   const title = html.match(/<title>([^<]+)<\/title>/)?.[1];
@@ -117,7 +114,7 @@ const invalidRoutes = [
   '/products/missing-product',
   '/materials/missing-material',
   '/journal/missing-article',
-  '/worlds/modern-kitchen',
+  '/worlds/missing-world',
 ];
 for (const route of invalidRoutes) {
   const r = await fetch(new URL(route, origin));

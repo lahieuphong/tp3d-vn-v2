@@ -18,14 +18,14 @@ export function useCardTilt(root: RefObject<HTMLElement | null>) {
     const paint = () => {
       frame = 0;
       if (!active) return;
-      active.style.setProperty('--tilt-x', `${-y * 3}deg`);
-      active.style.setProperty('--tilt-y', `${x * 4}deg`);
-      active.style.setProperty('--image-x', `${-x * 6}px`);
-      active.style.setProperty('--image-y', `${-y * 6}px`);
-      active.style.setProperty('--plane-x', `${x * 3}px`);
-      active.style.setProperty('--plane-y', `${y * 3}px`);
-      active.style.setProperty('--front-x', `${x * 12}px`);
-      active.style.setProperty('--front-y', `${y * 12}px`);
+      active.style.setProperty('--tilt-x', `${-y * 2}deg`);
+      active.style.setProperty('--tilt-y', `${x * 2.5}deg`);
+      active.style.setProperty('--image-x', `${-x * 4}px`);
+      active.style.setProperty('--image-y', `${-y * 4}px`);
+      active.style.setProperty('--text-x', `${x * 6}px`);
+      active.style.setProperty('--text-y', `${y * 6}px`);
+      active.style.setProperty('--front-x', `${x * 8}px`);
+      active.style.setProperty('--front-y', `${y * 8}px`);
     };
     const move = (event: PointerEvent) => {
       if (!rect || event.pointerType !== 'mouse') return;
@@ -52,8 +52,8 @@ export function useCardTilt(root: RefObject<HTMLElement | null>) {
           'tilt-y',
           'image-x',
           'image-y',
-          'plane-x',
-          'plane-y',
+          'text-x',
+          'text-y',
           'front-x',
           'front-y',
         ])

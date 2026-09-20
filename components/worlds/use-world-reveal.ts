@@ -41,8 +41,10 @@ export function useWorldReveal(
         observer.unobserve(card);
       }
     };
-    const columns =
-      window.innerWidth <= 760 ? 1 : window.innerWidth <= 1100 ? 2 : 3;
+    const columns = Math.max(
+      1,
+      getComputedStyle(element).gridTemplateColumns.split(' ').length,
+    );
     cards.forEach((card, index) => {
       if (card.dataset.reveal) return;
       if (card.getBoundingClientRect().top < window.innerHeight) {

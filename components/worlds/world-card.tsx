@@ -6,28 +6,22 @@ export function WorldCard({
   index,
   featured = false,
   priority = false,
+  sizes,
 }: {
   world: World;
   index: number;
   featured?: boolean;
   priority?: boolean;
+  sizes?: string;
 }) {
   const content = (
-    <>
-      <WorldCardMedia world={world} featured={featured} priority={priority} />
-      <div className="world-card-copy">
-        <p className="world-card-category eyebrow">
-          {String(index + 1).padStart(2, '0')} / {world.category}
-        </p>
-        <h3>{world.title}</h3>
-        <p className="world-card-meta">
-          <span>
-          {world.type} <span aria-hidden="true">·</span> {world.year}
-          </span>
-          <span>VIEW MODEL ↗</span>
-        </p>
-      </div>
-    </>
+    <WorldCardMedia
+      world={world}
+      index={index}
+      featured={featured}
+      priority={priority}
+      sizes={sizes}
+    />
   );
 
   return (
@@ -45,13 +39,22 @@ export function WorldCard({
           href={`/worlds/${world.slug}`}
           aria-label={`Open ${world.title}`}
           onClick={() => {
-            sessionStorage.setItem('tan-phong-world-origin', world.slug);
+            try {
+              sessionStorage.setItem('tan-phong-world-origin', world.slug);
+            } catch {
+              // The native detail link still works when browser storage is unavailable.
+            }
           }}
         >
           {content}
         </a>
       ) : (
-        <div className="world-card-link">{content}</div>
+        <div
+          className="world-card-link"
+          aria-label={`${world.title} — in preparation`}
+        >
+          {content}
+        </div>
       )}
     </article>
   );

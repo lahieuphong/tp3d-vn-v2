@@ -1,8 +1,9 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import type { World } from '@/data/types';
-import { WorldCard } from './world-card';
+import { groupMosaicItems } from '@/lib/world-mosaic';
+import { MosaicBlock } from './mosaic-block';
 import { useCardTilt } from './use-card-tilt';
 import { useWorldReveal } from './use-world-reveal';
 
@@ -16,6 +17,7 @@ export function WorldsGrid({
   focusFrom: number | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const blocks = useMemo(() => groupMosaicItems(worlds), [worlds]);
   useCardTilt(ref);
   useWorldReveal(ref, worlds.map((world) => world.id).join(','));
   useEffect(() => {
@@ -30,12 +32,12 @@ export function WorldsGrid({
   }, [focusFrom]);
   return (
     <div className="worlds-grid" ref={ref}>
-      {worlds.map((world, visibleIndex) => (
-        <WorldCard
-          key={world.id}
-          world={world}
-          index={indices.get(world.id) ?? 0}
-          priority={visibleIndex < 4}
+      {blocks.map((block, blockIndex) => (
+        <MosaicBlock
+          key={block[0].id}
+          worlds={block}
+          blockIndex={blockIndex}
+          indices={indices}
         />
       ))}
     </div>

@@ -42,6 +42,129 @@ function load(path) {
 }
 const { worlds } = load(resolve(root, 'data/worlds'));
 const {
+  getMosaicPattern,
+  assignItemsToSlots,
+  groupMosaicItems,
+  getSlotRatio,
+  mosaicBreakpoints,
+} = load(resolve(root, 'lib/world-mosaic'));
+const { WorldsGrid } = load(resolve(root, 'components/worlds/worlds-grid'));
+let verifiedPatterns = 0;
+for (const breakpoint of mosaicBreakpoints) {
+  for (let count = 1; count <= 8; count++) {
+    for (let variant = 0; variant < 3; variant++) {
+      const pattern = getMosaicPattern(count, breakpoint, variant);
+      assert.equal(pattern.slots.length, count);
+      const cells = Array.from(
+        { length: pattern.columns * pattern.rows },
+        () => 0,
+      );
+      for (const slot of pattern.slots) {
+        assert.ok(
+          slot.col >= 1 &&
+            slot.row >= 1 &&
+            slot.colSpan > 0 &&
+            slot.rowSpan > 0,
+        );
+        assert.ok(slot.col + slot.colSpan <= pattern.columns + 1);
+        assert.ok(slot.row + slot.rowSpan <= pattern.rows + 1);
+        for (let row = slot.row - 1; row < slot.row - 1 + slot.rowSpan; row++) {
+          for (let col = slot.col - 1; col < slot.col - 1 + slot.colSpan; col++)
+            cells[row * pattern.columns + col]++;
+        }
+      }
+      assert.ok(
+        cells.every((coverage) => coverage === 1),
+        `${pattern.id}: every cell covered exactly once`,
+      );
+      for (const layouts of [
+        Array.from({ length: count }, (_, index) => worlds[index % 4]),
+        ...['portrait', 'landscape', 'square', 'wide'].map((layout) =>
+          Array.from({ length: count }, () => ({ layout })),
+        ),
+      ]) {
+        const assignment = assignItemsToSlots(layouts, pattern, breakpoint);
+        assert.equal(
+          new Set(assignment).size,
+          count,
+          `${pattern.id}: one item per slot`,
+        );
+        assert.equal(
+          JSON.stringify(assignment),
+          JSON.stringify(assignItemsToSlots(layouts, pattern, breakpoint)),
+          'deterministic',
+        );
+      }
+      verifiedPatterns++;
+    }
+  }
+}
+// A known exact match must beat a locally plausible but globally worse mapping.
+const exactPattern = {
+  id: 'assignment-check',
+  columns: 4,
+  rows: 2,
+  aspectRatio: 2,
+  slots: [
+    { col: 1, row: 1, colSpan: 1, rowSpan: 2 },
+    { col: 2, row: 1, colSpan: 2, rowSpan: 1 },
+    { col: 4, row: 1, colSpan: 1, rowSpan: 2 },
+    { col: 2, row: 2, colSpan: 2, rowSpan: 1 },
+  ],
+};
+const assignment = assignItemsToSlots(
+  [
+    { layout: 'wide' },
+    { layout: 'portrait' },
+    { layout: 'wide' },
+    { layout: 'portrait' },
+  ],
+  exactPattern,
+  'wide',
+);
+assert.ok(
+  getSlotRatio(exactPattern.slots[assignment[0]], exactPattern, 'wide') > 1.8,
+);
+assert.ok(
+  getSlotRatio(exactPattern.slots[assignment[1]], exactPattern, 'wide') < 0.8,
+);
+assert.throws(() => getMosaicPattern(0, 'wide'));
+assert.throws(() => getMosaicPattern(9, 'wide'));
+assert.equal(groupMosaicItems([]).length, 0);
+for (const count of [
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 13, 15, 23, 25, 31, 50, 100, 103,
+]) {
+  const fixtures = Array.from({ length: count }, (_, index) => ({
+    ...worlds[index % worlds.length],
+    id: `mosaic-${index}`,
+    slug: `mosaic-${index}`,
+  }));
+  const blocks = groupMosaicItems(fixtures);
+  assert.equal(blocks.length, Math.ceil(count / 8));
+  assert.equal(blocks.at(-1).length, count % 8 || 8);
+  const html = renderToStaticMarkup(
+    React.createElement(WorldsGrid, {
+      worlds: fixtures,
+      indices: new Map(fixtures.map((world, index) => [world.id, index])),
+      focusFrom: null,
+    }),
+  );
+  assert.equal(
+    (html.match(/class="mosaic-block"/g) ?? []).length,
+    Math.ceil(count / 8),
+  );
+  assert.equal((html.match(/class="mosaic-tile"/g) ?? []).length, count);
+  assert.equal((html.match(/data-world="/g) ?? []).length, count);
+  assert.deepEqual(
+    [...html.matchAll(/data-world="([^"]+)"/g)].map((match) => match[1]),
+    fixtures.map((world) => world.slug),
+    'DOM/tab order follows filtered source, irrespective of visual slot assignment',
+  );
+}
+console.log(
+  `Mosaic passed: ${verifiedPatterns} responsive pattern/variant checks, full cell coverage, unique/deterministic assignments, and 1–103 item SSR.`,
+);
+const {
   defaultWorldQuery: defaults,
   selectWorlds,
   getWorldCategories,
@@ -106,14 +229,12 @@ for (const count of [4, 12, 30, 100]) {
   const shown = Math.min(24, count);
   assert.equal((html.match(/data-world="/g) ?? []).length, shown);
   assert.equal(html.includes('LOAD MORE'), count > 24);
-  assert.equal(
-    (html.match(/loading="lazy"/g) ?? []).length,
-    Math.max(0, shown - 4),
-  );
-  assert.doesNotMatch(html, /<iframe|<canvas/);
-  assert.ok(
-    (html.match(/<link[^>]+rel="preload"/g) ?? []).length <= Math.min(4, shown),
-  );
+  assert.equal((html.match(/loading="lazy"/g) ?? []).length, shown);
+  assert.doesNotMatch(html, /<iframe|<canvas|world-card-copy/);
+  assert.equal((html.match(/class="world-card-overlay"/g) ?? []).length, shown);
+  assert.equal((html.match(/href="\/worlds\/fixture-/g) ?? []).length, shown);
+  assert.doesNotMatch(html, /<a[^>]+href="https:\/\/sketchfab/);
+  assert.ok((html.match(/<link[^>]+rel="preload"/g) ?? []).length === 0);
   assert.ok(
     (
       render(FeaturedWorlds, { worlds: fixtures }).match(/data-world-card/g) ??
