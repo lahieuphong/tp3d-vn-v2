@@ -3,7 +3,7 @@ import { WorldCardMedia } from './world-card-media';
 
 export function WorldCard({
   world,
-  index,
+  index: _index,
   featured = false,
   priority = false,
   sizes,
@@ -17,7 +17,6 @@ export function WorldCard({
   const content = (
     <WorldCardMedia
       world={world}
-      index={index}
       featured={featured}
       priority={priority}
       sizes={sizes}

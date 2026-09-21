@@ -106,7 +106,7 @@ const widePartial = [
   strips('wide-1', [12], [[12]], 2.4),
   strips('wide-2', [5, 7], [[12], [12]], 2.8),
   strips('wide-3', [5, 7], [[12], [5, 7]], 2),
-  strips('wide-4', [3, 5, 4], [[12], [5, 7], [12]], 2.8),
+  strips('wide-4', [1, 1], [[6, 6], [6, 6]], 2.28),
   strips('wide-5', [4, 5, 3], [[12], [5, 7], [6, 6]], 2.2),
   strips(
     'wide-6',
@@ -188,7 +188,6 @@ const touchHeights = [
     [4, 2, 3, 3],
   ],
 ];
-const mobileRatios = [1.3, 1.65, 1.5, 0.9, 0.72, 0.65, 0.54, 0.5];
 const tabletRatios = [1.8, 2.2, 1.75, 1.2, 0.95, 0.85, 0.72, 0.68];
 const patterns: Record<MosaicBreakpoint, MosaicPattern[][]> = {
   wide: [...widePartial.map((item) => [item]), wideFull],
@@ -199,6 +198,17 @@ const patterns: Record<MosaicBreakpoint, MosaicPattern[][]> = {
 };
 for (let count = 1; count <= MOSAIC_BLOCK_SIZE; count++) {
   for (const breakpoint of ['mobile', 'tablet'] as const) {
+    if (breakpoint === 'mobile') {
+      patterns.mobile.push([
+        strips(
+          `mobile-${count}`,
+          [1],
+          [Array.from({ length: count }, () => 1)],
+          1 / count,
+        ),
+      ]);
+      continue;
+    }
     patterns[breakpoint].push(
       Array.from({ length: count === 8 ? 3 : 1 }, (_, variant) => {
         const heights = touchHeights[count - 1].map((strip) => {
@@ -209,7 +219,7 @@ for (let count = 1; count <= MOSAIC_BLOCK_SIZE; count++) {
           `${breakpoint}-${count}-${variant}`,
           count === 1 ? [2] : [1, 1],
           heights,
-          (breakpoint === 'mobile' ? mobileRatios : tabletRatios)[count - 1],
+          tabletRatios[count - 1],
         );
       }),
     );

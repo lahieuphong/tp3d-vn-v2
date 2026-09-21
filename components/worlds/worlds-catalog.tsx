@@ -104,8 +104,7 @@ export function WorldsCatalog({
       aria-labelledby="worlds-catalog-title"
     >
       <WorldsToolbar
-        query={query}
-        shown={visible.length}
+        category={query.category}
         total={matches.length}
         categories={categories}
         onChange={changeQuery}
@@ -126,7 +125,7 @@ export function WorldsCatalog({
               className="text-link"
               onClick={() => {
                 changeQuery(defaultWorldQuery);
-                document.getElementById('worlds-search')?.focus();
+                document.getElementById('world-index')?.focus();
               }}
             >
               Clear filters <span aria-hidden="true">→</span>

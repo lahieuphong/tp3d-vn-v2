@@ -24,7 +24,7 @@ export default async function WorldsPage({
   }
   return (
     <main id="main" className="worlds-page">
-      <WorldsHero count={worlds.length} edition={worldsEdition} />
+      <WorldsHero count={worlds.length} edition={worldsEdition} world={worlds[0]} />
       <WorldsCatalog
         worlds={worlds}
         initialQuery={readWorldQuery(query, worlds)}

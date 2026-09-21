@@ -5,7 +5,15 @@ import type { World } from '@/data/types';
 import { EditorialImage } from '@/components/shared/editorial-image';
 import { SketchfabViewer } from './sketchfab-viewer';
 
-export function WorldDetailStage({ world }: { world: World }) {
+export function WorldDetailStage({
+  world,
+  index,
+  total,
+}: {
+  world: World;
+  index: number;
+  total: number;
+}) {
   const [viewerOpen, setViewerOpen] = useState(false);
   const stageRef = useRef<HTMLElement>(null);
 
@@ -61,15 +69,32 @@ export function WorldDetailStage({ world }: { world: World }) {
             className="world-detail-poster"
           />
           <span className="world-detail-stage-frame" aria-hidden="true" />
+          <p className="world-detail-stage-intro eyebrow" aria-hidden="true">
+            EXPLORE IN THREE<br />DIMENSIONS
+          </p>
+          <p className="world-detail-stage-count eyebrow" aria-hidden="true">
+            {String(index).padStart(2, '0')} / {String(total).padStart(2, '0')}
+          </p>
+          <p className="world-detail-stage-notes eyebrow" aria-hidden="true">
+            MATERIALS<br />LIGHT<br />RITUALS<br />A BRIGHTER EVERYDAY
+          </p>
           {world.available && (
             <button
               className="world-detail-explore eyebrow"
               type="button"
               onClick={() => setViewerOpen(true)}
             >
-              EXPLORE IN 3D <span aria-hidden="true">→</span>
+              ENTER 3D WORLD <span aria-hidden="true">→</span>
             </button>
           )}
+          <button
+            type="button"
+            className="world-detail-fullscreen"
+            aria-label={`View ${world.title} preview fullscreen`}
+            onClick={() => stageRef.current?.requestFullscreen?.()}
+          >
+            ⛶
+          </button>
         </>
       )}
     </section>

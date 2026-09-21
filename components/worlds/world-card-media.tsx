@@ -3,13 +3,11 @@ import { EditorialImage } from '@/components/shared/editorial-image';
 
 export function WorldCardMedia({
   world,
-  index,
   featured,
   priority,
   sizes,
 }: {
   world: World;
-  index: number;
   featured?: boolean;
   priority?: boolean;
   sizes?: string;
@@ -28,13 +26,13 @@ export function WorldCardMedia({
         }
       />
       <div className="world-card-overlay">
-        <p className="world-card-category">
-          {String(index + 1).padStart(2, '0')} / {world.category}
-        </p>
         <div className="world-card-information">
+          <p className="world-card-category">
+            {world.category}
+          </p>
           <h3>{world.title}</h3>
           <p className="world-card-meta">
-            {world.type} <span aria-hidden="true">·</span> {world.year}
+            {world.shortDescription ?? world.description}
           </p>
         </div>
         <span className="world-card-enter" aria-hidden="true">
