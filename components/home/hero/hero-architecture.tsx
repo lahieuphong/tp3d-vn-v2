@@ -7,7 +7,7 @@ export function HeroArchitecture() {
         data-hero-layer="architecture-a"
         aria-hidden="true"
       >
-        <div data-hero-parallax>
+        <div data-hero-surface>
           <img
             src="/images/spatial-architecture-a.webp"
             srcSet="/images/spatial-architecture-a-720.webp 720w, /images/spatial-architecture-a-1280.webp 1280w, /images/spatial-architecture-a.webp 1586w"
@@ -25,7 +25,7 @@ export function HeroArchitecture() {
         data-hero-layer="architecture-b"
         aria-hidden="true"
       >
-        <div data-hero-parallax>
+        <div data-hero-surface>
           <img
             data-hero-deferred
             data-src="/images/spatial-architecture-b.webp"

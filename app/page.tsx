@@ -1,26 +1,18 @@
 import { HomeHero } from '@/components/sections/home-hero';
-import {
-  Introduction,
-  ExploreSpaces,
-  FeaturedProjects,
-  CollectionsPreview,
-  JournalPreview,
-} from '@/components/sections/home-sections';
-import { ExperienceBanner } from '@/components/sections/experience-banner';
-import { MaterialSelection } from '@/components/sections/material-selection';
-import { ObjectSelection } from '@/components/sections/object-selection';
+import { HomeChapters } from '@/components/home/experience/home-chapters';
+import { WorldsChapter } from '@/components/home/experience/worlds-chapter';
+import { SpacesChapter } from '@/components/home/experience/spaces-chapter';
+import { MaterialsChapter } from '@/components/home/experience/materials-chapter';
+
 export default function Home() {
   return (
-    <main id="main">
+    <main id="main" className="home-experience">
       <HomeHero />
-      <Introduction />
-      <ExploreSpaces />
-      <FeaturedProjects />
-      <ExperienceBanner />
-      <CollectionsPreview />
-      <MaterialSelection />
-      <ObjectSelection />
-      <JournalPreview />
+      <HomeChapters>
+        <WorldsChapter />
+        <SpacesChapter />
+        <MaterialsChapter />
+      </HomeChapters>
     </main>
   );
 }

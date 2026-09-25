@@ -71,17 +71,22 @@
   --sh-serif: 'Cormorant Spatial', Cormorant, Georgia, serif;
   --sh-sans: 'Manrope Spatial', Manrope, Arial, sans-serif;
   --sh-ink: #3c352a;
-  --sh-monogram-story-y: 15svh;
-  --sh-monogram-story-scale: 0.82;
+  --sh-monogram-story-y: 13svh;
+  --sh-monogram-story-scale: 0.92;
   position: relative;
-  isolation: isolate;
-  height: 100svh;
-  min-height: 660px;
-  overflow: hidden;
+  --sh-stage-height: max(660px, 100svh);
+  height: calc(var(--sh-stage-height) + 110svh);
   background: #e9ddc8;
   color: var(--sh-ink);
-  perspective: 1400px;
   font-family: var(--sh-serif);
+}
+.sh-stage {
+  position: sticky;
+  top: 0;
+  height: var(--sh-stage-height);
+  overflow: clip;
+  isolation: isolate;
+  perspective: 1400px;
 }
 .spatial-hero h1,
 .spatial-hero h2,
@@ -101,12 +106,9 @@
   outline-color: #514332;
   outline-offset: 5px;
 }
-.spatial-hero [data-hero-parallax] {
+.spatial-hero [data-hero-surface] {
   width: 100%;
   height: 100%;
-  transform: translate3d(var(--sh-x, 0px), var(--sh-y, 0px), 0)
-    rotateX(var(--sh-rx, 0deg)) rotateY(var(--sh-ry, 0deg));
-  transition: transform 450ms cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 .sh-architecture {
   position: absolute;
@@ -137,7 +139,8 @@
     #eee4d1e6
   );
 }
-.spatial-hero[data-story-image='fallback'] [data-hero-layer='architecture-b'] {
+.spatial-hero:not([data-story-image='ready'])
+  [data-hero-layer='architecture-b'] {
   visibility: hidden;
 }
 .sh-monogram {
@@ -179,7 +182,7 @@
   z-index: 5;
 }
 .sh-veil {
-  z-index: 8;
+  z-index: 1;
   opacity: 0;
 }
 .sh-discovery,
@@ -193,6 +196,9 @@
 .sh-story,
 .sh-center-copy {
   opacity: 0;
+}
+.spatial-hero[data-scene='story'] .sh-story {
+  pointer-events: auto;
 }
 /* Invisible scenes should not retain full-frame raster surfaces during the
    long resting phases. All layers are available again before the veil moves. */
@@ -414,7 +420,7 @@
 }
 .sh-story-axis-bottom {
   position: absolute;
-  top: 66%;
+  top: 70%;
   left: 45.5%;
   width: 9%;
 }
@@ -451,66 +457,46 @@
   letter-spacing: 0.3em;
   white-space: nowrap;
 }
-.sh-controls {
-  display: flex;
-  gap: 20px;
-  align-items: center;
-}
-.sh-controls button,
-.sh-static-story {
-  min-height: 44px;
-  padding: 8px 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: 500 7px/1.5 var(--sh-sans);
-  letter-spacing: 0.17em;
+.sh-scroll-indicator {
+  font: 500 8px/1.5 var(--sh-sans);
+  letter-spacing: 0.2em;
   white-space: nowrap;
 }
-.sh-colophon-motto {
-  font: 500 clamp(6px, 0.5vw, 8px)/1.5 var(--sh-sans);
-  letter-spacing: 0.36em;
-  white-space: nowrap;
-}
-.sh-control-discover,
-.sh-static-story {
-  display: none;
-}
-.spatial-hero[data-scene='story'] .sh-control-story {
-  display: none;
-}
-.spatial-hero[data-scene='story'] .sh-control-discover {
-  display: inline;
-}
-.site-header.spatial-home.over-hero {
+.site-header.spatial-home:is(.over-hero, [data-opening='active']) {
   color: #3c352a;
   background: transparent;
   border: 0;
   height: clamp(78px, 9.2svh, 108px);
   padding-inline: 7.4%;
 }
-.site-header.spatial-home.over-hero .wordmark {
+.site-header.spatial-home:is(.over-hero, [data-opening='active']) .wordmark {
   font-size: clamp(37px, 3.25vw, 55px);
 }
-.site-header.spatial-home.over-hero .wordmark span {
+.site-header.spatial-home:is(.over-hero, [data-opening='active'])
+  .wordmark
+  span {
   font-size: clamp(6px, 0.5vw, 8px);
   letter-spacing: 0.27em;
 }
-.site-header.spatial-home.over-hero .desktop-nav {
+.site-header.spatial-home:is(.over-hero, [data-opening='active']) .desktop-nav {
   margin-left: auto;
   gap: clamp(24px, 2.3vw, 44px);
 }
-.site-header.spatial-home.over-hero .desktop-nav a {
+.site-header.spatial-home:is(.over-hero, [data-opening='active'])
+  .desktop-nav
+  a {
   font-family: Cormorant, Georgia, serif;
   font-size: clamp(14px, 1.08vw, 19px);
 }
-.site-header.spatial-home.over-hero .header-actions {
+.site-header.spatial-home:is(.over-hero, [data-opening='active'])
+  .header-actions {
   gap: 14px;
 }
-.site-header.spatial-home.over-hero .header-separator {
+.site-header.spatial-home:is(.over-hero, [data-opening='active'])
+  .header-separator {
   display: none;
 }
-.site-header.spatial-home.over-hero .edition {
+.site-header.spatial-home:is(.over-hero, [data-opening='active']) .edition {
   font-size: 8px;
   letter-spacing: 0.22em;
 }
@@ -550,9 +536,9 @@
 @media (min-width: 640px) and (max-width: 1023px) {
   .spatial-hero {
     --sh-monogram-story-y: 8svh;
-    --sh-monogram-story-scale: 0.8;
+    --sh-monogram-story-scale: 0.92;
   }
-  .site-header.spatial-home.over-hero {
+  .site-header.spatial-home:is(.over-hero, [data-opening='active']) {
     padding-inline: 5.5%;
   }
   .sh-welcome-en {
@@ -646,29 +632,29 @@
     left: 5.5%;
     right: 5.5%;
   }
-  .sh-colophon-motto {
-    display: none;
-  }
 }
 @media (max-width: 639px) {
   .spatial-hero {
-    min-height: 760px;
-    height: 108svh;
-    max-height: 1050px;
-    --sh-monogram-story-y: 18svh;
-    --sh-monogram-story-scale: 0.3;
+    --sh-stage-height: max(760px, 100svh);
+    height: calc(var(--sh-stage-height) + 90svh);
+    --sh-monogram-story-x: -21vw;
+    --sh-monogram-story-y: 19svh;
+    --sh-monogram-story-scale: 0.9;
   }
-  .site-header.spatial-home.over-hero {
+  .site-header.spatial-home:is(.over-hero, [data-opening='active']) {
     height: 76px;
     padding-inline: 6.5%;
   }
-  .site-header.spatial-home.over-hero .wordmark {
+  .site-header.spatial-home:is(.over-hero, [data-opening='active']) .wordmark {
     font-size: 35px;
   }
-  .site-header.spatial-home.over-hero .header-actions {
+  .site-header.spatial-home:is(.over-hero, [data-opening='active'])
+    .header-actions {
     gap: 1px;
   }
-  .site-header.spatial-home.over-hero .wordmark span {
+  .site-header.spatial-home:is(.over-hero, [data-opening='active'])
+    .wordmark
+    span {
     font-size: 6px;
     margin-top: 6px;
   }
@@ -724,10 +710,10 @@
     display: none;
   }
   .sh-monogram {
-    left: 47%;
-    top: 17%;
-    width: 54%;
-    height: 32%;
+    left: 57%;
+    top: 23%;
+    width: 38%;
+    height: 18%;
     opacity: 0.75;
   }
   .sh-ribbon {
@@ -785,7 +771,7 @@
     max-width: 310px;
   }
   .sh-story-vi {
-    top: 54%;
+    top: 60%;
   }
   .sh-story-vi h2 {
     font-size: clamp(27px, 7.2vw, 34px);
@@ -830,7 +816,7 @@
   .sh-read-story {
     position: absolute;
     left: 8%;
-    bottom: 8%;
+    bottom: 5%;
     display: inline-flex;
     align-items: center;
     gap: 23px;
@@ -850,15 +836,10 @@
   .sh-colophon-line {
     display: none;
   }
-  .sh-controls {
+  .sh-scroll-indicator {
     margin-left: auto;
-    gap: 20px;
+    font-size: 8px;
   }
-  .sh-controls button,
-  .sh-static-story {
-    font-size: 9px;
-  }
-  .sh-colophon-motto,
   .sh-colophon-edition {
     display: none;
   }
@@ -875,7 +856,7 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .spatial-hero [data-hero-parallax],
+  .spatial-hero [data-hero-surface],
   .sh-portal img,
   .sh-portal h2,
   .sh-portal-caption > span {
@@ -885,14 +866,6 @@
   .sh-portal img {
     transform: translate(var(--portal-x), var(--portal-y));
     scale: 1;
-  }
-  .sh-scene-control,
-  .sh-motion-control {
-    display: none;
-  }
-  .sh-static-story {
-    display: inline-flex;
-    align-items: center;
   }
 }
 
@@ -941,5 +914,217 @@
 @media (max-width: 639px) {
   .sh-ribbon-cloth {
     opacity: 0.65;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) and (orientation: portrait) {
+  .spatial-hero {
+    --sh-monogram-story-y: 24svh;
+    --sh-monogram-story-scale: 0.8;
+  }
+  .sh-monogram {
+    height: 30%;
+  }
+  .sh-story-column {
+    left: 13%;
+    top: 12%;
+    width: 74%;
+  }
+  .sh-story-vi {
+    top: 60%;
+  }
+  .sh-story h2 {
+    font-size: clamp(42px, 5.5vw, 48px);
+    margin-top: 14px;
+  }
+  .sh-story-body {
+    font-size: 20px;
+    max-width: 560px;
+  }
+  .sh-story-full,
+  .sh-story-signoff,
+  .sh-story-axis-top {
+    display: none;
+  }
+  .sh-story-short {
+    display: block;
+  }
+  .sh-story-axis-bottom {
+    left: 13%;
+    top: 46%;
+    width: 20%;
+  }
+  .sh-story-axis-bottom i {
+    display: none;
+  }
+  .sh-read-story {
+    display: inline-flex;
+    position: absolute;
+    left: 13%;
+    bottom: 6%;
+    min-height: 44px;
+    align-items: center;
+    font: 500 11px/1.5 var(--sh-sans);
+  }
+  .sh-architecture[data-hero-layer='architecture-a'] img {
+    object-position: 45% center;
+  }
+  .sh-architecture[data-hero-layer='architecture-b'] img {
+    object-position: 48% center;
+  }
+}
+/* Reduced motion keeps both existing content nodes in normal document flow.
+   No second monogram/header/ribbon and no sticky or hidden story content. */
+@media (prefers-reduced-motion: reduce) {
+  .spatial-hero {
+    height: auto;
+  }
+  .sh-stage {
+    position: relative;
+    height: auto;
+    overflow: clip;
+    perspective: none;
+    padding-top: var(--sh-stage-height);
+  }
+  .sh-discovery {
+    height: var(--sh-stage-height);
+  }
+  .sh-architecture[data-hero-layer='architecture-a'],
+  .sh-ribbon,
+  .sh-leaves {
+    height: var(--sh-stage-height);
+  }
+  .sh-monogram {
+    top: calc(var(--sh-stage-height) * 0.067);
+    height: calc(var(--sh-stage-height) * 0.49);
+  }
+  .sh-welcome-en {
+    top: calc(var(--sh-stage-height) * 0.19);
+  }
+  .sh-welcome-vi {
+    top: calc(var(--sh-stage-height) * 0.27);
+  }
+  .sh-portals {
+    top: calc(var(--sh-stage-height) * 0.58);
+  }
+  .spatial-hero[data-scene] .sh-story {
+    position: relative;
+    inset: auto;
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+    padding: 96px 12%;
+    background: #eee4d2;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9%;
+  }
+  .sh-story-column {
+    position: static;
+    width: auto;
+  }
+  .sh-story-full,
+  .sh-story-signoff {
+    display: block;
+  }
+  .sh-story-short {
+    display: none;
+  }
+  .sh-story h2 {
+    font-size: clamp(36px, 3.4vw, 65px);
+  }
+  .sh-story-body {
+    font-size: clamp(18px, 1.3vw, 24px);
+  }
+  .sh-center-copy,
+  .sh-veil,
+  .sh-scroll-indicator,
+  .sh-colophon,
+  [data-hero-layer='architecture-b'] {
+    display: none;
+  }
+  .sh-read-story {
+    display: inline-flex;
+    position: static;
+    align-items: center;
+    min-height: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) and (max-width: 1023px) {
+  .sh-portals {
+    top: calc(var(--sh-stage-height) * 0.5);
+  }
+  .sh-monogram {
+    top: calc(var(--sh-stage-height) * 0.08);
+    height: calc(var(--sh-stage-height) * 0.37);
+  }
+  .sh-welcome-en {
+    top: calc(var(--sh-stage-height) * 0.15);
+  }
+  .sh-welcome-vi {
+    top: calc(var(--sh-stage-height) * 0.3);
+  }
+  .spatial-hero[data-scene] .sh-story {
+    grid-template-columns: 1fr;
+    gap: 72px;
+    padding: 80px 8%;
+  }
+}
+@media (prefers-reduced-motion: reduce) and (max-width: 639px) {
+  .sh-monogram {
+    top: calc(var(--sh-stage-height) * 0.23);
+    height: calc(var(--sh-stage-height) * 0.18);
+  }
+  .sh-welcome-en {
+    top: calc(var(--sh-stage-height) * 0.12);
+  }
+  .sh-welcome-vi {
+    top: calc(var(--sh-stage-height) * 0.35);
+  }
+  .sh-portals {
+    top: calc(var(--sh-stage-height) * 0.51);
+  }
+}
+
+/* After the original A→B range has completed, identity recedes into the next
+   architectural chapter. These transforms do not alter the opening scrub. */
+.sh-departure {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(to bottom, #4b3b270d, #4b3b2766 55%, #473b2d);
+  opacity: var(--sh-exit, 0);
+}
+.sh-monogram > [data-hero-surface] {
+  transform: translate3d(0, calc(var(--sh-exit, 0) * 45px), 0)
+    scale(calc(1 - var(--sh-exit, 0) * 0.08));
+  opacity: calc(1 - var(--sh-exit, 0));
+}
+.sh-ribbon > [data-hero-surface] {
+  transform: translate3d(
+      calc(var(--sh-exit, 0) * 5vw),
+      calc(var(--sh-exit, 0) * 15svh),
+      0
+    )
+    scale(calc(1 + var(--sh-exit, 0) * 0.12));
+}
+.sh-story-column {
+  transform: translateY(calc(var(--sh-exit, 0) * -12px));
+  opacity: calc(1 - var(--sh-exit, 0) * 0.3);
+}
+.sh-colophon {
+  opacity: calc(1 - var(--sh-exit, 0));
+}
+@media (prefers-reduced-motion: reduce) {
+  .sh-departure {
+    display: none;
+  }
+  .sh-monogram > [data-hero-surface],
+  .sh-ribbon > [data-hero-surface],
+  .sh-story-column {
+    transform: none;
+    opacity: 1;
   }
 }

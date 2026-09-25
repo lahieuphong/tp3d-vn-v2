@@ -1,95 +1,62 @@
-# Spatial opening — implementation and QA record
+# Homepage opening — native scroll implementation and QA
 
-Scope: replace the first Homepage opening only, following the supplied `image 9.jpg` and `image 11.jpg`. The existing sections after the opening, content routes and detail viewers remain outside this change. This record distinguishes checks actually performed from checks still required; a checklist entry is not evidence of a pass.
+This record applies to the scroll interaction replacing the previous autoplay opening. Earlier autoplay screenshots, 20-second-loop memory runs and frame-cadence results **do not validate this version**. Existing architecture imagery, fonts, live bilingual copy and portal routes are reused. This document records the opening implementation before the three new chapters. The original Scene 1→2 progress range remains intact. The current Home continues into Worlds → Spaces → Materials; see [HOME-EXPERIENCE-QA.md](HOME-EXPERIENCE-QA.md) for current scope and final build/crawl results. Other route layouts remain unchanged.
 
-Asset source paths, measured image dimensions/bytes and generated-versus-authored provenance are tracked in [SPATIAL-HERO-ASSETS.md](./SPATIAL-HERO-ASSETS.md). The original scene PNGs are separate from the runtime responsive WebP derivatives.
+## Implementation
 
-## Source audit
+- `spatial-hero.tsx`: one `section` with one `.sh-stage` sticky viewport; removed scene switch and Play/Pause controls. A noninteractive `SCROLL TO DISCOVER ↓` label fades during the first 15% of scroll.
+- `hero-timeline.ts`: native passive scroll input, cached geometry and one event-batched RAF. No GSAP dependency, WAAPI autoplay, timer, interval, smoothing loop, wheel interception, pointer parallax or React state per frame. Identical scroll positions produce identical frames in either direction.
+- One `HeroMonogram`, one `BreezeRibbon` system and the existing shared `SiteHeader`. The same monogram translates, scales and rotates at most 1°; it never crossfades with a duplicate.
+- Two responsive architecture plates dissolve through the moving translucent fold. The TP remains above the veil at the midpoint. The ribbon moves in front of the TP and behind it after 64%; unique Discovery and Story content have separate reveals.
+- Desktop/tablet wrapper: `max(660px, 100svh) + 110svh` (210svh at the specified desktop sizes). Mobile below 640px: `max(760px, 100svh) + 90svh` (190svh at the specified mobile sizes). The stage is sticky at `top: 0`; no JS scroll lock or pin spacer.
+- One transparent header remains above both compositions; its normal solid styling resumes as the opening exits. Header React state only changes when its threshold changes.
+- Every mount owns its ResizeObserver, event/media listeners, pending RAFs and secondary-image load/decode callbacks. Cleanup is scoped to this opening. Continued scrolling below the released opening schedules no animation work once its final state and header state are settled.
 
-- The existing header already exposes `/spaces`, `/projects`, `/collections`, `/worlds`, `/journal` and `/about`, with working search and mobile menu components. Its Homepage-only transparent state needs dark ink over the new pale architecture; shared scrolled and other-route styling should remain intact.
-- The four opening portals use existing routes: `/worlds`, `/spaces`, `/products`, `/projects`. `/materials` remains available in navigation and the product/content relationships.
-- Existing fonts are Cormorant Garamond (locally named `Cormorant`) and Manrope. Existing source assets contain no TP monogram; `icon.svg` and `favicon.svg` are a small `t.` mark.
-- The previous `components/hero` experience is a different, five-part editorial sequence. Its original `check-hero-motion.mjs` assertions about 17 tracks and material apertures do not describe this replacement and must not be reported as validation of the new opening.
-- `/about` is an existing normal navigation destination for the studio perspective. The new story must remain accessible without waiting for the automatic scene transition.
+| Progress  | Composition                                                          |
+| --------- | -------------------------------------------------------------------- |
+| 0–0.25    | Discovery, gentle shared depth movement; portals remain fully opaque |
+| 0.25–0.50 | Portals move down 72–96px and fade; headings move outward            |
+| 0.30–0.70 | Ribbon/fold traverses the architecture dissolve                      |
+| 0.50      | TP remains visible; A copy gone, B copy still absent                 |
+| 0.52–0.82 | Story copy rises 18px into view                                      |
+| 0.85–1.00 | Stable Story reading zone; no movement while idle                    |
+| Beyond 1  | Sticky release; TP departs over 40vh into the new Worlds chapter     |
 
-## Typography verification and assets
+## Responsive and accessibility
 
-The existing WOFF2 `cmap` tables were inspected using Node's built-in Brotli decompression. Both original Latin subsets lacked Vietnamese characters used by the brief, including `ộ`, `ớ`, `ố`, `Ộ`, `Ấ`, `Ế`, `Ạ`, `Ố`, `ở` and `ề`. Neither existing font binary is italic.
+Desktop uses the existing bilingual split. Portrait tablet uses stacked condensed EN/VI text with a shared TP separator and a story link. Mobile uses 2×2 portals, short story copy, no leaf motion or pointer effects, and a 10% TP scale change. Intentional architecture crops remain breakpoint-specific. `svh` avoids address-bar-driven stage resizing during normal mobile scrolling.
 
-Four same-family subsets were fetched from the official Google Fonts CSS API on 2026-09-23. The current official Latin normal binaries were compared to the existing files: both SHA-256 hashes match exactly, so there is no font-family/version substitution.
+Reduced motion removes sticky and scrubbing. The same Discovery content appears first, followed by the same Story nodes with full bilingual paragraphs in normal flow. Both are exposed to accessibility APIs; no duplicated TP/header/ribbon. The unused Scene B image is not requested in this mode. Changing the preference back initializes scroll behavior at the actual current position.
 
-| Added local file                                 | Official source                                                                                                                                     |  Bytes |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | -----: |
-| `public/fonts/cormorant-vietnamese.woff2`        | [Cormorant Garamond v21 Vietnamese normal](https://fonts.gstatic.com/s/cormorantgaramond/v21/co3bmX5slCNuHLi8bLeY9MK7whWMhyjYpntKky2F7i6C.woff2)    | 11,264 |
-| `public/fonts/cormorant-italic.woff2`            | [Cormorant Garamond v21 Latin italic](https://fonts.gstatic.com/s/cormorantgaramond/v21/co3ZmX5slCNuHLi8bLeY9MK7whWMhyjYrEtImSqn7B6D.woff2)         | 39,304 |
-| `public/fonts/cormorant-italic-vietnamese.woff2` | [Cormorant Garamond v21 Vietnamese italic](https://fonts.gstatic.com/s/cormorantgaramond/v21/co3ZmX5slCNuHLi8bLeY9MK7whWMhyjYrEtHmSqn7B6DxjY.woff2) | 11,556 |
-| `public/fonts/manrope-vietnamese.woff2`          | [Manrope v20 Vietnamese normal](https://fonts.gstatic.com/s/manrope/v20/xn7gYHE41ni1AdIRggixSvfedN62Zw.woff2)                                       |  8,492 |
+There is one opening H1, live text with Vietnamese language attributes, decorative SVGs hidden from assistive technology, and real portal links to `/worlds`, `/spaces`, `/products`, `/projects`. Focused links are not forcibly made inert; hidden content otherwise leaves the tab sequence.
 
-The total new font payload is 70,616 bytes before HTTP compression. Unicode ranges keep subset requests demand-driven. Hero-only family aliases allow real italic in this opening without changing the synthetic italic appearance elsewhere. Existing normal Latin files are reused. Existing OFL licence texts remain under `assets/licenses`; official project information is available in the [Google Fonts Cormorant Garamond source](https://github.com/google/fonts/tree/main/ofl/cormorantgaramond) and [Google Fonts Manrope source](https://github.com/google/fonts/tree/main/ofl/manrope).
+## Earlier opening checks (current five-chapter results are in HOME-EXPERIENCE-QA.md)
 
-The combined Latin + Vietnamese `cmap` coverage was checked against the complete proposed Vietnamese manifesto and uppercase footer labels: zero missing characters for Cormorant normal, Cormorant italic and Manrope normal. Both new Cormorant italic files have the actual italic flag in their `head` table. This is a binary coverage check; visual line-height and shaping still require browser inspection.
+- `yarn check:hero`: PASS. Pure forward/reverse frame equality, 20 A↔B controller cycles, stable reading zone, architecture fallback, no layout measurement per normal scroll frame, batched input, idle/hidden cancellation, reduced-motion accessibility, preference/restore synchronization and 30 complete mount/unmount cleanups. These are deterministic controller tests, **not Chrome RAM tests**.
+- `yarn tsc --noEmit`: PASS.
+- `yarn lint`: PASS.
+- `yarn check:content`, `yarn check:assets`, `yarn check:worlds`: PASS.
+- `yarn build`: PASS (Vinext production build). Its existing route-classification notice is informational.
+- Production localhost route/image crawl: PASS — 44 pages, 69 image paths and 8 expected 404s. Asserts one TP, one ribbon, one header, no obsolete controls and all four portal destinations; crawls content links and checks expected 404s.
+- Source inspection: no Three.js, WebGL, canvas, Sketchfab iframe or WebGL renderer in opening; no new package dependency, no permanent `will-change`, no autoplay timer. This establishes the implementation path, not a browser-measured context count.
 
-## Reference composition notes
+## Browser QA blocked in this session
 
-The supplied references are approximately 4:3, while the required desktop screenshots include 16:10 and 16:9. Preserve their relative visual hierarchy while making a deliberate height-fit adjustment; blindly using cover on the flattened references would crop important content and is not an implementation.
+Computer Use returned `Sky Computer Use native pipe startup failed` when connecting by app name, after a session reset, and by bundle ID. Its final inventory returned `apps: []`, `browsers: []` with the same native startup error. Therefore the new scroll version has **not** been verified with live browser screenshots, console/hydration observation, real scroll/mount stress, DevTools Performance traces or GPU/layer inspection. No RAM, VRAM, FPS or runtime WebGL-context measurements are claimed. No measurements from the obsolete autoplay interaction are carried forward.
 
-- Scene A: header near the top edge; monogram centred at roughly 51% horizontal and 28% vertical, spanning about 22% of width and 42% of height. English title begins near 19% horizontal / 19% vertical; Vietnamese copy near 66% / 27%. Portals occupy approximately the lower third with aligned titles and small captions.
-- Scene B: story columns begin near 20% and 64% horizontal, each about 20–22% wide. Main monogram stays on the central axis. Small editorial copy sits above and below it. The architecture is a frame around readable live text, not a photograph behind unrelated UI.
-- Mobile: use live text sized for reading, a separate central monogram/ribbon composition and a 2×2 portal layout. Condense the story with a normal story link rather than compressing two full paragraphs into thin columns. Keep the opening near 100–120svh and allow normal scrolling immediately.
+The following acceptance work remains when browser access is restored:
 
-Source-level refinements now present in the implementation: the monogram SVG is widened with `scaleX(1.16)`; the story's upper centre caption has a header-aware top limit; mobile Story keeps explicit three-line headings instead of hiding a `<br>`; the mobile monogram shrinks into the separator below the English introduction; portal captions use 8px and opening controls use 9px on mobile. A generated transparent textile replaces the initial fine-line SVG ribbon, with its full asset provenance recorded separately. These are implementation facts, not a completed screenshot-comparison or responsive acceptance result.
+1. At each viewport, inspect A, B and progress 0.25/0.50/0.75; check overflow, text/monogram collisions, crop, header stability and sticky release. Matrix: 375×812, 390×844, 430×932, 768×1024, 820×1180, 1024×768, 1280×800, 1366×768, 1440×900, 1728×1117, 1920×1080, 2560×1440.
+2. Capture actual screenshots at progress 0/0.5/1 at 1440×900, 1920×1080 and 390×844; compare endpoints with the two supplied references and refine if necessary. Previous autoplay captures are not final screenshots for this change.
+3. Exercise portals, menu, search, keyboard focus and reduced motion; reload at a restored intermediate scroll position. Verify no hydration warnings or broken images.
+4. Chrome: 20 forward/reverse cycles, leave/return, 10 Home → Worlds → Home navigations, several minutes idle. Record JS heap separately from tab/process RAM; look for sustained growth after cache warm-up and GC.
+5. Record slow/fast/reverse scrolling in DevTools Performance, inspect long tasks and frame presentation, and inspect Layers/GPU process across repeated cycles. Do not label RAF cadence as presented-frame FPS or a Layers raster estimate as exact VRAM.
+6. Repeat functional checks in Safari and Edge if available. Physical mobile Safari address-bar behavior needs device testing.
 
-## Required validation matrix
+## Files
 
-Status at document creation: implementation and runtime QA pending. Replace entries below with observations only after running them.
+Changed: `components/home/hero/{spatial-hero.tsx,spatial-hero.css,hero-timeline.ts,hero-content.ts,hero-architecture.tsx,hero-monogram.tsx,breeze-ribbon.tsx}`, `components/layout/site-header.tsx`, `scripts/{check-spatial-hero.mjs,check-site.mjs}`, and the three hero documents.
 
-The local browser helper `/tmp/tanphong-spatial-dom-qa.js` was prepared and syntax-checked for the actual Homepage. It records real DOM bounds at the viewport selected by the QA operator, rather than simulating a media-query width. `capture('discovery')` and `capture('story')` use the actual scene/pause controls; `summary()` reports missing combinations across the twelve viewport sizes below. It checks content/heading clipping, text overflow, header and story collisions, square portal atlas planes, image readiness and canvas/iframe counts. Preparing this helper does not mean those viewport checks have run.
+Removed obsolete public QA scripts: `public/spatial-dom-qa.js`, `public/spatial-performance-qa.js`. They targeted autoplay scene controls and should not ship as production assets.
 
-- [x] Production build, TypeScript, lint, route/image crawl and content/asset checks (2026-09-25; details below).
-- [ ] One meaningful opening h1; English and Vietnamese copy live in DOM; Vietnamese blocks have `lang="vi"`; decorative monogram, ribbon and leaves are hidden from assistive technology.
-- [ ] All four portals, header navigation, menu, search, story access and pause/resume work with mouse, touch and keyboard.
-- [ ] No canvas, WebGL context or Three.js import in Homepage opening.
-- [ ] Scene loop has continuous ribbon/monogram transitions and stable hit areas during interaction.
-- [ ] Intersection/visibility pause and resume; reduced motion shows static discovery with usable links; route unmount cancels animations, observers, listeners and queued work.
-- [ ] Breakpoint changes reconfigure one timeline without duplicating effects or losing the phase.
-- [ ] 375×812, 390×844, 430×932, 768×1024, 820×1180, 1024×768, 1280×800, 1366×768, 1440×900, 1728×1117, 1920×1080, 2560×1440: no horizontal overflow, readable type, suitable crop, no portal overlap or cut-off.
-- [ ] Scene A/B screenshots at 1440×900, 1920×1080 and 390×844; manual reference comparison and at least one refinement pass.
-- [ ] Chrome, Safari and Edge checks; explicitly state any unavailable browser rather than implying coverage.
-
-## Automated pre-commit verification — 2026-09-25
-
-- `yarn build` and `yarn build:vercel`: passed.
-- `yarn tsc --noEmit` and `yarn lint`: passed. The new DOM QA helper uses `Set.size` directly to satisfy lint.
-- `yarn check:hero`: passed, including shared-clock boundaries, image fallback, interaction and visibility pauses, reduced motion, and 30 repeated lifecycle cleanups using browser doubles.
-- `yarn check:content`, `yarn check:assets` and `yarn check:worlds`: passed.
-- `yarn check:routes http://127.0.0.1:3000` against the local production server: passed for 44 pages, 69 image paths and 8 invalid-route responses. The homepage SSR assertions also verify bilingual copy, one opening h1, portal destinations and the absence of canvas/iframe/old hero markup.
-- Formatting checks pass for the changed source, scripts and documentation; `git diff --check` passes. Repository-wide formatting still reports 11 unchanged files in the Worlds area, which are outside this commit.
-
-These automated results do not establish browser rendering, screenshot accuracy, hydration behavior, memory use, GPU use or frame pacing. The corresponding browser checks remain pending.
-
-## Memory, GPU and frame pacing protocol
-
-Runtime measurements pending. Do not treat deterministic lifecycle tests as browser memory measurements.
-
-1. Hard reload Home and let it animate for 60 seconds.
-2. Scroll below the opening, wait 30 seconds, return; repeat ten times.
-3. Navigate Home → Worlds → Home ten times.
-4. Leave Home open for five minutes.
-5. Observe available Chrome Task Manager / DevTools memory and performance metrics at consistent checkpoints. Report the actual observation, including whether values level off after initial allocation or form a sustained staircase.
-6. Inspect available GPU/layer information. Report WebGL/canvas presence separately from compositing memory. Do not provide an exact VRAM figure if the tool does not expose one.
-7. Observe frame pacing during desktop transitions and the simplified mobile mode. Do not label a target of 60fps as a measured result without a trace or counter.
-
-| Check                                | Actual result | Evidence / limitations                                     |
-| ------------------------------------ | ------------- | ---------------------------------------------------------- |
-| Production build                     | Passed        | `yarn build` and `yarn build:vercel`, 2026-09-25.          |
-| Browser console/hydration            | Pending       | —                                                          |
-| Responsive and screenshot comparison | Pending       | —                                                          |
-| Chrome memory stress                 | Pending       | —                                                          |
-| GPU/composited layers                | Pending       | Exact VRAM may not be exposed.                             |
-| WebGL contexts / canvas              | Pending       | Source inspection and browser runtime are distinct checks. |
-| FPS / frame pacing                   | Pending       | 60fps is the design target, not a measurement.             |
-| Chrome / Safari / Edge               | Pending       | Record versions and unavailable surfaces.                  |
-
-## Completion report checklist
-
-The delivery report should identify created/modified files and describe Scene A, Scene B, the animation engine, transitions, major composited layers, responsive variants and reduced-motion behavior. It should separately report actual RAM/GPU observations, the observed maximum WebGL context count, frame-pacing evidence, tested browsers and the production build result. Unavailable exact VRAM data, unavailable browsers, partial stress runs and unresolved console/hydration observations must remain explicit; source inspection alone cannot establish browser-level acceptance.
+Asset provenance and font coverage remain in [SPATIAL-HERO-ASSETS.md](SPATIAL-HERO-ASSETS.md). No new image or font was generated for this interaction change.

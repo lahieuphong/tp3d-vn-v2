@@ -1,0 +1,132 @@
+[
+  {
+    "name": "worlds-architecture",
+    "source": "/Users/lahieuphong/.codex/generated_images/01a0d98d-8972-77d0-a3d6-0463a268dd16/exec-dee6e0ce-de39-4bc5-b93e-bb5808afcde2.png",
+    "original": "assets/home-chapters/worlds-architecture.png",
+    "width": 1586,
+    "height": 992,
+    "bytes": 2289501,
+    "sha256": "11b42b5eed1d311cc649415821368318743e97e1b0a8e8bfe716b4785b8c746f",
+    "alpha": null,
+    "exports": [
+      {
+        "src": "/images/home-chapters/worlds-architecture-720.webp",
+        "width": 720,
+        "height": 450,
+        "bytes": 46012,
+        "alpha": false
+      },
+      {
+        "src": "/images/home-chapters/worlds-architecture-1280.webp",
+        "width": 1280,
+        "height": 801,
+        "bytes": 121290,
+        "alpha": false
+      },
+      {
+        "src": "/images/home-chapters/worlds-architecture.webp",
+        "width": 1586,
+        "height": 992,
+        "bytes": 165568,
+        "alpha": false
+      }
+    ]
+  },
+  {
+    "name": "spaces-architecture",
+    "source": "/Users/lahieuphong/.codex/generated_images/01a0d98d-8972-77d0-a3d6-0463a268dd16/exec-955cae91-5565-49aa-85a1-13843b4897cf.png",
+    "original": "assets/home-chapters/spaces-architecture.png",
+    "width": 1586,
+    "height": 992,
+    "bytes": 2294890,
+    "sha256": "1828842bf359ddd2835280aa4ed78ee854b81b188386d5404e7279f8e1fe2002",
+    "alpha": null,
+    "exports": [
+      {
+        "src": "/images/home-chapters/spaces-architecture-720.webp",
+        "width": 720,
+        "height": 450,
+        "bytes": 35434,
+        "alpha": false
+      },
+      {
+        "src": "/images/home-chapters/spaces-architecture-1280.webp",
+        "width": 1280,
+        "height": 801,
+        "bytes": 100612,
+        "alpha": false
+      },
+      {
+        "src": "/images/home-chapters/spaces-architecture.webp",
+        "width": 1586,
+        "height": 992,
+        "bytes": 143512,
+        "alpha": false
+      }
+    ]
+  },
+  {
+    "name": "materials-architecture",
+    "source": "/Users/lahieuphong/.codex/generated_images/01a0d98d-8972-77d0-a3d6-0463a268dd16/exec-39ba502f-b9e4-4787-87b6-88cb6777627f.png",
+    "original": "assets/home-chapters/materials-architecture.png",
+    "width": 1586,
+    "height": 992,
+    "bytes": 2362082,
+    "sha256": "2953524dfe4be767a33ed1dc70836b515779225f81070998d18b0f8e490d771a",
+    "alpha": null,
+    "exports": [
+      {
+        "src": "/images/home-chapters/materials-architecture-720.webp",
+        "width": 720,
+        "height": 450,
+        "bytes": 43636,
+        "alpha": false
+      },
+      {
+        "src": "/images/home-chapters/materials-architecture-1280.webp",
+        "width": 1280,
+        "height": 801,
+        "bytes": 126472,
+        "alpha": false
+      },
+      {
+        "src": "/images/home-chapters/materials-architecture.webp",
+        "width": 1586,
+        "height": 992,
+        "bytes": 176554,
+        "alpha": false
+      }
+    ]
+  },
+  {
+    "name": "material-tableau",
+    "source": "/Users/lahieuphong/.codex/generated_images/01a0d98d-8972-77d0-a3d6-0463a268dd16/exec-4863baf3-a28c-4e99-b2a9-2d3f4173f155.png",
+    "original": "assets/home-chapters/material-tableau.png",
+    "width": 1254,
+    "height": 1254,
+    "bytes": 1961393,
+    "sha256": "fe4ee4fdaa6f488f41caa5c513a2860bbcb5ec8e773f29b05840fbd1249862d9",
+    "alpha": {
+      "transparent": 766052,
+      "partial": 806095,
+      "opaque": 369,
+      "total": 1572516
+    },
+    "exports": [
+      {
+        "src": "/images/home-chapters/material-tableau-720.webp",
+        "width": 720,
+        "height": 720,
+        "bytes": 141844,
+        "alpha": true
+      },
+      {
+        "src": "/images/home-chapters/material-tableau.webp",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 371294,
+        "alpha": true
+      }
+    ]
+  }
+]

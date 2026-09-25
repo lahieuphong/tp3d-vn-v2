@@ -1,33 +1,25 @@
-/** Deterministic lifecycle checks; fake browser time tests resource ownership,
- * not browser rendering or memory measurements. Run visual/performance QA too. */
+/** Controller ownership and scroll mathematics. These tests do not claim to
+ * measure browser rendering, GPU memory, RAM or presented-frame FPS. */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
-
-const filename = new URL(
-  '../components/home/hero/hero-timeline.ts',
-  import.meta.url,
+const source = readFileSync(
+  new URL('../components/home/hero/hero-timeline.ts', import.meta.url),
+  'utf8',
 );
-const { outputText } = ts.transpileModule(readFileSync(filename, 'utf8'), {
+const { outputText } = ts.transpileModule(source, {
   compilerOptions: {
     module: ts.ModuleKind.CommonJS,
     target: ts.ScriptTarget.ES2022,
   },
 });
-
-function environment({
-  reduced = false,
-  compact = false,
-  imageFailure = false,
-} = {}) {
-  let clock = 0;
-  let sequence = 0;
-  const timers = new Map();
-  const frames = new Map();
-  const liveAnimations = new Set();
-  const targets = [];
-  const observers = [];
+function environment({ reduced = false, compact = false } = {}) {
+  const frames = new Map(),
+    targets = [],
+    observers = [];
+  let sequence = 0,
+    reads = 0;
   class Events {
     listeners = new Map();
     constructor() {
@@ -40,576 +32,325 @@ function environment({
     removeEventListener(type, callback) {
       this.listeners.get(type)?.delete(callback);
     }
-    dispatch(type, event = {}) {
-      for (const callback of this.listeners.get(type) ?? [])
-        callback({ target: this, ...event });
-    }
-  }
-  class Animation {
-    saved = 0;
-    start = null;
-    playState = 'paused';
-    constructor(frames) {
-      this.frames = frames;
-      liveAnimations.add(this);
-    }
-    get currentTime() {
-      return this.playState === 'running' ? clock - this.start : this.saved;
-    }
-    set currentTime(value) {
-      this.saved = value;
-      if (this.playState === 'running') this.start = clock - value;
-    }
-    set startTime(value) {
-      this.start = value;
-    }
-    get startTime() {
-      return this.start;
-    }
-    play() {
-      this.start = clock - this.saved;
-      this.playState = 'running';
-    }
-    pause() {
-      this.saved = this.currentTime;
-      this.playState = 'paused';
-    }
-    cancel() {
-      this.pause();
-      this.playState = 'idle';
-      liveAnimations.delete(this);
+    dispatch(type) {
+      for (const callback of this.listeners.get(type) ?? []) callback();
     }
   }
   class Node extends Events {
     dataset = {};
     attrs = new Map();
-    style = {
-      values: new Map(),
-      setProperty(key, value) {
-        this.values.set(key, value);
-      },
-      removeProperty(key) {
-        this.values.delete(key);
-      },
-    };
     children = new Map();
     inert = false;
-    isControl = false;
-    parent = null;
+    style = {
+      setProperty(property, value) {
+        this[property] = value;
+      },
+      removeProperty(property) {
+        if (property.startsWith('--')) {
+          delete this[property];
+          return;
+        }
+        delete this[property.replace(/-([a-z])/g, (_, c) => c.toUpperCase())];
+      },
+    };
+    offsetHeight = 900;
     setAttribute(key, value) {
       this.attrs.set(key, value);
     }
     getAttribute(key) {
       return this.attrs.get(key) ?? null;
     }
-    hasAttribute(key) {
-      return this.attrs.has(key);
-    }
     querySelector(selector) {
       return this.children.get(selector) ?? null;
     }
-    querySelectorAll(selector) {
-      return selector === 'img[data-hero-deferred]' ? [secondary] : [];
-    }
-    append(selector, child = new Node()) {
-      this.children.set(selector, child);
-      child.parent = this;
-      return child;
-    }
     contains(node) {
-      return Boolean(node && (node === this || this.contains(node.parent)));
-    }
-    closest() {
-      return this.isControl ? this : (this.parent?.closest() ?? null);
+      return node === this;
     }
     getBoundingClientRect() {
-      return { left: 0, top: 0, width: 1440, height: 900 };
-    }
-    animate(keyframes) {
-      return new Animation(keyframes);
-    }
-  }
-  class Image extends Node {
-    complete = true;
-    naturalWidth = 1600;
-    decode() {
-      return Promise.resolve();
-    }
-    set src(value) {
-      this.attrs.set('src', value);
-      this.complete = false;
+      reads++;
+      return { top: -window.scrollY, height: 1890 };
     }
   }
   const document = new Events();
   document.hidden = false;
   document.activeElement = null;
-  document.timeline = {
-    get currentTime() {
-      return clock;
-    },
-  };
   const window = new Events();
+  window.scrollY = 0;
   const media = new Map([
     [
       '(prefers-reduced-motion: reduce)',
       Object.assign(new Events(), { matches: reduced }),
     ],
     ['(max-width: 1023px)', Object.assign(new Events(), { matches: compact })],
-    [
-      '(hover: hover) and (pointer: fine)',
-      Object.assign(new Events(), { matches: true }),
-    ],
   ]);
   window.matchMedia = (query) => media.get(query);
-  window.setTimeout = (callback, delay) => {
-    const id = ++sequence;
-    timers.set(id, { at: clock + delay, callback });
-    return id;
-  };
-  window.clearTimeout = (id) => timers.delete(id);
-  const hero = new Node();
-  const header = new Node();
+  const hero = new Node(),
+    header = new Node(),
+    image = new Node();
   document.querySelector = () => header;
-  const dialog = new Node();
-  document.querySelectorAll = () => [dialog];
-  const searchInput = dialog.append('input');
-  searchInput.isControl = true;
-  const primary = new Image();
-  primary.attrs.set('src', '/architecture-a.webp');
-  const secondary = new Image();
-  secondary.complete = false;
-  secondary.dataset = {
-    src: '/architecture-b.webp',
-    srcset: '/architecture-b-small.webp 800w',
+  image.dataset = {
+    src: '/b.webp',
+    srcset: '/b-720.webp 720w',
     sizes: '100vw',
   };
-  hero.append('[data-hero-layer="architecture-a"] img', primary);
-  for (const selector of [
-    '.sh-monogram',
-    '.sh-ribbon',
-    '.sh-veil',
-    '.sh-leaves',
-    '.sh-discovery',
-    '.sh-story',
-    '.sh-portals',
-    '.sh-center-copy',
-    '[data-hero-layer="architecture-b"]',
-  ])
-    hero.append(selector);
-  const portal = hero.querySelector('.sh-portals').append('a');
-  portal.isControl = true;
-  const nav = header.append('a');
-  nav.isControl = true;
-  const motionControl = hero.append('[data-hero-control]');
-  motionControl.isControl = true;
-  motionControl.setAttribute('data-hero-control', '');
-  const parallax = hero.append('.sh-monogram [data-hero-parallax]');
-  const outside = new Node();
-  class IntersectionObserver {
-    disconnected = false;
+  image.complete = false;
+  image.naturalWidth = 0;
+  image.decode = () => Promise.resolve();
+  Object.defineProperty(image, 'src', {
+    set(value) {
+      this.attrs.set('src', value);
+    },
+  });
+  hero.children.set('img[data-hero-deferred]', image);
+  hero.children.set('.sh-stage', new Node());
+  hero.children.set('.sh-discovery', new Node());
+  class ResizeObserver {
+    active = true;
     constructor(callback) {
       this.callback = callback;
       observers.push(this);
     }
     observe() {}
-    unobserve() {}
     disconnect() {
-      this.disconnected = true;
-    }
-    emit(ratio) {
-      if (!this.disconnected)
-        this.callback([
-          { isIntersecting: ratio > 0, intersectionRatio: ratio },
-        ]);
+      this.active = false;
     }
   }
   const loaded = { exports: {} };
-  runInNewContext(
-    outputText,
-    {
-      module: loaded,
-      exports: loaded.exports,
-      window,
-      document,
-      Element: Node,
-      IntersectionObserver,
-      requestAnimationFrame: (callback) => {
-        const id = ++sequence;
-        frames.set(id, callback);
-        return id;
-      },
-      cancelAnimationFrame: (id) => frames.delete(id),
+  runInNewContext(outputText, {
+    module: loaded,
+    exports: loaded.exports,
+    window,
+    document,
+    ResizeObserver,
+    requestAnimationFrame: (cb) => {
+      const id = ++sequence;
+      frames.set(id, cb);
+      return id;
     },
-    { filename: filename.pathname },
-  );
-  const tick = (ms) => {
-    const end = clock + ms;
-    for (let count = 0; count < 1000; count++) {
-      const entry = [...timers.entries()].sort((a, b) => a[1].at - b[1].at)[0];
-      if (!entry || entry[1].at > end) {
-        clock = end;
-        return;
-      }
-      clock = entry[1].at;
-      timers.delete(entry[0]);
-      entry[1].callback();
-    }
-    throw new Error('Unexpected continuous timer loop');
-  };
-  const frame = () => {
-    tick(16);
+    cancelAnimationFrame: (id) => frames.delete(id),
+  });
+  for (const selector of Object.keys(
+    loaded.exports.spatialFrame(0, false, false),
+  ))
+    hero.children.set(selector, new Node());
+  const tick = () => {
     const pending = [...frames.values()];
     frames.clear();
-    pending.forEach((callback) => callback(clock));
+    pending.forEach((cb) => cb());
   };
-  const flush = async () => {
-    await Promise.resolve();
-    await Promise.resolve();
-  };
-  const loadImages = async () => {
-    await flush();
-    frame();
-    assert.equal(
-      secondary.getAttribute('src'),
-      null,
-      'Scene B waits beyond the first paint',
-    );
-    frame();
-    secondary.complete = true;
-    secondary.naturalWidth = imageFailure ? 0 : 1600;
-    secondary.dispatch(imageFailure ? 'error' : 'load');
-    await flush();
+  const flush = () => {
+    for (let i = 0; i < 4; i++) tick();
   };
   const resources = () => ({
-    animations: liveAnimations.size,
-    timers: timers.size,
     frames: frames.size,
+    observers: observers.filter((x) => x.active).length,
     listeners: targets.reduce(
       (sum, target) =>
         sum +
-        [...target.listeners.values()].reduce(
-          (total, set) => total + set.size,
-          0,
-        ),
+        [...target.listeners.values()].reduce((a, set) => a + set.size, 0),
       0,
     ),
-    observers: observers.filter((observer) => !observer.disconnected).length,
   });
+  const scroll = (p) => {
+    window.scrollY = p * 990;
+    window.dispatch('scroll');
+    tick();
+  };
   return {
     ...loaded.exports,
     hero,
     header,
-    nav,
-    portal,
-    motionControl,
-    searchInput,
-    parallax,
-    outside,
-    document,
+    image,
     window,
+    document,
     media,
-    secondary,
     tick,
-    frame,
     flush,
-    loadImages,
-    liveAnimations,
-    observers,
+    frames,
     resources,
+    scroll,
+    reads: () => reads,
   };
 }
-
-const fixture = environment();
-assert.equal(fixture.spatialPhase(0), 'discovery');
-assert.equal(fixture.spatialPhase(8000), 'transitioningToStory');
-assert.equal(fixture.spatialPhase(10_000), 'story');
-assert.equal(fixture.spatialPhase(16_000), 'transitioningToDiscovery');
-assert.equal(fixture.spatialPhase(20_000), 'discovery');
+const f = environment();
+assert.equal(f.spatialPhase(0), 'discovery');
+assert.equal(f.spatialPhase(0.5), 'transition');
+assert.equal(f.spatialPhase(1), 'story');
+assert.equal(f.clampProgress(-1), 0);
+assert.equal(f.clampProgress(2), 1);
 for (const compact of [false, true]) {
-  for (const track of fixture.spatialTracks(compact, true)) {
-    assert.equal(track.frames[0].offset, 0);
-    assert.equal(track.frames.at(-1).offset, 1);
-    for (let i = 1; i < track.frames.length; i++)
-      assert.ok(track.frames[i].offset >= track.frames[i - 1].offset);
-    for (const property of ['transform', 'opacity'])
-      assert.equal(
-        track.frames[0][property],
-        track.frames.at(-1)[property],
-        `${track.selector} has a seamless loop`,
-      );
+  const snapshots = new Map();
+  for (let i = 0; i <= 100; i++) {
+    const p = i / 100,
+      frame = f.spatialFrame(p, compact, true);
+    snapshots.set(i, JSON.stringify(frame));
+    assert.ok(
+      Math.abs(
+        Number(frame['[data-hero-layer="architecture-a"]'].opacity) +
+          Number(frame['[data-hero-layer="architecture-b"]'].opacity) -
+          1,
+      ) < 0.0001,
+      'no empty architecture gap',
+    );
+    assert.equal(
+      frame['.sh-monogram'].opacity,
+      undefined,
+      'one persistent TP never crossfades',
+    );
   }
-}
-const controller = fixture.mountSpatialHero(fixture.hero);
-fixture.observers[0].emit(1);
-assert.equal(fixture.hero.dataset.motion, 'static');
-await fixture.loadImages();
-assert.equal(fixture.secondary.fetchPriority, 'low');
-assert.equal(fixture.hero.dataset.motion, 'playing');
-assert.equal(
-  fixture.resources().timers,
-  1,
-  'only next scene boundary is scheduled',
-);
-assert.equal(
-  new Set([...fixture.liveAnimations].map((animation) => animation.startTime))
-    .size,
-  1,
-  'all layers have one shared time origin',
-);
-fixture.tick(10_100);
-assert.equal(fixture.hero.dataset.scene, 'story');
-assert.equal(fixture.hero.querySelector('.sh-portals').inert, true);
-assert.equal(fixture.hero.querySelector('.sh-story').inert, false);
-fixture.observers[0].emit(0);
-assert.equal(fixture.hero.dataset.motion, 'paused');
-const pausedAt = [...fixture.liveAnimations][0].currentTime;
-fixture.tick(30_000);
-assert.equal(
-  [...fixture.liveAnimations][0].currentTime,
-  pausedAt,
-  'offscreen time must not advance',
-);
-assert.equal(fixture.resources().timers, 0);
-fixture.observers[0].emit(1);
-fixture.document.hidden = true;
-fixture.document.dispatch('visibilitychange');
-fixture.tick(30_000);
-assert.equal(
-  [...fixture.liveAnimations][0].currentTime,
-  pausedAt,
-  'background tabs must not advance',
-);
-fixture.document.hidden = false;
-fixture.document.dispatch('visibilitychange');
-fixture.window.dispatch('pagehide');
-fixture.window.dispatch('pageshow');
-assert.equal(
-  fixture.hero.dataset.motion,
-  'paused',
-  'BFCache restore waits for a fresh visibility report',
-);
-fixture.observers[0].emit(1);
-assert.equal(fixture.hero.dataset.motion, 'playing');
-controller.showScene('discovery');
-assert.equal(fixture.hero.dataset.scene, 'discovery');
-assert.equal(fixture.hero.dataset.motion, 'paused');
-controller.setPaused(false);
-fixture.document.activeElement = fixture.portal;
-fixture.document.dispatch('focusin', { target: fixture.portal });
-fixture.tick(20_000);
-assert.equal(
-  fixture.hero.dataset.scene,
-  'discovery',
-  'focused portals remain stable',
-);
-assert.equal(
-  fixture.hero.querySelector('.sh-portals').getAttribute('aria-hidden'),
-  'false',
-);
-controller.showScene('story');
-assert.equal(
-  fixture.hero.dataset.scene,
-  'discovery',
-  'manual scene changes cannot hide the focused portal',
-);
-fixture.document.activeElement = null;
-fixture.document.dispatch('focusout', {
-  target: fixture.portal,
-  relatedTarget: fixture.outside,
-});
-fixture.tick(1399);
-assert.equal(fixture.hero.dataset.motion, 'paused');
-fixture.tick(1);
-assert.equal(fixture.hero.dataset.motion, 'playing');
-fixture.document.dispatch('pointerover', {
-  target: fixture.nav,
-  pointerType: 'mouse',
-});
-assert.equal(
-  fixture.hero.dataset.motion,
-  'paused',
-  'shared header links pause the hero',
-);
-fixture.document.dispatch('pointerout', {
-  target: fixture.nav,
-  relatedTarget: fixture.outside,
-  pointerType: 'mouse',
-});
-fixture.tick(1400);
-controller.setPaused(true);
-fixture.document.activeElement = fixture.motionControl;
-fixture.document.dispatch('focusin', { target: fixture.motionControl });
-fixture.document.dispatch('pointerover', {
-  target: fixture.motionControl,
-  pointerType: 'mouse',
-});
-controller.setPaused(false);
-assert.equal(
-  fixture.hero.dataset.motion,
-  'playing',
-  'the stable Play button works while focused/hovered',
-);
-fixture.document.activeElement = fixture.searchInput;
-fixture.document.dispatch('focusin', { target: fixture.searchInput });
-assert.equal(
-  fixture.hero.dataset.motion,
-  'paused',
-  'a portalled search input still belongs to header interaction',
-);
-fixture.document.activeElement = null;
-fixture.document.dispatch('focusout', {
-  target: fixture.searchInput,
-  relatedTarget: fixture.outside,
-});
-fixture.tick(1400);
-fixture.hero.dispatch('pointermove', {
-  pointerType: 'mouse',
-  clientX: 1440,
-  clientY: 0,
-});
-fixture.hero.dispatch('pointermove', {
-  pointerType: 'mouse',
-  clientX: 1440,
-  clientY: 0,
-});
-assert.equal(
-  fixture.resources().frames,
-  1,
-  'pointer input is batched into one RAF',
-);
-fixture.frame();
-assert.equal(fixture.parallax.style.values.get('--sh-x'), '5.00px');
-assert.equal(fixture.parallax.style.values.get('--sh-rx'), '0.80deg');
-assert.equal(fixture.parallax.style.values.get('--sh-ry'), '1.20deg');
-assert.equal(fixture.resources().frames, 0, 'no permanent RAF');
-fixture.window.dispatch('scroll');
-assert.equal(fixture.parallax.style.values.size, 0);
-const animationCount = fixture.liveAnimations.size;
-fixture.media.get('(max-width: 1023px)').matches = true;
-fixture.media.get('(max-width: 1023px)').dispatch('change');
-assert.equal(
-  fixture.liveAnimations.size,
-  animationCount - 1,
-  'breakpoint replacement removes the desktop leaf track',
-);
-fixture.media.get('(prefers-reduced-motion: reduce)').matches = true;
-fixture.media.get('(prefers-reduced-motion: reduce)').dispatch('change');
-assert.equal(fixture.hero.dataset.motion, 'static');
-assert.equal(fixture.hero.dataset.scene, 'discovery');
-assert.equal(fixture.liveAnimations.size, 0);
-assert.equal(fixture.resources().timers, 0);
-controller.showScene('story');
-assert.equal(fixture.hero.dataset.scene, 'discovery');
-controller.destroy();
-controller.destroy();
-assert.deepEqual(fixture.resources(), {
-  animations: 0,
-  timers: 0,
-  frames: 0,
-  listeners: 0,
-  observers: 0,
-});
-
-const failed = environment({ imageFailure: true });
-const failedController = failed.mountSpatialHero(failed.hero);
-failed.observers[0].emit(1);
-await failed.loadImages();
-assert.equal(failed.hero.dataset.storyImage, 'fallback');
-assert.equal(
-  failed.hero.dataset.motion,
-  'playing',
-  'story copy still works over the usable first background',
-);
-assert.equal(
-  failed.liveAnimations.size,
-  8,
-  'failed background is not animated into view',
-);
-failedController.destroy();
-
-for (const imageFailure of [false, true]) {
-  const early = environment({ imageFailure });
-  const earlyController = early.mountSpatialHero(early.hero);
-  early.observers[0].emit(1);
-  await early.flush();
-  earlyController.showScene('story');
+  for (let i = 100; i >= 0; i--)
+    assert.equal(
+      JSON.stringify(f.spatialFrame(i / 100, compact, true)),
+      snapshots.get(i),
+      'reverse scroll exactly retraces frames',
+    );
   assert.equal(
-    early.hero.dataset.scene,
-    'discovery',
-    'retain the usable discovery fallback during secondary decode',
-  );
-  assert.equal(early.liveAnimations.size, 0, 'do not flash an unready scene');
-  await early.loadImages();
-  assert.equal(
-    early.hero.dataset.scene,
-    'story',
-    'an early Our Story choice survives secondary loading or image fallback',
+    f.spatialFrame(0.25, compact, true)['.sh-portals'].opacity,
+    '1.00000',
   );
   assert.equal(
-    early.hero.dataset.motion,
-    'paused',
-    'the requested scene keeps its manual pause',
+    f.spatialFrame(0.5, compact, true)['.sh-portals'].opacity,
+    '0.00000',
   );
-  assert.ok(
-    [...early.liveAnimations].every(
-      (animation) =>
-        animation.currentTime === 12_000 && animation.playState === 'paused',
-    ),
-    'every first ready frame starts at the same stable story position',
-  );
-  assert.equal(early.hero.querySelector('.sh-story').inert, false);
-  assert.equal(early.hero.querySelector('.sh-portals').inert, true);
-  early.tick(20_000);
-  assert.equal(early.hero.dataset.scene, 'story');
-  earlyController.setPaused(false);
-  early.tick(4100);
-  assert.equal(
-    early.hero.dataset.scene,
-    'transitioningToDiscovery',
-    'resume continues from the requested scene instead of restarting',
-  );
-  earlyController.destroy();
-}
-
-// This checks ownership repeatedly, not a claimed browser RAM measurement.
-for (let cycle = 0; cycle < 30; cycle++) {
-  const repeated = environment();
-  const mounted = repeated.mountSpatialHero(repeated.hero);
-  repeated.observers[0].emit(1);
-  await repeated.loadImages();
-  repeated.tick(60_000);
-  for (let round = 0; round < 10; round++) {
-    repeated.observers[0].emit(0);
-    repeated.tick(30_000);
-    repeated.observers[0].emit(1);
-    repeated.tick(20_000);
-  }
-  mounted.destroy();
   assert.deepEqual(
-    repeated.resources(),
-    { animations: 0, timers: 0, frames: 0, listeners: 0, observers: 0 },
-    `mount ${cycle}: no retained resources`,
+    f.spatialFrame(0.85, compact, true)['.sh-story'],
+    f.spatialFrame(1, compact, true)['.sh-story'],
+    'stable reading range',
+  );
+  assert.equal(
+    f.spatialFrame(1, compact, false)['[data-hero-layer="architecture-a"]']
+      .opacity,
+    '1.00000',
+    'B failure preserves architecture A',
   );
 }
-const immediate = environment();
-immediate.mountSpatialHero(immediate.hero).destroy();
-await immediate.flush();
-assert.deepEqual(
-  immediate.resources(),
-  { animations: 0, timers: 0, frames: 0, listeners: 0, observers: 0 },
-  'unmount before deferred request/decode settles',
-);
-const still = environment({ reduced: true });
-const stillController = still.mountSpatialHero(still.hero);
-still.observers[0].emit(1);
-await still.flush();
-assert.equal(still.hero.dataset.motion, 'static');
+const mounted = f.mountSpatialHero(f.hero);
+f.flush();
+assert.equal(f.resources().frames, 0, 'idle has no RAF loop');
+assert.equal(f.image.getAttribute('src'), '/b.webp', 'B requested after paint');
+const layoutReads = f.reads();
+for (let cycle = 0; cycle < 20; cycle++) {
+  for (const p of [0, 0.25, 0.5, 0.75, 1, 0.75, 0.5, 0.25, 0]) f.scroll(p);
+}
 assert.equal(
-  still.secondary.getAttribute('src'),
-  null,
-  'reduced motion does not request unused Scene B',
+  f.reads(),
+  layoutReads,
+  'scroll performs no repeated layout reads',
 );
-stillController.destroy();
+f.scroll(1);
+assert.equal(f.hero.dataset.scene, 'story');
+assert.equal(
+  f.hero.style['--sh-exit'],
+  '0.00000',
+  'the reading range is intact',
+);
+f.scroll(1 + 180 / 990);
+assert.equal(
+  f.hero.style['--sh-exit'],
+  '0.50000',
+  'TP departure follows the next 40vh',
+);
+f.scroll(1 + 360 / 990);
+assert.equal(f.hero.style['--sh-exit'], '1.00000');
+f.scroll(1 + 180 / 990);
+assert.equal(
+  f.hero.style['--sh-exit'],
+  '0.50000',
+  'departure reverses without a timer',
+);
+f.scroll(1);
+assert.equal(f.hero.style['--sh-exit'], '0.00000');
+assert.equal(f.hero.querySelector('.sh-portals').inert, true);
+assert.equal(f.hero.querySelector('.sh-story').inert, false);
+f.scroll(0);
+assert.equal(f.hero.querySelector('.sh-portals').inert, false);
+f.window.scrollY = 100;
+f.window.dispatch('scroll');
+f.window.dispatch('scroll');
+assert.equal(f.frames.size, 1, 'one pending input frame');
+f.tick();
+assert.equal(f.frames.size, 0);
+f.window.scrollY = 495;
+f.document.hidden = true;
+f.document.dispatch('visibilitychange');
+f.window.dispatch('scroll');
+assert.equal(f.frames.size, 0, 'hidden document schedules no work');
+f.document.hidden = false;
+f.document.dispatch('visibilitychange');
+f.tick();
+assert.equal(
+  f.hero.dataset.progress,
+  '0.5000',
+  'restored tab synchronizes actual position',
+);
+f.media.get('(prefers-reduced-motion: reduce)').matches = true;
+f.media.get('(prefers-reduced-motion: reduce)').dispatch('change');
+f.tick();
+assert.equal(f.hero.dataset.motion, 'reduced');
+assert.equal(
+  f.hero.querySelector('.sh-story').inert,
+  false,
+  'reduced motion exposes both content blocks',
+);
+assert.equal(f.hero.querySelector('.sh-portals').inert, false);
+assert.equal(f.hero.querySelector('.sh-monogram').style.transform, undefined);
+f.media.get('(prefers-reduced-motion: reduce)').matches = false;
+f.media.get('(prefers-reduced-motion: reduce)').dispatch('change');
+f.tick();
+assert.equal(
+  f.hero.dataset.progress,
+  '0.5000',
+  'media change preserves scroll position',
+);
+f.image.complete = true;
+f.image.naturalWidth = 1586;
+f.image.dispatch('load');
+for (let i = 0; i < 6; i++) await Promise.resolve();
+f.tick();
+assert.equal(f.hero.dataset.storyImage, 'ready');
+f.scroll(2);
+f.window.scrollY = 2500;
+f.window.dispatch('scroll');
+assert.equal(
+  f.frames.size,
+  0,
+  'below opening: no animation work for continued page scroll',
+);
+mounted.destroy();
+mounted.destroy();
+assert.deepEqual(f.resources(), { frames: 0, observers: 0, listeners: 0 });
+assert.equal(f.header.dataset.opening, undefined);
+assert.equal(
+  f.hero.style['--sh-exit'],
+  undefined,
+  'departure style is cleaned up',
+);
+for (let i = 0; i < 30; i++) {
+  const e = environment({ reduced: i % 2 === 0, compact: i % 3 === 0 });
+  const c = e.mountSpatialHero(e.hero);
+  e.flush();
+  e.scroll(1);
+  c.destroy();
+  assert.deepEqual(
+    e.resources(),
+    { frames: 0, observers: 0, listeners: 0 },
+    `mount ${i}: cleanup`,
+  );
+}
+const early = environment();
+early.mountSpatialHero(early.hero).destroy();
+early.flush();
+assert.equal(
+  early.image.getAttribute('src'),
+  null,
+  'early unmount cancels deferred loading',
+);
+assert.deepEqual(early.resources(), { frames: 0, observers: 0, listeners: 0 });
+assert.doesNotMatch(
+  source,
+  /setTimeout|setInterval|\.animate\(|\.play\(|preventDefault|setState|pointermove/,
+  'no autoplay, input hijack or competing pointer clock',
+);
 console.log(
-  'Spatial hero passed: shared 20s clock, seamless loop, visibility/manual/focus/hover pauses, deferred-image fallback, pointer bounds, breakpoint/reduced-motion cleanup, and 30 repeated lifecycles. Browser rendering/RAM/GPU still require separate QA.',
+  'Scroll opening passed: reversible frames, 20 A↔B cycles, reading zone, image fallback, no per-scroll layout reads, idle/hidden work cancellation, reduced motion, resize synchronization, and 30 complete mount cleanups. Browser QA remains separate.',
 );

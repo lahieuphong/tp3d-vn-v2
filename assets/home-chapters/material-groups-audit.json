@@ -1,0 +1,38 @@
+{
+  "name": "material-groups",
+  "source": "/Users/lahieuphong/.codex/generated_images/01a0d98d-8972-77d0-a3d6-0463a268dd16/exec-db841aaa-87e1-442d-8f0a-e5d9c1abad08.png",
+  "original": "assets/home-chapters/material-groups.png",
+  "width": 1536,
+  "height": 1024,
+  "bytes": 2439221,
+  "sha256": "ac7a158f3b56c529bd128059de670757edbb36c49eba91b2ea5b93688c211672",
+  "alpha": {
+    "transparent": 898548,
+    "partial": 674316,
+    "opaque": 0,
+    "total": 1572864
+  },
+  "exports": [
+    {
+      "src": "/images/home-chapters/material-groups-720.webp",
+      "width": 720,
+      "height": 480,
+      "bytes": 93998,
+      "alpha": true
+    },
+    {
+      "src": "/images/home-chapters/material-groups-1280.webp",
+      "width": 1280,
+      "height": 853,
+      "bytes": 263772,
+      "alpha": true
+    },
+    {
+      "src": "/images/home-chapters/material-groups.webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 342022,
+      "alpha": true
+    }
+  ]
+}

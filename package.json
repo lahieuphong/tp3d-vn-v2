@@ -18,6 +18,7 @@
     "check:content": "node scripts/check-content.mjs",
     "check:assets": "node scripts/check-assets.mjs",
     "check:hero": "node scripts/check-spatial-hero.mjs",
+    "check:home": "node scripts/check-home-chapters.mjs",
     "check:worlds": "node scripts/check-worlds.mjs"
   },
   "dependencies": {

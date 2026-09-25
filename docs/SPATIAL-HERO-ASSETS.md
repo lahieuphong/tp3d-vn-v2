@@ -72,7 +72,7 @@ Metadata above was read directly with the existing Sharp dependency. Architectur
 
 `HeroArchitecture` selects one architecture size per scene through `srcset`/`sizes="100vw"`. Scene A is eager/high priority. Scene B initially has `data-src` and `data-srcset`, and the controller assigns real source attributes after the initial paint at low priority; it is not a second high-priority hero preload. Reduced-motion initialization does not request Scene B. The four portal images share the same atlas URL, which allows the browser to reuse the resource. The square `.sh-portal-photo` plane keeps each atlas quadrant proportional inside its arch crop.
 
-`BreezeRibbon` now uses one responsive alpha WebP image in the existing parallax wrapper, with eager/low-priority loading and async decoding. Its `sizes` is `200vw` below 640px, matching the deliberately wider mobile cloth surface, and `100vw` otherwise. The CSS applies 0.7 image opacity and a −3% horizontal offset, reduced to 0.65 opacity on mobile; the master timeline still animates the outer ribbon surface. No duplicate full-size ribbon images or continuous rasterisation loop are introduced.
+`BreezeRibbon` now uses one responsive alpha WebP image in the shared decorative wrapper, with eager/low-priority loading and async decoding. Its `sizes` is `200vw` below 640px, matching the deliberately wider mobile cloth surface, and `100vw` otherwise. The CSS applies 0.7 image opacity and a −3% horizontal offset, reduced to 0.65 opacity on mobile; native scroll progress samples the outer ribbon surface without an elapsed-time clock. No duplicate full-size ribbon images or continuous rasterisation loop are introduced.
 
 ## Authored identity and decorative vectors
 

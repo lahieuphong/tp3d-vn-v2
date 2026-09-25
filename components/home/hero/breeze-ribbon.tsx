@@ -2,7 +2,7 @@
 export function BreezeRibbon() {
   return (
     <div className="sh-ribbon" aria-hidden="true">
-      <div data-hero-parallax>
+      <div data-hero-surface>
         <img
           className="sh-ribbon-cloth"
           src="/images/spatial-breeze-ribbon.webp"
@@ -21,8 +21,8 @@ export function BreezeRibbon() {
   );
 }
 
-/** This broad fold momentarily fills the frame. Scene-image changes happen only
- * while its opaque mineral-coloured core covers the architectural background. */
+/** A translucent fold bridges the architecture dissolve below the shared TP.
+ * Its opacity and position are sampled from scroll, never from elapsed time. */
 export function BreezeVeil() {
   return (
     <div className="sh-veil" aria-hidden="true">
@@ -72,7 +72,7 @@ export function BreezeVeil() {
 export function HeroLeaves() {
   return (
     <div className="sh-leaves" aria-hidden="true">
-      <div data-hero-parallax>
+      <div data-hero-surface>
         <svg
           viewBox="0 0 1440 1000"
           width="100%"

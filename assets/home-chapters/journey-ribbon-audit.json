@@ -1,0 +1,31 @@
+{
+  "name": "journey-ribbon",
+  "source": "/Users/lahieuphong/.codex/generated_images/01a0d98d-8972-77d0-a3d6-0463a268dd16/exec-68e896dd-6642-4eb2-9df8-207ec27f0e62.png",
+  "original": "assets/home-chapters/journey-ribbon.png",
+  "width": 724,
+  "height": 2172,
+  "bytes": 1109119,
+  "sha256": "d97e7500b39e2281b83e701667e7da73783780da8c5bb6eda54ff6fd57048798",
+  "alpha": {
+    "transparent": 1107988,
+    "partial": 464187,
+    "opaque": 353,
+    "total": 1572528
+  },
+  "exports": [
+    {
+      "src": "/images/home-chapters/journey-ribbon-720.webp",
+      "width": 720,
+      "height": 2160,
+      "bytes": 229710,
+      "alpha": true
+    },
+    {
+      "src": "/images/home-chapters/journey-ribbon.webp",
+      "width": 724,
+      "height": 2172,
+      "bytes": 227242,
+      "alpha": true
+    }
+  ]
+}

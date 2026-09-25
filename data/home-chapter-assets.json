@@ -1,0 +1,26 @@
+{
+  "worlds-architecture": {
+    "width": 1586,
+    "height": 992,
+    "src": "/images/home-chapters/worlds-architecture.webp",
+    "srcSet": "/images/home-chapters/worlds-architecture-720.webp 720w, /images/home-chapters/worlds-architecture-1280.webp 1280w, /images/home-chapters/worlds-architecture.webp 1586w"
+  },
+  "spaces-architecture": {
+    "width": 1586,
+    "height": 992,
+    "src": "/images/home-chapters/spaces-architecture.webp",
+    "srcSet": "/images/home-chapters/spaces-architecture-720.webp 720w, /images/home-chapters/spaces-architecture-1280.webp 1280w, /images/home-chapters/spaces-architecture.webp 1586w"
+  },
+  "materials-architecture": {
+    "width": 1586,
+    "height": 992,
+    "src": "/images/home-chapters/materials-architecture.webp",
+    "srcSet": "/images/home-chapters/materials-architecture-720.webp 720w, /images/home-chapters/materials-architecture-1280.webp 1280w, /images/home-chapters/materials-architecture.webp 1586w"
+  },
+  "material-tableau": {
+    "width": 1254,
+    "height": 1254,
+    "src": "/images/home-chapters/material-tableau.webp",
+    "srcSet": "/images/home-chapters/material-tableau-720.webp 720w, /images/home-chapters/material-tableau.webp 1254w"
+  }
+}

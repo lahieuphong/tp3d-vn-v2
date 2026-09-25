@@ -8,7 +8,7 @@ const pee =
 export function HeroMonogram() {
   return (
     <div className="sh-monogram" aria-hidden="true">
-      <div data-hero-parallax>
+      <div data-hero-surface>
         <svg
           viewBox="0 0 360 550"
           width="100%"

@@ -19,6 +19,15 @@ while (pending.length) {
     `${route}: error boundary rendered`,
   );
   if (route === '/') {
+    const main = html.match(
+      /<main\b[^>]*id="main"[^>]*>([\s\S]*?)<\/main>/,
+    )?.[1];
+    assert(main, 'Home: missing semantic main content');
+    assert.equal(
+      (main.match(/<h1\b/g) ?? []).length,
+      1,
+      'Home: the complete five-scene journey must have one h1',
+    );
     const hero = html.match(
       /<section\b[^>]*class="[^"]*\bspatial-hero\b[^"]*"[^>]*>([\s\S]*?)<\/section>/,
     )?.[1];
@@ -36,7 +45,27 @@ while (pending.length) {
     assert.match(hero, /CÂU CHUYỆN CỦA CHÚNG TÔI/);
     assert.match(hero, /lang="vi"/);
     assert.match(hero, /data-hero-deferred/);
-    assert.match(hero, /data-hero-control/);
+    assert.match(hero, /sh-stage/);
+    assert.match(hero, /class="sh-discovery"/);
+    assert.match(hero, /id="spatial-hero-story"/);
+    assert.match(hero, /becomes a way/);
+    assert.match(hero, /of seeing\./);
+    for (const layer of ['sh-monogram', 'sh-ribbon'])
+      assert.equal(
+        (hero.match(new RegExp('class="' + layer + '"', 'g')) ?? []).length,
+        1,
+        'Home: one shared ' + layer,
+      );
+    assert.equal(
+      (html.match(/<header\b/g) ?? []).length,
+      1,
+      'Home: one shared header',
+    );
+    assert.match(hero, /SCROLL TO DISCOVER/);
+    assert.doesNotMatch(
+      hero,
+      /PAUSE|Resume opening animation|data-hero-control/,
+    );
     for (const destination of [
       '/worlds',
       '/spaces',
@@ -49,9 +78,176 @@ while (pending.length) {
       );
     }
     assert.doesNotMatch(
-      hero,
+      main,
       /<canvas\b|<iframe\b|\bclass="[^"]*\bemh-/,
-      'Home: opening must use live DOM without old Hero/WebGL/embed layers',
+      'Home: all five scenes must use live DOM without old Hero/WebGL/embed layers',
+    );
+
+    const chapters = [
+      ...main.matchAll(
+        /<section\b[^>]*data-home-chapter="([^"]+)"[^>]*>([\s\S]*?)<\/section>/g,
+      ),
+    ];
+    assert.deepEqual(
+      chapters.map(([, name]) => name),
+      ['worlds', 'spaces', 'materials'],
+      'Home: Worlds, Spaces and Materials must follow the two-scene opening in order',
+    );
+    assert.equal(
+      (main.match(/<section\b/g) ?? []).length,
+      4,
+      'Home: only the opening story and three new chapter sections should render',
+    );
+    assert.equal(
+      (main.match(/class="hc-breeze-journey"/g) ?? []).length,
+      1,
+      'Home: the three lower chapters must share one continuous breeze artwork',
+    );
+    assert(
+      main.indexOf('spatial-hero-story') <
+        main.indexOf('data-home-chapter="worlds"'),
+      'Home: Story must precede Worlds',
+    );
+    const chapterBodies = Object.fromEntries(
+      chapters.map(([, name, body]) => [name, body]),
+    );
+    const textContent = main
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/\s+/g, ' ')
+      .trim();
+    for (const retiredHeading of [
+      'THE ART OF FEELING AT HOME',
+      'Designed around space, material and everyday living.',
+      'ROOM TO DISCOVER',
+      'A place for every day.',
+      'SELECTED INTERIORS',
+      'Spaces with a story.',
+      'THE COLLECTIONS',
+      'Different expressions.',
+      'MATERIALS & DETAILS',
+      'Materials define the atmosphere.',
+      'FURNITURE & OBJECTS',
+      'Objects with a sense of place.',
+      'THE JOURNAL',
+      'Notes on living well.',
+    ]) {
+      assert(
+        !textContent.includes(retiredHeading),
+        `Home: retired section still renders: ${retiredHeading}`,
+      );
+    }
+    for (const { name, heading, destinations } of [
+      {
+        name: 'worlds',
+        heading: 'home-worlds-title',
+        destinations: ['/worlds'],
+      },
+      {
+        name: 'spaces',
+        heading: 'home-spaces-title',
+        destinations: [
+          '/spaces/living',
+          '/spaces/bedroom',
+          '/spaces/workspace',
+          '/spaces/kitchen',
+        ],
+      },
+      {
+        name: 'materials',
+        heading: 'home-materials-title',
+        destinations: [
+          '/materials',
+          '/materials/travertine',
+          '/materials/walnut',
+          '/materials/linen',
+          '/products',
+          '/materials/brushed-metal',
+        ],
+      },
+    ]) {
+      const body = chapterBodies[name];
+      assert.match(body, new RegExp('<h2\\b[^>]*id="' + heading + '"'));
+      assert(
+        main.includes(`aria-labelledby="${heading}"`),
+        `Home: ${name} chapter needs an accessible label`,
+      );
+      for (const destination of destinations) {
+        assert(
+          body.includes(`href="${destination}"`),
+          `Home: ${name} is missing a real link to ${destination}`,
+        );
+      }
+      const chapterImages = [...body.matchAll(/<img\b[^>]*>/g)];
+      assert(
+        chapterImages.length,
+        `Home: ${name} is missing its visual assets`,
+      );
+      for (const [image] of chapterImages) {
+        assert.match(
+          image,
+          /src="\/images\//,
+          `Home: ${name} image must be local`,
+        );
+        assert.match(
+          image,
+          /loading="lazy"/,
+          `Home: ${name} should defer image loading`,
+        );
+        assert.match(
+          image,
+          /\bwidth="\d+"/,
+          `Home: ${name} image needs intrinsic width`,
+        );
+        assert.match(
+          image,
+          /\bheight="\d+"/,
+          `Home: ${name} image needs intrinsic height`,
+        );
+        assert.match(
+          image,
+          /\balt="[^"]*"/,
+          `Home: ${name} image needs an alt attribute`,
+        );
+      }
+    }
+    const worldOptions = [
+      ...chapterBodies.worlds.matchAll(
+        /<a\b(?=[^>]*class="[^"]*\bhc-world-option\b)[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g,
+      ),
+    ];
+    assert.equal(
+      worldOptions.length,
+      4,
+      'Home: Worlds must expose four working selector links',
+    );
+    for (const [index, [, href, body]] of worldOptions.entries()) {
+      assert.match(
+        href,
+        /^\/worlds(?:\/[a-z0-9-]+)?$/,
+        'Home: world option must lead to the catalogue or a detail',
+      );
+      assert(
+        body.includes(['Living', 'Bedroom', 'Bathroom', 'Kitchen'][index]),
+      );
+    }
+    assert.equal(
+      (chapterBodies.spaces.match(/class="hc-room"/g) ?? []).length,
+      4,
+      'Home: Sample Spaces must render four native room portals',
+    );
+    assert.equal(
+      (chapterBodies.materials.match(/class="hc-material-callout\b/g) ?? [])
+        .length,
+      5,
+      'Home: Materiality must render five linked material callouts',
+    );
+    assert.deepEqual(
+      [...chapterBodies.materials.matchAll(/data-material-depth="([^"]+)"/g)]
+        .map(([, depth]) => depth)
+        .sort(),
+      ['ceramic', 'metal', 'mid', 'rear', 'stone', 'textile'],
+      'Home: the material composition needs six independently layered objects',
     );
   }
   for (const section of html.matchAll(
@@ -136,10 +332,29 @@ while (pending.length) {
   }
   report.push({ route, title });
 }
+for (const route of [
+  '/spaces',
+  '/projects',
+  '/collections',
+  '/worlds',
+  '/products',
+  '/materials',
+  '/journal',
+]) {
+  assert(
+    visited.has(route),
+    `The retained content route ${route} must stay discoverable`,
+  );
+}
 await Promise.all(
   [...images].map(async (image) => {
     const r = await fetch(new URL(image, origin), { method: 'HEAD' });
     assert.equal(r.status, 200, `Missing image ${image}`);
+    assert.match(
+      r.headers.get('content-type') ?? '',
+      /^image\//,
+      `Image URL ${image} returned a non-image response`,
+    );
   }),
 );
 const invalidRoutes = [

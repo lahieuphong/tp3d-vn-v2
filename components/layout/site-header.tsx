@@ -29,7 +29,14 @@ export function SiteHeader() {
     { title: string; category: string; href: string }[]
   >([]);
   useEffect(() => {
-    const update = () => setScrolled(window.scrollY > 48);
+    let previous: boolean | null = null;
+    const update = () => {
+      const next = window.scrollY > 48;
+      if (next !== previous) {
+        previous = next;
+        setScrolled(next);
+      }
+    };
     update();
     window.addEventListener('scroll', update, { passive: true });
     return () => window.removeEventListener('scroll', update);
