@@ -18,6 +18,42 @@ while (pending.length) {
     !html.includes('Let’s try that again.'),
     `${route}: error boundary rendered`,
   );
+  if (route === '/') {
+    const hero = html.match(
+      /<section\b[^>]*class="[^"]*\bspatial-hero\b[^"]*"[^>]*>([\s\S]*?)<\/section>/,
+    )?.[1];
+    assert(hero, 'Home: missing spatial opening');
+    assert.equal(
+      (hero.match(/<h1\b/g) ?? []).length,
+      1,
+      'Home: opening must contain one meaningful h1',
+    );
+    assert.match(hero, /A new breeze/);
+    assert.match(hero, /for living\./);
+    assert.match(hero, /Một làn gió mới/);
+    assert.match(hero, /cho không gian sống\./);
+    assert.match(hero, /OUR STORY/);
+    assert.match(hero, /CÂU CHUYỆN CỦA CHÚNG TÔI/);
+    assert.match(hero, /lang="vi"/);
+    assert.match(hero, /data-hero-deferred/);
+    assert.match(hero, /data-hero-control/);
+    for (const destination of [
+      '/worlds',
+      '/spaces',
+      '/products',
+      '/projects',
+    ]) {
+      assert(
+        hero.includes(`href="${destination}"`),
+        `Home: missing interactive portal to ${destination}`,
+      );
+    }
+    assert.doesNotMatch(
+      hero,
+      /<canvas\b|<iframe\b|\bclass="[^"]*\bemh-/,
+      'Home: opening must use live DOM without old Hero/WebGL/embed layers',
+    );
+  }
   for (const section of html.matchAll(
     /<section[^>]*data-project-context[^>]*>([\s\S]*?)<\/section>/g,
   )) {
@@ -51,9 +87,9 @@ while (pending.length) {
       4,
       'Worlds: missing scene sections',
     );
-    assert.match(html, /id="worlds-search"/);
-    assert.match(html, /id="worlds-sort"/);
-    assert.match(html, /class="world-filters"/);
+    assert.match(html, /id="world-index"/);
+    assert.match(html, /<fieldset[^>]*class="world-filters"/);
+    assert.match(html, /id="worlds-results"/);
     assert.doesNotMatch(
       html,
       /<iframe|<canvas|<script[^>]+src="https:\/\/(?:.*\.)?sketchfab\.com/,

@@ -78,12 +78,14 @@ export function SiteHeader() {
     : entries.slice(0, 5);
   return (
     <header
-      className={`site-header ${pathname === '/' && !scrolled ? 'over-hero' : 'solid'}`}
+      className={`site-header ${pathname === '/' ? 'spatial-home ' : ''}${pathname === '/' && !scrolled ? 'over-hero' : 'solid'}`}
     >
       <Link
         className="wordmark"
         href="/"
-        prefetch={pathname === '/worlds' ? false : undefined}
+        prefetch={
+          pathname === '/' || pathname === '/worlds' ? false : undefined
+        }
         aria-label="Tân Phong home"
         onClick={close}
       >
@@ -95,7 +97,9 @@ export function SiteHeader() {
             key={href}
             href={href}
             prefetch={
-              href === '/worlds' || pathname === '/worlds' ? false : undefined
+              pathname === '/' || href === '/worlds' || pathname === '/worlds'
+                ? false
+                : undefined
             }
             aria-label={shortTitle ? title : undefined}
             aria-current={
@@ -189,7 +193,9 @@ export function SiteHeader() {
                   key={href}
                   href={href}
                   prefetch={
-                    href === '/worlds' || pathname === '/worlds'
+                    pathname === '/' ||
+                    href === '/worlds' ||
+                    pathname === '/worlds'
                       ? false
                       : undefined
                   }
