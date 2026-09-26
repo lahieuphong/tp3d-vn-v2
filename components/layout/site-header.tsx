@@ -131,6 +131,7 @@ export function SiteHeader() {
       <div className="header-actions">
         <Dialog open={search} onOpenChange={setSearch}>
           <DialogTrigger
+            id="site-search-trigger"
             className="icon-button"
             aria-label="Search the collection"
           >
@@ -186,6 +187,7 @@ export function SiteHeader() {
         <span className="edition">EST. 2026</span>
         <Sheet open={menu} onOpenChange={setMenu}>
           <SheetTrigger
+            id="site-menu-trigger"
             className="icon-button mobile-menu"
             aria-label="Open menu"
           >

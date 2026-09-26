@@ -5,27 +5,31 @@ export function HeroSceneA() {
   return (
     <div className="sh-discovery">
       <div className="sh-welcome sh-welcome-en">
-        <p className="sh-mobile-eyebrow sh-eyebrow">
-          TÂN PHONG / INTERIORS & OBJECTS
-        </p>
-        <h1 id="spatial-hero-title">
-          A new breeze <br />
-          <em>for living.</em>
-        </h1>
-        <p className="sh-signature">
-          <span aria-hidden="true" />
-          SPACES&nbsp;&nbsp; SHAPE&nbsp;&nbsp; PEOPLE
-        </p>
+        <div className="hi-copy-surface">
+          <p className="sh-mobile-eyebrow sh-eyebrow">
+            TÂN PHONG / INTERIORS & OBJECTS
+          </p>
+          <h1 id="spatial-hero-title">
+            A new breeze <br />
+            <em>for living.</em>
+          </h1>
+          <p className="sh-signature">
+            <span aria-hidden="true" />
+            SPACES&nbsp;&nbsp; SHAPE&nbsp;&nbsp; PEOPLE
+          </p>
+        </div>
       </div>
       <div className="sh-welcome sh-welcome-vi" lang="vi">
-        <p className="sh-welcome-title">
-          Một làn gió mới <br />
-          cho không gian sống.
-        </p>
-        <p className="sh-signature">
-          <span aria-hidden="true" />
-          NỘI THẤT&nbsp; KIẾN TẠO&nbsp; CUỘC SỐNG
-        </p>
+        <div className="hi-copy-surface">
+          <p className="sh-welcome-title">
+            Một làn gió mới <br />
+            cho không gian sống.
+          </p>
+          <p className="sh-signature">
+            <span aria-hidden="true" />
+            NỘI THẤT&nbsp; KIẾN TẠO&nbsp; CUỘC SỐNG
+          </p>
+        </div>
       </div>
       <p className="sh-discovery-axis sh-axis" aria-hidden="true">
         <i />

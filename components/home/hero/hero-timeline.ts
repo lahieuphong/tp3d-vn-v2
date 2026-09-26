@@ -136,14 +136,22 @@ export function mountSpatialHero(element: HTMLElement): SpatialHeroController {
       distance = Math.max(1, bounds.height - stageHeight);
       measureNeeded = false;
     }
-    const p = clampProgress((window.scrollY - top) / distance);
+    // The entry overlay owns the first view until its panels are gone, even
+    // if another script changes scrollY while the temporary scroll lock is on.
+    const held =
+      document.documentElement.getAttribute('data-home-intro') !== null;
+    const p = held ? 0 : clampProgress((window.scrollY - top) / distance);
     const still = reduced.matches;
-    const exit = still
-      ? 0
-      : clampProgress((window.scrollY - top - distance) / (stageHeight * 0.4));
+    const exit =
+      still || held
+        ? 0
+        : clampProgress(
+            (window.scrollY - top - distance) / (stageHeight * 0.4),
+          );
     const overOpening =
+      held ||
       window.scrollY <
-      top + (still ? stageHeight : distance + stageHeight) - 100;
+        top + (still ? stageHeight : distance + stageHeight) - 100;
     if (header && header.dataset.opening !== (overOpening ? 'active' : 'past'))
       header.dataset.opening = overOpening ? 'active' : 'past';
     expose(discovery, still || p < 0.5);
@@ -186,13 +194,19 @@ export function mountSpatialHero(element: HTMLElement): SpatialHeroController {
       frame = requestAnimationFrame(update);
   };
   const scroll = () => {
-    const p = clampProgress((window.scrollY - top) / distance);
-    const exit = reduced.matches
-      ? 0
-      : clampProgress((window.scrollY - top - distance) / (stageHeight * 0.4));
+    const held =
+      document.documentElement.getAttribute('data-home-intro') !== null;
+    const p = held ? 0 : clampProgress((window.scrollY - top) / distance);
+    const exit =
+      reduced.matches || held
+        ? 0
+        : clampProgress(
+            (window.scrollY - top - distance) / (stageHeight * 0.4),
+          );
     const past =
+      !held &&
       window.scrollY >=
-      top + (reduced.matches ? stageHeight : distance + stageHeight) - 100;
+        top + (reduced.matches ? stageHeight : distance + stageHeight) - 100;
     // Once released, scrolling the rest of Home does not repaint the opening.
     if (
       !measureNeeded &&

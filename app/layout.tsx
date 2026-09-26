@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
 import './globals.css';
+import '@/components/home/intro/home-intro.css';
+import { HOME_INTRO_BOOTSTRAP } from '@/components/home/intro/intro-session';
 
 export const metadata: Metadata = {
   title: {
@@ -18,7 +20,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: HOME_INTRO_BOOTSTRAP }} />
+      </head>
       <body id="top">
         <a className="skip-link" href="#main">
           Skip to content

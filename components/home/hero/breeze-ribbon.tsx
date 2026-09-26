@@ -3,19 +3,21 @@ export function BreezeRibbon() {
   return (
     <div className="sh-ribbon" aria-hidden="true">
       <div data-hero-surface>
-        <img
-          className="sh-ribbon-cloth"
-          src="/images/spatial-breeze-ribbon.webp"
-          srcSet="/images/spatial-breeze-ribbon-720.webp 720w, /images/spatial-breeze-ribbon-1280.webp 1280w, /images/spatial-breeze-ribbon.webp 1448w"
-          sizes="(max-width: 639px) 200vw, 100vw"
-          width={1448}
-          height={1086}
-          alt=""
-          loading="eager"
-          decoding="async"
-          fetchPriority="low"
-          draggable={false}
-        />
+        <div className="hi-breeze-surface">
+          <img
+            className="sh-ribbon-cloth"
+            src="/images/spatial-breeze-ribbon.webp"
+            srcSet="/images/spatial-breeze-ribbon-720.webp 720w, /images/spatial-breeze-ribbon-1280.webp 1280w, /images/spatial-breeze-ribbon.webp 1448w"
+            sizes="(max-width: 639px) 200vw, 100vw"
+            width={1448}
+            height={1086}
+            alt=""
+            loading="eager"
+            decoding="async"
+            fetchPriority="low"
+            draggable={false}
+          />
+        </div>
       </div>
     </div>
   );

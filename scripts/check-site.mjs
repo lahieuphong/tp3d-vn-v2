@@ -18,7 +18,84 @@ while (pending.length) {
     !html.includes('Let’s try that again.'),
     `${route}: error boundary rendered`,
   );
+  const loaderTags = [
+    ...html.matchAll(
+      /<div\b[^>]*\bdata-home-intro-overlay(?:="[^"]*")?[^>]*>/g,
+    ),
+  ];
+  if (route !== '/') {
+    assert.equal(
+      loaderTags.length,
+      0,
+      `${route}: Home intro must not render on other routes`,
+    );
+  }
   if (route === '/') {
+    assert.equal(
+      loaderTags.length,
+      1,
+      'Home: exactly one intro overlay must be server-rendered',
+    );
+    const mainStart = html.search(/<main\b[^>]*id="main"/);
+    const loaderStart = loaderTags[0].index;
+    assert(
+      mainStart > loaderStart,
+      'Home: the intro must precede the existing SSR Home, not replace it',
+    );
+    const loader = html.slice(loaderStart, mainStart);
+    assert.match(
+      loader,
+      /class="[^"]*\bhi-intro-monogram\b[^"]*"/,
+      'Home: loader requires its dedicated stone/walnut TP composition',
+    );
+    assert.match(
+      loader,
+      /<svg\b/,
+      'Home: the loader TP remains a lightweight SVG',
+    );
+    assert.match(loader, /class="[^"]*\bhi-intro-breeze\b[^"]*"/);
+    assert.match(loader, /class="[^"]*\bhi-intro-slogan\b[^"]*"/);
+    assert.match(loader, /A new breeze/);
+    assert.match(loader, /<em\b[^>]*>for living\.?<\/em>/);
+    assert.match(loader, /INTERIORS &amp; OBJECTS/);
+    assert.match(loader, /LOADING THE SPACE/);
+    assert.match(loader, /<output\b[^>]*aria-live="polite"/);
+    assert.match(
+      loader,
+      /<progress\b[^>]*aria-label="Essential homepage resources"/,
+    );
+    for (const panel of ['hi-panel-top', 'hi-panel-bottom', 'hi-horizon']) {
+      assert.equal(
+        (loader.match(new RegExp('\\b' + panel + '\\b', 'g')) ?? []).length,
+        1,
+        `Home: one ${panel} element is required`,
+      );
+    }
+    assert.doesNotMatch(
+      loader,
+      /<(?:nav|header|canvas|video|iframe|h1)\b/i,
+      'Home: loader reuses the shared header and must not mount heavy viewers or a second H1',
+    );
+    assert.doesNotMatch(
+      loader,
+      /\bclass="[^"]*\b(?:hi-wordmark|sh-monogram|sh-ribbon|spatial-hero)\b|spatial-architecture|data-hero-layer/,
+      'Home: the entry composition must be independent of the actual Homepage architecture and TP',
+    );
+    const head = html.match(/<head\b[^>]*>([\s\S]*?)<\/head>/)?.[1];
+    assert(head, 'Home: SSR head is required for the pre-paint intro decision');
+    const bootstrap = [
+      ...head.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g),
+    ].find(([, code]) => code.includes('__tpHomeIntroBoot'));
+    assert(
+      bootstrap,
+      'Home: session bootstrap must be inline in the head before body paint',
+    );
+    assert(
+      html.indexOf(bootstrap[0]) < html.indexOf('<body'),
+      'Home: intro decision must precede the body',
+    );
+    assert.match(bootstrap[1], /location\.pathname !== '\/'/);
+    assert.match(bootstrap[1], /data-home-intro/);
     const main = html.match(
       /<main\b[^>]*id="main"[^>]*>([\s\S]*?)<\/main>/,
     )?.[1];

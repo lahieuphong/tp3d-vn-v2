@@ -17,6 +17,7 @@
     "images:optimize": "node scripts/optimize-images.mjs",
     "check:content": "node scripts/check-content.mjs",
     "check:assets": "node scripts/check-assets.mjs",
+    "check:intro": "node scripts/check-home-preloader.mjs && node scripts/check-intro-session.mjs && node scripts/check-intro-controller.mjs",
     "check:hero": "node scripts/check-spatial-hero.mjs",
     "check:home": "node scripts/check-home-chapters.mjs",
     "check:worlds": "node scripts/check-worlds.mjs"

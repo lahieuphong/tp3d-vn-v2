@@ -74,6 +74,7 @@ function environment({ reduced = false, compact = false } = {}) {
   const document = new Events();
   document.hidden = false;
   document.activeElement = null;
+  document.documentElement = new Node();
   const window = new Events();
   window.scrollY = 0;
   const media = new Map([
@@ -223,6 +224,45 @@ for (const compact of [false, true]) {
     '1.00000',
     'B failure preserves architecture A',
   );
+}
+// Intro locking is also a scroll-story gate. Programmatic scroll changes
+// must not advance either opening progress or the later TP departure.
+{
+  const entry = environment();
+  entry.document.documentElement.setAttribute('data-home-intro', 'waiting');
+  const controller = entry.mountSpatialHero(entry.hero);
+  entry.flush();
+  for (const phase of ['waiting', 'ready', 'revealing', 'reduced']) {
+    entry.document.documentElement.setAttribute('data-home-intro', phase);
+    entry.scroll(2);
+    assert.equal(entry.hero.dataset.progress, '0.0000');
+    assert.equal(entry.hero.dataset.scene, 'discovery');
+    assert.equal(entry.hero.style['--sh-exit'], '0.00000');
+    assert.equal(entry.header.dataset.opening, 'active');
+    assert.equal(entry.hero.querySelector('.sh-story').inert, true);
+  }
+  assert.equal(
+    entry.resources().frames,
+    0,
+    'entry gate creates no polling loop',
+  );
+  entry.document.documentElement.attrs.delete('data-home-intro');
+  entry.scroll(0.75);
+  assert.equal(
+    entry.hero.dataset.progress,
+    '0.7500',
+    'native scrolling resumes after entry',
+  );
+  entry.scroll(1 + 360 / 990);
+  assert.equal(
+    entry.hero.style['--sh-exit'],
+    '1.00000',
+    'departure resumes normally',
+  );
+  controller.destroy();
+  assert.equal(entry.resources().frames, 0);
+  assert.equal(entry.resources().listeners, 0);
+  assert.equal(entry.resources().observers, 0);
 }
 const mounted = f.mountSpatialHero(f.hero);
 f.flush();
