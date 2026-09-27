@@ -3,7 +3,10 @@ import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
 import './globals.css';
 import '@/components/home/intro/home-intro.css';
-import { HOME_INTRO_BOOTSTRAP } from '@/components/home/intro/intro-session';
+import {
+  HOME_INTRO_BOOTSTRAP,
+  HOME_INTRO_CRITICAL_CSS,
+} from '@/components/home/intro/intro-runtime';
 
 export const metadata: Metadata = {
   title: {
@@ -22,6 +25,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <style
+          data-home-intro-critical
+          dangerouslySetInnerHTML={{ __html: HOME_INTRO_CRITICAL_CSS }}
+        />
         <script dangerouslySetInnerHTML={{ __html: HOME_INTRO_BOOTSTRAP }} />
       </head>
       <body id="top">

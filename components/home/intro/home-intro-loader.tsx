@@ -1,15 +1,22 @@
 'use client';
-import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import { claimHomeIntro, type HomeIntroDecision } from './intro-session';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { claimHomeIntro, type HomeIntroDecision } from './intro-runtime';
 import { mountHomeIntro } from './intro-controller';
 import type { CriticalAssetProgress } from './critical-assets';
 import { IntroMonogram } from './intro-monogram';
-import { IntroBreeze } from './intro-breeze';
+import { IntroProgress } from './intro-progress';
 
 /** SSR includes both this presentation overlay and the complete Home. The head
  * decision controls visibility before paint; no client-only replacement page. */
 export function HomeIntroLoader() {
   const [visible, setVisible] = useState(true);
+  const complete = useCallback(() => setVisible(false), []);
+  return visible ? <IntroPresentation onComplete={complete} /> : null;
+}
+
+/** Unmount the controller-owning child as well as its DOM, so the retained
+ * page gate cannot keep detached overlay nodes through an effect closure. */
+function IntroPresentation({ onComplete }: { onComplete: () => void }) {
   const [progress, setProgress] = useState<CriticalAssetProgress>({
     completed: 0,
     total: 0,
@@ -20,55 +27,28 @@ export function HomeIntroLoader() {
   useLayoutEffect(() => {
     decision.current ??= claimHomeIntro();
     if (!decision.current.play) {
-      setVisible(false);
+      onComplete();
       return;
     }
     return mountHomeIntro(decision.current, {
       onProgress: setProgress,
-      onComplete: () => setVisible(false),
+      onComplete,
     });
-  }, []);
-  if (!visible) return null;
+  }, [onComplete]);
   return (
     <div className="home-intro-loader" data-home-intro-overlay>
       <div className="hi-panel hi-panel-top" aria-hidden="true" />
       <div className="hi-panel hi-panel-bottom" aria-hidden="true" />
-      <div className="hi-horizon" aria-hidden="true" />
-      <IntroBreeze />
       <div className="hi-monogram-position">
-        <div className="hi-monogram-handoff">
-          <div className="hi-monogram-arrival">
-            <IntroMonogram />
+        <div className="hi-monogram-motion">
+          <div className="hi-monogram-handoff">
+            <div className="hi-monogram-arrival">
+              <IntroMonogram />
+            </div>
           </div>
         </div>
       </div>
-      <IntroBreeze front />
-      <p className="hi-intro-slogan">
-        A new breeze <em>for living</em>
-      </p>
-      <div className="hi-loading">
-        <output className="hi-status" aria-live="polite">
-          LOADING THE SPACE...
-        </output>
-        <progress
-          className="sr-only"
-          aria-label="Essential homepage resources"
-          max={progress.total || 1}
-          value={progress.completed}
-          aria-valuetext={`${progress.completed} of ${progress.total} essential resources checked`}
-        />
-        <div className="hi-progress" aria-hidden="true">
-          <span
-            style={{ '--hi-progress': progress.progress } as CSSProperties}
-          />
-        </div>
-        {progress.total > 0 && (
-          <span className="hi-percentage" aria-hidden="true">
-            {Math.round(progress.progress * 100)}%
-          </span>
-        )}
-      </div>
-      <p className="hi-signature">INTERIORS &amp; OBJECTS</p>
+      <IntroProgress progress={progress} />
     </div>
   );
 }

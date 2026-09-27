@@ -2,19 +2,19 @@ import {
   preloadHomeCriticalAssets,
   type CriticalAssetProgress,
 } from './critical-assets';
-import { markHomeIntroSeen, type HomeIntroDecision } from './intro-session';
+import { markHomeIntroPlayed, type HomeIntroDecision } from './intro-runtime';
 
 export const INTRO_TIMING = {
-  minimum: 1200,
+  minimum: 1600,
   maximum: 4000,
-  ready: 240,
-  desktop: 1400,
-  mobile: 1000,
-  reduced: 300,
+  ready: 150,
+  desktop: 1000,
+  mobile: 900,
+  reduced: 250,
 } as const;
 
-/** The intro owns no scroll-story transforms. It only gates a short CSS reveal,
- * observes existing assets, and restores every temporary lock on all exits. */
+/** Owns only the entry gate, resource observation and temporary interaction
+ * locks. The existing Scene 1–5 scroll controllers are not modified. */
 export function mountHomeIntro(
   decision: HomeIntroDecision,
   callbacks: {
@@ -28,27 +28,21 @@ export function mountHomeIntro(
     '[data-home-intro-overlay]',
   );
   const home = document.querySelector<HTMLElement>('.home-experience');
-  if (
-    !decision.play ||
-    !overlay ||
-    !home ||
-    window.scrollY !== 0 ||
-    location.hash
-  ) {
+  if (!decision.play || !overlay || !home) {
     html.removeAttribute('data-home-intro');
-    html.removeAttribute('data-home-intro-header');
+    if (decision.scrollRestoration !== undefined)
+      history.scrollRestoration = decision.scrollRestoration;
     callbacks.onComplete();
     return () => {};
   }
   let disposed = false;
-  let released = false;
+  const startedAt = performance.now();
   const timers = new Set<ReturnType<typeof setTimeout>>();
   const abort = new AbortController();
   const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const compact = window.matchMedia('(max-width: 639px)');
-  const fineDesktop = window.matchMedia(
-    '(min-width: 1024px) and (pointer: fine)',
-  );
+  const compact = window.matchMedia('(max-width: 767px)');
+  const restoration = decision.scrollRestoration ?? history.scrollRestoration;
+  const sequence = overlay.getAttribute('data-intro-sequence');
   const savedStyles: {
     node: HTMLElement;
     property: string;
@@ -74,8 +68,7 @@ export function mountHomeIntro(
     node.inert = true;
   });
   home.setAttribute('aria-busy', 'true');
-  // A stable root gutter preserves the original layout width. On overlay-
-  // scrollbar/mobile browsers it occupies no space. Never fix/transform main.
+  history.scrollRestoration = 'manual';
   ownStyle(html, 'scrollbar-gutter', 'stable');
   ownStyle(html, 'overflow-x', 'hidden');
   ownStyle(html, 'overflow-y', 'hidden');
@@ -83,68 +76,11 @@ export function mountHomeIntro(
   ownStyle(body, 'overflow-y', 'hidden');
   ownStyle(body, 'overscroll-behavior-x', 'none');
   ownStyle(body, 'overscroll-behavior-y', 'none');
-  html.removeAttribute('data-home-intro-header');
+  const resetScroll = () =>
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  resetScroll();
   html.setAttribute('data-home-intro', 'waiting');
-  ownStyle(overlay, '--hi-pointer-x', '0');
-  ownStyle(overlay, '--hi-pointer-y', '0');
-
-  // Pointer movement changes only two loader variables. One event-batched
-  // frame writes the latest coordinates; no RAF is retained while idle.
-  let pointerFrame = 0;
-  let pointerListening = false;
-  let pointerX = 0;
-  let pointerY = 0;
-  let pointerWidth = 1;
-  let pointerHeight = 1;
-  const resetPointer = () => {
-    cancelAnimationFrame(pointerFrame);
-    pointerFrame = 0;
-    pointerX = 0;
-    pointerY = 0;
-    overlay.style.setProperty('--hi-pointer-x', '0');
-    overlay.style.setProperty('--hi-pointer-y', '0');
-  };
-  const paintPointer = () => {
-    pointerFrame = 0;
-    if (disposed || !pointerListening || document.hidden) return;
-    overlay.style.setProperty('--hi-pointer-x', pointerX.toFixed(4));
-    overlay.style.setProperty('--hi-pointer-y', pointerY.toFixed(4));
-  };
-  const pointerMove = (event: PointerEvent) => {
-    if (!Number.isFinite(event.clientX) || !Number.isFinite(event.clientY))
-      return;
-    pointerX = Math.max(
-      -1,
-      Math.min(1, (event.clientX / pointerWidth) * 2 - 1),
-    );
-    pointerY = Math.max(
-      -1,
-      Math.min(1, (event.clientY / pointerHeight) * 2 - 1),
-    );
-    if (!pointerFrame) pointerFrame = requestAnimationFrame(paintPointer);
-  };
-  const measurePointer = () => {
-    pointerWidth = Math.max(1, window.innerWidth);
-    pointerHeight = Math.max(1, window.innerHeight);
-    resetPointer();
-  };
-  const syncPointer = () => {
-    const enabled = !disposed && fineDesktop.matches && !motion.matches;
-    if (enabled === pointerListening) return;
-    pointerListening = enabled;
-    if (enabled) {
-      measurePointer();
-      overlay.addEventListener('pointermove', pointerMove, { passive: true });
-      overlay.addEventListener('pointerleave', resetPointer);
-      window.addEventListener('resize', measurePointer, { passive: true });
-    } else {
-      overlay.removeEventListener('pointermove', pointerMove);
-      overlay.removeEventListener('pointerleave', resetPointer);
-      window.removeEventListener('resize', measurePointer);
-      resetPointer();
-    }
-  };
-  syncPointer();
+  overlay.setAttribute('data-intro-sequence', 'playing');
 
   const later = (callback: () => void, delay: number) => {
     const timer = setTimeout(
@@ -156,9 +92,18 @@ export function mountHomeIntro(
     );
     timers.add(timer);
   };
-  const release = () => {
-    if (released) return;
-    released = true;
+  const cleanup = () => {
+    if (disposed) return;
+    disposed = true;
+    abort.abort();
+    timers.forEach(clearTimeout);
+    timers.clear();
+    overlay.removeEventListener('animationend', animationEnd);
+    window.removeEventListener('pagehide', complete);
+    window.removeEventListener('popstate', complete);
+    window.removeEventListener('pageshow', resetScroll);
+    document.removeEventListener('visibilitychange', visibility);
+    motion.removeEventListener('change', preferenceChanged);
     for (const { node, property, value, priority } of savedStyles.reverse()) {
       if (value) node.style.setProperty(property, value, priority);
       else node.style.removeProperty(property);
@@ -170,30 +115,15 @@ export function mountHomeIntro(
     backgrounds.length = 0;
     if (busy === null) home.removeAttribute('aria-busy');
     else home.setAttribute('aria-busy', busy);
+    if (sequence === null) overlay.removeAttribute('data-intro-sequence');
+    else overlay.setAttribute('data-intro-sequence', sequence);
+    history.scrollRestoration = restoration;
     html.removeAttribute('data-home-intro');
-    html.removeAttribute('data-home-intro-header');
-  };
-  const cleanup = () => {
-    if (disposed) return;
-    disposed = true;
-    abort.abort();
-    timers.forEach(clearTimeout);
-    timers.clear();
-    overlay.removeEventListener('animationend', animationEnd);
-    window.removeEventListener('pagehide', complete);
-    window.removeEventListener('popstate', complete);
-    document.removeEventListener('visibilitychange', visibility);
-    motion.removeEventListener('change', preferenceChanged);
-    fineDesktop.removeEventListener('change', syncPointer);
-    syncPointer();
-    cancelAnimationFrame(pointerFrame);
-    pointerFrame = 0;
-    release();
   };
   const complete = () => {
     if (disposed) return;
     cleanup();
-    markHomeIntroSeen();
+    markHomeIntroPlayed();
     callbacks.onComplete();
   };
   const animationEnd = (event: AnimationEvent) => {
@@ -211,11 +141,10 @@ export function mountHomeIntro(
     if (document.hidden) complete();
   };
   const preferenceChanged = () => {
-    // A preference change during the split must not strand transparent panels.
     if (html.dataset.homeIntro === 'revealing') complete();
-    else syncPointer();
   };
   const reveal = () => {
+    resetScroll();
     const duration = motion.matches
       ? INTRO_TIMING.reduced
       : compact.matches
@@ -226,35 +155,31 @@ export function mountHomeIntro(
       'data-home-intro',
       motion.matches ? 'reduced' : 'revealing',
     );
-    // The shared header changes geometry only inside its fully transparent
-    // handoff interval. Reduced motion uses a short opacity handoff as well.
-    later(
-      () => {
-        html.setAttribute('data-home-intro-header', 'home');
-      },
-      duration * (motion.matches ? 0.5 : 0.25),
-    );
-    // CSS animationend is primary; this also exits if animations are disabled.
-    later(complete, duration + 100);
+    later(complete, duration + 100); // Guard if animationend is unavailable.
   };
   overlay.addEventListener('animationend', animationEnd);
   window.addEventListener('pagehide', complete);
   window.addEventListener('popstate', complete);
+  window.addEventListener('pageshow', resetScroll);
   document.addEventListener('visibilitychange', visibility);
   motion.addEventListener('change', preferenceChanged);
-  fineDesktop.addEventListener('change', syncPointer);
-  const elapsed = () => Math.max(0, performance.now() - decision.startedAt);
   const assets = preloadHomeCriticalAssets(home, {
     signal: abort.signal,
-    timeoutMs: Math.max(0, INTRO_TIMING.maximum - elapsed()),
+    timeoutMs: INTRO_TIMING.maximum,
     onProgress: callbacks.onProgress,
   });
   void assets.promise.then((result) => {
     if (disposed || result.cancelled) return;
-    later(() => {
-      html.setAttribute('data-home-intro', 'ready');
-      later(reveal, motion.matches ? 0 : INTRO_TIMING.ready);
-    }, INTRO_TIMING.minimum - elapsed());
+    later(
+      () => {
+        html.setAttribute('data-home-intro', 'ready');
+        later(
+          reveal,
+          result.timedOut || motion.matches ? 0 : INTRO_TIMING.ready,
+        );
+      },
+      INTRO_TIMING.minimum - (performance.now() - startedAt),
+    );
   });
   return cleanup;
 }

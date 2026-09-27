@@ -23,7 +23,7 @@ export type CriticalAssetOptions = {
 type AssetTask = {
   label: string;
   promise: Promise<boolean | null>;
-  cancel: () => void;
+  cancel: (useFallback?: boolean) => void;
 };
 
 // Accept only the read surface we use. In this app browser + worker type
@@ -67,12 +67,13 @@ function observeImage(images: HTMLImageElement[]): AssetTask {
     node?.removeEventListener('load', loaded);
     node?.removeEventListener('error', failed);
   };
-  const finish = (ready: boolean | null) => {
+  const finish = (ready: boolean | null, useFallback = false) => {
     if (done) return;
     done = true;
-    if (ready === false) {
+    if (ready === false || useFallback) {
       for (const image of nodes ?? []) {
-        image.dataset.criticalState = 'failed';
+        image.dataset.criticalState =
+          ready === false ? 'failed' : 'unavailable';
       }
     }
     unlisten();
@@ -108,7 +109,7 @@ function observeImage(images: HTMLImageElement[]): AssetTask {
   node.addEventListener('error', failed);
   // Attach before checking complete to cover load/cache races.
   if (node.complete) loaded();
-  return { label, promise, cancel: () => finish(null) };
+  return { label, promise, cancel: (useFallback) => finish(null, useFallback) };
 }
 
 function observeFont(
@@ -183,7 +184,10 @@ export function preloadHomeCriticalAssets(
         timedOut,
       });
     }
-    for (const task of tasks) task.cancel();
+    // Freeze pending images on the existing fallback surface at the deadline.
+    // A late response must not pop into the scene during/after the reveal.
+    // Route cancellation merely detaches observation and never hides content.
+    for (const task of tasks) task.cancel(timedOut);
     tasks.length = 0;
     failedResources.length = 0;
     pendingResources.clear();

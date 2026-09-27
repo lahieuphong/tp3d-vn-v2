@@ -46,25 +46,24 @@ while (pending.length) {
     assert.match(
       loader,
       /class="[^"]*\bhi-intro-monogram\b[^"]*"/,
-      'Home: loader requires its dedicated stone/walnut TP composition',
+      'Home: loader requires its compact inline TP monogram',
     );
     assert.match(
       loader,
       /<svg\b/,
       'Home: the loader TP remains a lightweight SVG',
     );
-    assert.match(loader, /class="[^"]*\bhi-intro-breeze\b[^"]*"/);
-    assert.match(loader, /class="[^"]*\bhi-intro-slogan\b[^"]*"/);
-    assert.match(loader, /A new breeze/);
-    assert.match(loader, /<em\b[^>]*>for living\.?<\/em>/);
-    assert.match(loader, /INTERIORS &amp; OBJECTS/);
+    assert.doesNotMatch(
+      loader,
+      /hi-intro-breeze|hi-intro-slogan|hi-horizon|<image\b|<img\b|A new breeze/,
+    );
     assert.match(loader, /LOADING THE SPACE/);
     assert.match(loader, /<output\b[^>]*aria-live="polite"/);
     assert.match(
       loader,
       /<progress\b[^>]*aria-label="Essential homepage resources"/,
     );
-    for (const panel of ['hi-panel-top', 'hi-panel-bottom', 'hi-horizon']) {
+    for (const panel of ['hi-panel-top', 'hi-panel-bottom']) {
       assert.equal(
         (loader.match(new RegExp('\\b' + panel + '\\b', 'g')) ?? []).length,
         1,
@@ -74,7 +73,7 @@ while (pending.length) {
     assert.doesNotMatch(
       loader,
       /<(?:nav|header|canvas|video|iframe|h1)\b/i,
-      'Home: loader reuses the shared header and must not mount heavy viewers or a second H1',
+      'Home: loader contains no navigation, heavy viewer or hero content',
     );
     assert.doesNotMatch(
       loader,
@@ -85,16 +84,16 @@ while (pending.length) {
     assert(head, 'Home: SSR head is required for the pre-paint intro decision');
     const bootstrap = [
       ...head.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g),
-    ].find(([, code]) => code.includes('__tpHomeIntroBoot'));
+    ].find(([, code]) => code.includes('__tpHomeIntroRuntime'));
     assert(
       bootstrap,
-      'Home: session bootstrap must be inline in the head before body paint',
+      'Home: runtime bootstrap must be inline in the head before body paint',
     );
     assert(
       html.indexOf(bootstrap[0]) < html.indexOf('<body'),
       'Home: intro decision must precede the body',
     );
-    assert.match(bootstrap[1], /location\.pathname !== '\/'/);
+    assert.match(bootstrap[1], /location\.pathname === '\/'/);
     assert.match(bootstrap[1], /data-home-intro/);
     const main = html.match(
       /<main\b[^>]*id="main"[^>]*>([\s\S]*?)<\/main>/,

@@ -19,7 +19,7 @@ function compile(path) {
 const controllerSource = compile(
   '../components/home/intro/intro-controller.ts',
 );
-const sessionSource = compile('../components/home/intro/intro-session.ts');
+const runtimeSource = compile('../components/home/intro/intro-runtime.ts');
 const flush = async () => {
   for (let i = 0; i < 8; i++) await Promise.resolve();
 };
@@ -164,6 +164,9 @@ function environment({
     innerHeight: height,
     setTimeout,
     clearTimeout,
+    scrollTo({ top }) {
+      window.scrollY = top;
+    },
     matchMedia: (query) =>
       query.includes('reduced-motion')
         ? motion
@@ -171,6 +174,7 @@ function environment({
           ? compact
           : fineDesktop,
   });
+  const history = { scrollRestoration: 'auto' };
   const location = { pathname: '/', hostname: 'localhost', hash, search: '' };
   const performance = {
     now: () => clock,
@@ -193,7 +197,7 @@ function environment({
     const record = {
       options,
       active: true,
-      value: { completed: 0, total: 6, failed: 0, progress: 0 },
+      value: { completed: 0, total: 5, failed: 0, progress: 0 },
     };
     const finish = (flags = {}) => {
       if (!record.active) return;
@@ -210,12 +214,12 @@ function environment({
     options.signal.addEventListener('abort', abort, { once: true });
     options.onProgress(record.value);
     record.complete = () => {
-      record.value = { completed: 6, total: 6, failed: 0, progress: 1 };
+      record.value = { completed: 5, total: 5, failed: 0, progress: 1 };
       options.onProgress(record.value);
       finish();
     };
     record.partial = () => {
-      record.value = { completed: 2, total: 6, failed: 1, progress: 2 / 6 };
+      record.value = { completed: 2, total: 5, failed: 1, progress: 2 / 5 };
       options.onProgress(record.value);
     };
     observations.push(record);
@@ -226,6 +230,7 @@ function environment({
     document,
     window,
     location,
+    history,
     performance,
     sessionStorage,
     URLSearchParams,
@@ -235,14 +240,20 @@ function environment({
     setTimeout,
     clearTimeout,
   });
-  runInContext(sessionSource, context);
-  const session = context.exports;
+  runInContext(runtimeSource, context);
+  const runtime = context.exports;
   context.exports = {};
   context.require = (name) =>
     name === './critical-assets'
       ? { preloadHomeCriticalAssets: assets }
-      : name === './intro-session'
-        ? session
+      : name === './intro-runtime'
+        ? {
+            ...runtime,
+            markHomeIntroPlayed: () => {
+              seen++;
+              runtime.markHomeIntroPlayed();
+            },
+          }
         : null;
   runInContext(controllerSource, context);
   const { mountHomeIntro, INTRO_TIMING } = context.exports;
@@ -275,9 +286,9 @@ function environment({
     INTRO_TIMING,
     mount,
     boot() {
-      runInContext(session.HOME_INTRO_BOOTSTRAP, context);
+      runInContext(runtime.HOME_INTRO_BOOTSTRAP, context);
     },
-    claim: session.claimHomeIntro,
+    claim: runtime.claimHomeIntro,
     get completed() {
       return completed;
     },
@@ -343,12 +354,13 @@ function environment({
         original.busy,
         'original aria-busy',
       );
-      assert.equal(html.getAttribute('data-home-intro'), null);
       assert.equal(
-        html.getAttribute('data-home-intro-header'),
-        null,
-        'header handoff attribute is always released',
+        history.scrollRestoration,
+        'auto',
+        'scroll restoration ownership released',
       );
+      assert.equal(overlay.getAttribute('data-intro-sequence'), null);
+      assert.equal(html.getAttribute('data-home-intro'), null);
       assert.equal(e.listeners, 0, 'no owned DOM/media listener remains');
       assert.equal(timers.size, 0, 'no timeout remains');
       assert.equal(
@@ -361,39 +373,29 @@ function environment({
   return e;
 }
 
-// Cached assets respect minimum time measured from the pre-paint bootstrap,
-// not a fresh 1200ms after React mounts.
-for (const start of [0, 650]) {
+// Min display covers the visible sequence, even if hydration started later.
+for (const start of [0, 650, 3000]) {
   const e = environment({ now: start });
   const cleanup = e.mount();
   assert.equal(e.html.dataset.homeIntro, 'waiting');
-  e.overlay.emit('animationend', {
-    animationName: 'hi-bottom-open',
-    target: e.bottom,
-  });
-  assert.equal(
-    e.completed,
-    0,
-    'split completion must not end the waiting phase',
-  );
-  assert.equal(e.home.getAttribute('aria-busy'), 'true');
-  assert.equal(e.observations[0].options.timeoutMs, 4000 - start);
+  assert.equal(e.overlay.getAttribute('data-intro-sequence'), 'playing');
+  assert.equal(e.observations[0].options.timeoutMs, 4000);
   e.observations[0].complete();
-  await e.advance(1199 - start);
+  await e.advance(1599);
   assert.equal(e.html.dataset.homeIntro, 'waiting');
   await e.advance(1);
   assert.equal(e.html.dataset.homeIntro, 'ready');
-  await e.advance(239);
+  await e.advance(149);
   assert.equal(e.html.dataset.homeIntro, 'ready');
   await e.advance(1);
   assert.equal(e.html.dataset.homeIntro, 'revealing');
-  assert.equal(e.html.style.getPropertyValue('--hi-duration'), '1400ms');
-  await e.advance(1400);
+  assert.equal(e.html.style.getPropertyValue('--hi-duration'), '1000ms');
   e.overlay.emit('animationend', {
     animationName: 'hi-bottom-open',
     target: e.overlay,
   });
-  assert.equal(e.completed, 0, 'only the bottom panel owns split completion');
+  assert.equal(e.completed, 0, 'only correct exit event completes loader');
+  await e.advance(1000);
   e.overlay.emit('animationend', {
     animationName: 'hi-bottom-open',
     target: e.bottom,
@@ -403,85 +405,47 @@ for (const start of [0, 650]) {
   e.assertRestored();
   cleanup();
   await e.advance(10000);
-  assert.equal(
-    e.completed,
-    1,
-    'cleanup and expired fallbacks cannot complete twice',
-  );
+  assert.equal(e.completed, 1);
 }
-
-for (const { config, duration, phase, animation } of [
-  {
-    config: { mobile: true },
-    duration: 1000,
-    phase: 'revealing',
-    animation: 'hi-bottom-open',
-  },
-  {
-    config: { reduced: true },
-    duration: 300,
-    phase: 'reduced',
-    animation: 'hi-reduced-exit',
-  },
-]) {
-  const e = environment(config);
-  e.mount();
-  e.observations[0].complete();
-  await e.advance(1200 + (config.reduced ? 0 : 240));
-  assert.equal(e.html.dataset.homeIntro, phase);
-  assert.equal(e.html.style.getPropertyValue('--hi-duration'), `${duration}ms`);
-  e.overlay.emit('animationend', { animationName: 'hi-wordmark-enter' });
-  assert.equal(e.completed, 0, 'entrance animation must not dismiss overlay');
-  await e.advance(duration);
-  e.overlay.emit('animationend', {
-    animationName: animation,
-    target: config.reduced ? e.overlay : e.bottom,
-  });
-  e.assertRestored();
-}
-
-// An absent CSS animationend still releases everything after its finite guard.
 for (const config of [{}, { mobile: true }, { reduced: true }]) {
   const e = environment(config);
   e.mount();
   e.observations[0].complete();
-  const untilFallback =
-    1200 +
-    (config.reduced ? 0 : 240) +
-    (config.reduced ? 300 : config.mobile ? 1000 : 1400) +
-    100;
-  await e.advance(untilFallback - 1);
+  const enter = 1600 + (config.reduced ? 0 : 150),
+    exit = config.reduced ? 250 : config.mobile ? 900 : 1000;
+  await e.advance(enter);
+  assert.equal(
+    e.html.dataset.homeIntro,
+    config.reduced ? 'reduced' : 'revealing',
+  );
+  assert.equal(e.html.style.getPropertyValue('--hi-duration'), `${exit}ms`);
+  await e.advance(exit + 99);
   assert.equal(e.completed, 0);
   await e.advance(1);
   assert.equal(e.completed, 1);
   e.assertRestored();
 }
-
-// A hanging asset releases at the original max deadline with honest partial
-// progress. The reveal never fabricates completion or a 100% update.
+// Timeout does not fabricate the missing three completion units or linger at ready.
 {
-  const e = environment({ now: 1300 });
+  const e = environment();
   e.mount();
   e.observations[0].partial();
-  assert.equal(e.observations[0].options.timeoutMs, 2700);
-  await e.advance(2699);
+  await e.advance(3999);
   assert.equal(e.html.dataset.homeIntro, 'waiting');
   await e.advance(1);
-  assert.equal(e.html.dataset.homeIntro, 'ready');
-  assert.equal(e.progress.at(-1).progress, 2 / 6);
-  assert.equal(e.progress.length, 2);
-  await e.advance(240 + 1400 + 100);
+  assert.equal(e.html.dataset.homeIntro, 'revealing');
+  assert.equal(e.progress.at(-1).progress, 2 / 5);
+  await e.advance(1100);
   assert.equal(e.progress.at(-1).completed, 2);
   e.assertRestored();
 }
-
-for (const reason of ['cleanup', 'pagehide', 'popstate', 'hidden']) {
+for (const reason of ['cleanup', 'pagehide', 'popstate', 'hidden'])
   for (let i = 0; i < 30; i++) {
     const e = environment({ busy: i % 2 ? null : 'false' });
     const cleanup = e.mount();
     if (i % 2) {
       e.observations[0].complete();
-      await e.advance(1440);
+      await e.advance(1750);
     }
     if (reason === 'cleanup') cleanup();
     else if (reason === 'hidden') {
@@ -490,47 +454,42 @@ for (const reason of ['cleanup', 'pagehide', 'popstate', 'hidden']) {
     } else e.window.emit(reason);
     e.assertRestored();
     assert.equal(e.completed, reason === 'cleanup' ? 0 : 1);
-    assert.equal(e.seen, reason === 'cleanup' ? 0 : 1);
     cleanup();
     await e.advance(15000);
     e.assertRestored();
   }
-}
-
-// StrictMode setup → cleanup → setup retains the component's ref decision.
-// Cleanup does not mark seen or set React state; the second setup owns a fresh
-// observer/lock. This exercises controller replay, not a React renderer.
+// StrictMode retains the component decision; real later route mounts skip it.
 {
   const e = environment();
   e.boot();
-  const decisionRef = { current: e.claim() };
-  assert.equal(decisionRef.current.play, true);
-  const first = e.mount(decisionRef.current);
+  const decision = e.claim();
+  assert.equal(decision.play, true);
+  const first = e.mount(decision);
   first();
   e.assertRestored();
-  assert.equal(e.completed, 0);
   assert.equal(e.seen, 0);
-  const second = e.mount(decisionRef.current);
-  assert.equal(e.html.dataset.homeIntro, 'waiting');
-  assert.equal(e.observations.length, 2);
+  const second = e.mount(decision);
   e.observations[1].complete();
-  await e.advance(2940);
+  await e.advance(2850);
   assert.equal(e.completed, 1);
   second();
   e.assertRestored();
-  assert.equal(
-    e.claim().play,
-    false,
-    'a real later mount cannot replay the document claim',
-  );
+  assert.equal(e.claim().play, false);
 }
-
-for (const config of [
-  { scroll: 100 },
-  { hash: '#home-worlds' },
-  { hasOverlay: false },
-  { hasHome: false },
-]) {
+// A full document entry resets restored scroll/hash instead of skipping reload.
+for (const config of [{ scroll: 850 }, { scroll: 850, hash: '#home-worlds' }]) {
+  const e = environment(config);
+  const cleanup = e.mount();
+  assert.equal(e.completed, 0);
+  assert.equal(e.window.scrollY, 0);
+  assert.equal(e.observations.length, 1);
+  e.window.scrollY = 400;
+  e.window.emit('pageshow');
+  assert.equal(e.window.scrollY, 0);
+  cleanup();
+  e.assertRestored();
+}
+for (const config of [{ hasOverlay: false }, { hasHome: false }]) {
   const e = environment(config);
   e.mount();
   assert.equal(e.completed, 1);
@@ -541,125 +500,34 @@ for (const config of [
   const e = environment();
   e.mount({ play: false, force: false, startedAt: 0 });
   assert.equal(e.completed, 1);
-  assert.equal(e.observations.length, 0);
   e.assertRestored();
 }
 {
   const e = environment();
   e.mount();
   e.observations[0].complete();
-  await e.advance(1440);
+  await e.advance(1750);
   e.motion.matches = true;
   e.motion.emit('change');
   assert.equal(e.completed, 1);
   e.assertRestored();
 }
-// Keep the shared header's original geometry until its opacity is zero,
-// then perform one discrete swap. Every early exit cancels the delayed swap.
-for (const config of [{}, { mobile: true }, { reduced: true }]) {
-  const e = environment(config);
-  const cleanup = e.mount();
-  e.observations[0].complete();
-  await e.advance(1200 + (config.reduced ? 0 : 240));
-  const switchAfter = config.reduced ? 150 : config.mobile ? 250 : 350;
-  assert.equal(e.html.getAttribute('data-home-intro-header'), null);
-  await e.advance(switchAfter - 1);
-  assert.equal(e.html.getAttribute('data-home-intro-header'), null);
-  await e.advance(1);
-  assert.equal(e.html.getAttribute('data-home-intro-header'), 'home');
-  cleanup();
-  e.assertRestored();
-  await e.advance(3000);
-  e.assertRestored();
-}
-{
-  const e = environment();
-  const cleanup = e.mount();
-  e.observations[0].complete();
-  await e.advance(1440 + 349);
-  cleanup();
-  await e.advance(3000);
-  e.assertRestored();
-}
-{
-  const e = environment();
-  e.html.setAttribute('data-home-intro-header', 'home');
-  e.mount({ play: false, force: false, startedAt: 0 });
-  e.assertRestored();
-}
-// Pointer interaction is bounded to eligible loader instances. A burst writes
-// its latest coordinates once, and an idle pointer schedules no further work.
-{
-  const e = environment();
-  const cleanup = e.mount();
-  assert.equal(e.frames.size, 0, 'mount starts no permanent animation loop');
-  for (let i = 0; i < 20; i++)
-    e.overlay.emit('pointermove', { clientX: i * 72, clientY: i * 45 });
-  e.overlay.emit('pointermove', { clientX: 1440, clientY: 900 });
-  assert.equal(e.frames.size, 1, 'pointer bursts share one pending frame');
-  e.flushFrames();
-  assert.equal(e.overlay.style.getPropertyValue('--hi-pointer-x'), '1.0000');
-  assert.equal(e.overlay.style.getPropertyValue('--hi-pointer-y'), '1.0000');
-  assert.equal(e.frames.size, 0, 'one write never schedules another frame');
-  e.overlay.emit('pointermove', { clientX: -100, clientY: -100 });
-  e.flushFrames();
-  assert.equal(e.overlay.style.getPropertyValue('--hi-pointer-x'), '-1.0000');
-  e.window.innerWidth = 1200;
-  e.window.innerHeight = 800;
-  e.window.emit('resize');
-  e.overlay.emit('pointermove', { clientX: 600, clientY: 400 });
-  e.flushFrames();
-  assert.equal(e.overlay.style.getPropertyValue('--hi-pointer-x'), '0.0000');
-  assert.equal(e.overlay.style.getPropertyValue('--hi-pointer-y'), '0.0000');
-  e.overlay.emit('pointermove', { clientX: 500, clientY: 500 });
-  e.overlay.emit('pointerleave');
-  assert.equal(e.frames.size, 0, 'leaving cancels pending work');
-  assert.equal(e.overlay.style.getPropertyValue('--hi-pointer-x'), '0');
-  e.overlay.emit('pointermove', { clientX: NaN, clientY: 1 });
-  assert.equal(e.frames.size, 0, 'invalid coordinates are ignored');
-  e.overlay.emit('pointermove', { clientX: 700, clientY: 100 });
-  cleanup();
-  e.assertRestored();
-}
+// The simpler loader owns no pointer listeners or RAF, on any device.
 for (const config of [
+  {},
   { mobile: true },
-  { width: 820 },
-  { fine: false },
   { reduced: true },
+  { fine: false },
 ]) {
   const e = environment(config);
   const cleanup = e.mount();
+  for (let i = 0; i < 20; i++)
+    e.overlay.emit('pointermove', { clientX: i * 10, clientY: i * 10 });
+  assert.equal(e.frames.size, 0);
   assert.equal(e.overlay.events.get('pointermove')?.size ?? 0, 0);
-  e.overlay.emit('pointermove', { clientX: 200, clientY: 300 });
-  assert.equal(
-    e.frames.size,
-    0,
-    'mobile, tablet, coarse pointer and reduced motion stay static',
-  );
-  cleanup();
-  e.assertRestored();
-}
-{
-  const e = environment();
-  const cleanup = e.mount();
-  e.overlay.emit('pointermove', { clientX: 300, clientY: 300 });
-  e.motion.matches = true;
-  e.motion.emit('change');
-  assert.equal(
-    e.frames.size,
-    0,
-    'reduced-motion change cancels pending pointer work',
-  );
-  assert.equal(e.overlay.events.get('pointermove').size, 0);
-  e.motion.matches = false;
-  e.motion.emit('change');
-  assert.equal(e.overlay.events.get('pointermove').size, 1);
-  e.fineDesktop.matches = false;
-  e.fineDesktop.emit('change');
-  assert.equal(e.overlay.events.get('pointermove').size, 0);
   cleanup();
   e.assertRestored();
 }
 console.log(
-  'PASS: intro min/max deadlines, desktop/mobile/reduced exit timing, honest timeout progress, exact style/inert/aria restoration, StrictMode decision replay, discrete header handoff, bounded desktop pointer frames and 120 cleanup/navigation lifecycles.',
+  'PASS: visible sequence minimum, 4s asset deadline, honest timeout, desktop/mobile/reduced exits, restored-scroll reset, StrictMode, 120 complete cleanup cycles, no pointer/RAF work.',
 );

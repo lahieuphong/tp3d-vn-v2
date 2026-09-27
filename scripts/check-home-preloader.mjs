@@ -257,7 +257,8 @@ function fixture({
 }
 
 // A hanging font and a hanging decode hit one maximum wait. Pending assets
-// retain their genuine progress and may continue browser loading afterward.
+// retain genuine progress. Late responses stay on the fallback surface, so
+// they cannot pop into the already-revealed Home.
 {
   const font = deferred();
   const image = deferred();
@@ -281,7 +282,9 @@ function fixture({
   f.images.forEach((node) => node.dispatch('error'));
   await flush();
   assert.equal(f.callbacks.length, count, 'no late progress after timeout');
-  assert.ok(f.images.every((node) => node.dataset.criticalState === undefined));
+  assert.ok(
+    f.images.every((node) => node.dataset.criticalState === 'unavailable'),
+  );
   assert.equal(f.warnings.length, 0, 'production timeout stays silent');
 }
 
