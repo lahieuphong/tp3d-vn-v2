@@ -312,7 +312,7 @@ export function ContinuityQaHarness() {
         >
           Top
         </button>
-        {['worlds', 'spaces', 'materials'].map((name) => (
+        {['worlds'].map((name) => (
           <button
             key={name}
             type="button"

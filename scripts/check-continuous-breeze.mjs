@@ -79,7 +79,7 @@ function normalWidth(geometry) {
   );
 }
 for (const [width, viewport] of sizes) {
-  const height = viewport * 5.7;
+  const height = viewport * 2.94;
   const geometry = breezeGeometry(width, height);
   assert.equal(geometry.family, breezeFamily(width));
   for (const path of [geometry.outline, ...geometry.folds]) {
@@ -123,7 +123,7 @@ for (const [width, viewport] of sizes) {
     snapshots = [];
   for (let tick = 0; tick <= 100; tick++) {
     const pose = breezePose(
-      top + ((height - viewport) * tick) / 100,
+      top + (height * tick) / 100,
       top,
       height,
       viewport,
@@ -136,13 +136,7 @@ for (const [width, viewport] of sizes) {
   for (let tick = 100; tick >= 0; tick--) {
     assert.equal(
       JSON.stringify(
-        breezePose(
-          top + ((height - viewport) * tick) / 100,
-          top,
-          height,
-          viewport,
-          width,
-        ),
+        breezePose(top + (height * tick) / 100, top, height, viewport, width),
       ),
       snapshots[tick],
     );
@@ -181,22 +175,47 @@ for (const [portrait, landscape] of [
     [1180, 820],
   ],
 ]) {
-  const first = breezeGeometry(portrait[0], portrait[1] * 5.7);
-  const turned = breezeGeometry(landscape[0], landscape[1] * 5.7);
+  const first = breezeGeometry(portrait[0], portrait[1] * 2.94);
+  const turned = breezeGeometry(landscape[0], landscape[1] * 2.94);
   assert.notEqual(
     first.outline,
     turned.outline,
     'orientation recomposes geometry',
   );
   assert.equal(
-    breezeGeometry(portrait[0], portrait[1] * 5.7).outline,
+    breezeGeometry(portrait[0], portrait[1] * 2.94).outline,
     first.outline,
     'turning back restores the same composition',
   );
 }
 const compactPage = breezePose(30, 0, 100, 900, 390);
 assert.ok(Object.values(compactPage).every(Number.isFinite));
-assert.equal(compactPage.progress, 1);
+assert.equal(compactPage.progress, 0.3);
+// New scene boundaries drive the end, without stretching the opening when the
+// final chapter grows. The first three fiber knots retain the same coordinates.
+for (const width of [375, 390, 430, 768, 1024, 1280, 1440, 1920]) {
+  const opening = 1800;
+  const a = strand(breezeGeometry(width, 2700, opening).threads[18]);
+  const b = strand(breezeGeometry(width, 3000, opening).threads[18]);
+  assert.deepEqual(
+    a.slice(0, 2),
+    b.slice(0, 2),
+    'opening cloth stays anchored',
+  );
+  const start = breezePose(1800, 0, 2700, 900, width);
+  const release = breezePose(2350, 0, 2700, 900, width);
+  const footer = breezePose(2700, 0, 2700, 900, width);
+  assert.equal(start.opacity, 1, 'full Worlds frame retains its Breeze');
+  assert.ok(
+    release.opacity > 0 && release.opacity < 1,
+    'release fades within the final scene',
+  );
+  assert.equal(footer.opacity, 0, 'no fabric runs through the footer');
+  assert.ok(
+    Math.abs(footer.x - (width < 768 ? 3 : width < 1200 ? 5 : 8)) < 1e-9,
+  );
+  assert.equal(breezePose(2700, 0, 2700, 900, width, true).opacity, 0);
+}
 console.log(
-  'Continuous Breeze: 14 requested viewports plus portrait/landscape, connected contours, bounded physical thickness, reversible scroll, reduced motion and orientation recomposition passed. No browser performance measurements are claimed.',
+  'Continuous Breeze passed: opening anchors, connected single cloth, bounded thickness, actual Worlds endpoint, footer fade, reverse scroll, reduced motion and responsive/orientation geometry. No browser performance measurements claimed.',
 );

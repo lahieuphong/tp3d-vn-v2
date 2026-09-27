@@ -1,15 +1,54 @@
 /* One architectural frame. Room labels share the image's cover coordinates;
    the existing document-space Breeze stays above it and below the live type. */
 .hc-chapter.hc-worlds {
+  --hc-serif: 'Cormorant Spatial', Cormorant, Georgia, serif;
+  --hc-sans: 'Manrope Spatial', Manrope, Arial, sans-serif;
   --atrium-ratio: 1.776833;
   --atrium-gutter: 5.25%;
   --hc-overlap: 16svh;
+  position: relative;
+  width: 100%;
+  max-width: none;
   height: 100svh;
   min-height: 680px;
   margin-top: calc(-1 * var(--hc-overlap));
-  /* Absorb the following scene's existing overlap outside this complete frame. */
-  margin-bottom: 14svh;
+  margin-bottom: 0;
   color: #f5edde;
+  font-family: var(--hc-serif);
+}
+.hc-worlds h2 {
+  font-family: var(--hc-serif);
+  font-weight: 400;
+  max-width: none;
+}
+.hc-worlds p {
+  max-width: none;
+}
+.hc-worlds a:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 7px;
+}
+.hc-worlds .hc-eyebrow {
+  font: 500 clamp(8px, 0.61vw, 11px)/2 var(--hc-sans);
+  letter-spacing: 0.27em;
+}
+.hc-worlds .hc-body {
+  letter-spacing: -0.012em;
+}
+.hc-worlds .hc-link {
+  position: relative;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  font: 500 9px/1.5 var(--hc-sans);
+  letter-spacing: 0.19em;
+}
+.hc-link > span {
+  font: 300 28px/1 var(--hc-serif);
+  transition: transform 250ms ease;
+}
+.hc-link:hover > span {
+  transform: translateX(4px);
 }
 .hc-atrium-backdrop {
   position: absolute;
@@ -246,6 +285,10 @@
   }
 }
 @media (max-width: 767px) {
+  .hc-worlds .hc-eyebrow {
+    font-size: 8px;
+    letter-spacing: 0.22em;
+  }
   .hc-chapter.hc-worlds {
     --atrium-gutter: 7%;
     display: flex;
@@ -344,6 +387,12 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .hc-worlds * {
+    transition: none !important;
+  }
+  .hc-link:hover > span {
+    transform: none;
+  }
   .hc-atrium-cta:hover img {
     transform: none;
   }

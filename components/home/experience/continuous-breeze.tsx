@@ -1,5 +1,5 @@
 import { breezeGeometry } from './breeze-geometry';
-const initial = breezeGeometry(1440, 5200);
+const initial = breezeGeometry(1440, 2646, 1746);
 /** Two depth projections of ONE shared definition. Complementary masks partition
  * the same cloth, without overlapping image segments or section-local assets. */
 export function ContinuousBreeze() {
@@ -11,7 +11,7 @@ export function ContinuousBreeze() {
     >
       <svg
         className="cb-plane cb-back"
-        viewBox="0 0 1440 5200"
+        viewBox="0 0 1440 2646"
         preserveAspectRatio="xMidYMid meet"
         focusable="false"
         data-breeze-svg
@@ -26,23 +26,19 @@ export function ContinuousBreeze() {
           </linearGradient>
           <linearGradient id="cb-depth" x1="0" x2="0" y1="0" y2="1">
             <stop stopColor="white" />
-            <stop offset=".08" stopColor="white" />
-            <stop offset=".19" stopColor="black" />
+            <stop offset=".14" stopColor="white" />
             <stop offset=".32" stopColor="black" />
-            <stop offset=".43" stopColor="white" />
-            <stop offset=".61" stopColor="white" />
-            <stop offset=".72" stopColor="black" />
-            <stop offset="1" stopColor="black" />
+            <stop offset=".54" stopColor="black" />
+            <stop offset=".73" stopColor="white" />
+            <stop offset="1" stopColor="white" />
           </linearGradient>
           <linearGradient id="cb-depth-back" x1="0" x2="0" y1="0" y2="1">
             <stop stopColor="black" />
-            <stop offset=".08" stopColor="black" />
-            <stop offset=".19" stopColor="white" />
+            <stop offset=".14" stopColor="black" />
             <stop offset=".32" stopColor="white" />
-            <stop offset=".43" stopColor="black" />
-            <stop offset=".61" stopColor="black" />
-            <stop offset=".72" stopColor="white" />
-            <stop offset="1" stopColor="white" />
+            <stop offset=".54" stopColor="white" />
+            <stop offset=".73" stopColor="black" />
+            <stop offset="1" stopColor="black" />
           </linearGradient>
           <mask
             id="cb-front-mask"
@@ -92,7 +88,7 @@ export function ContinuousBreeze() {
       </svg>
       <svg
         className="cb-plane cb-front"
-        viewBox="0 0 1440 5200"
+        viewBox="0 0 1440 2646"
         preserveAspectRatio="xMidYMid meet"
         focusable="false"
         data-breeze-svg

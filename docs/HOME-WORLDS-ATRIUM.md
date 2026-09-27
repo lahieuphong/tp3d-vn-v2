@@ -1,8 +1,10 @@
 # Homepage Worlds — circular atrium
 
-Scope: replace only the Home Worlds chapter. Loader, opening timeline, Spaces,
-Materials and footer implementation are unchanged. The previous client-side
-WorldSelector and its responsive sidebar styles were removed.
+Original scope: replace only the Home Worlds chapter. The previous client-side
+WorldSelector and its responsive sidebar styles were removed. A subsequent
+[Homepage cleanup](HOME-SECTION-CLEANUP.md) removes the Spaces and Materials Home
+chapters; Worlds now connects directly to the footer. That report contains the
+current browser verification and supersedes the historical QA limitation below.
 
 ## Composition and routing
 
@@ -16,8 +18,8 @@ WorldSelector and its responsive sidebar styles were removed.
   capped to the header height for the new opaque frame on tall desktops.
 - The existing document-space ContinuousBreeze remains the only ribbon. No new
   animation loop, canvas, WebGL, viewer import or room-model preload was added.
-- The following chapter's existing negative margin is absorbed by Worlds' bottom
-  margin, preserving its complete frame without changing Sample Spaces' CSS.
+- Worlds now has no outgoing chapter margin: its complete frame ends directly
+  at the footer, with the shared Breeze fading out at the Home boundary.
 
 ## Asset provenance
 

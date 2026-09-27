@@ -187,18 +187,18 @@ while (pending.length) {
     ];
     assert.deepEqual(
       chapters.map(([, name]) => name),
-      ['worlds', 'spaces', 'materials'],
-      'Home: Worlds, Spaces and Materials must follow the two-scene opening in order',
+      ['worlds'],
+      'Home: only Worlds follows the two-scene opening',
     );
     assert.equal(
       (main.match(/<section\b/g) ?? []).length,
-      4,
-      'Home: only the opening story and three new chapter sections should render',
+      2,
+      'Home: only the opening story and Worlds section should render',
     );
     assert.equal(
       (main.match(/\bdata-continuous-breeze(?:=|\s|>)/g) ?? []).length,
       1,
-      'Home: all five scenes share one Breeze owner',
+      'Home: the opening and Worlds share one Breeze owner',
     );
     assert.doesNotMatch(
       main,
@@ -248,6 +248,10 @@ while (pending.length) {
       'Objects with a sense of place.',
       'THE JOURNAL',
       'Notes on living well.',
+      'Rooms as atmospheres.',
+      'SAMPLE SPACES',
+      'CURATED INTERIORS',
+      'Natural materials, considered objects.',
     ]) {
       assert(
         !textContent.includes(retiredHeading),
@@ -259,28 +263,6 @@ while (pending.length) {
         name: 'worlds',
         heading: 'home-worlds-title',
         destinations: ['/worlds'],
-      },
-      {
-        name: 'spaces',
-        heading: 'home-spaces-title',
-        destinations: [
-          '/spaces/living',
-          '/spaces/bedroom',
-          '/spaces/workspace',
-          '/spaces/kitchen',
-        ],
-      },
-      {
-        name: 'materials',
-        heading: 'home-materials-title',
-        destinations: [
-          '/materials',
-          '/materials/travertine',
-          '/materials/walnut',
-          '/materials/linen',
-          '/products',
-          '/materials/brushed-metal',
-        ],
       },
     ]) {
       const body = chapterBodies[name];
@@ -359,24 +341,31 @@ while (pending.length) {
       /worlds-architecture|hc-world-selector|hc-worlds-daylight|the space\./,
     );
     assert.match(chapterBodies.worlds, /worlds-atrium\.webp/);
-    assert.equal(
-      (chapterBodies.spaces.match(/class="hc-room"/g) ?? []).length,
-      4,
-      'Home: Sample Spaces must render four native room portals',
+    assert.doesNotMatch(
+      main,
+      /<h2\b[^>]*>[\s\S]*?Objects &amp;\s*<br\s*\/?>\s*Materials[\s\S]*?<\/h2>/,
     );
-    assert.equal(
-      (chapterBodies.materials.match(/class="hc-material-callout\b/g) ?? [])
-        .length,
-      5,
-      'Home: Materiality must render five linked material callouts',
+    assert.doesNotMatch(
+      main,
+      /home-spaces|home-materials|data-material-depth|hc-material|hc-room-portals|spaces-architecture|materials-architecture|material-groups|material-tableau/,
+      'Home: deleted scene markup, bindings and image requests must be absent',
     );
-    assert.deepEqual(
-      [...chapterBodies.materials.matchAll(/data-material-depth="([^"]+)"/g)]
-        .map(([, depth]) => depth)
-        .sort(),
-      ['ceramic', 'metal', 'mid', 'rear', 'stone', 'textile'],
-      'Home: the material composition needs six independently layered objects',
+    assert.doesNotMatch(
+      main,
+      /href="#(?:home-spaces|home-materials|spaces-chapter|materials-chapter)"/,
     );
+    for (const route of [
+      '/spaces',
+      '/materials',
+      '/products',
+      '/projects',
+      '/worlds',
+    ]) {
+      assert(
+        html.includes(`href="${route}"`),
+        `Navigation must retain ${route}`,
+      );
+    }
   }
   for (const section of html.matchAll(
     /<section[^>]*data-project-context[^>]*>([\s\S]*?)<\/section>/g,

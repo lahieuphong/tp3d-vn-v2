@@ -1,433 +1,143 @@
 import type { BreezeDriver } from './breeze-renderer';
-type ChapterName = 'worlds' | 'spaces' | 'materials';
-type ChapterPhase = 'far' | 'entering' | 'active' | 'leaving';
-type Depth = 'background' | 'foreground' | 'breeze' | 'copy';
-const materialDepthOffsets = {
-  rear: 2,
-  mid: 3,
-  stone: 6,
-  ceramic: 4,
-  textile: 3,
-  metal: 5,
-} as const;
-type MaterialDepth = keyof typeof materialDepthOffsets;
-type ChapterGeometry = { top: number; height: number };
-type Frame = {
-  entry: number;
-  exit: number;
-  progress: number;
-  phase: ChapterPhase;
-};
-type Chapter = {
-  node: HTMLElement;
-  name: ChapterName;
-  geometry: ChapterGeometry;
-  layers: {
-    node: HTMLElement;
-    depth: Depth;
-    materialDepth?: MaterialDepth;
-    order: number;
-  }[];
-  reveals: HTMLElement[];
-  callouts: { node: HTMLElement; index: number }[];
-  targets: HTMLElement[];
-};
 
+type Geometry = { top: number; height: number };
 const clamp = (value: number) => Math.min(1, Math.max(0, value));
 const smooth = (value: number) => {
   const bounded = clamp(value);
   return bounded * bounded * (3 - 2 * bounded);
 };
 
-/** Pure document-space geometry: scroll never reads layout after a style write. */
+/** Native scroll measurements for the single chapter after the opening. */
 export function chapterFrame(
-  geometry: ChapterGeometry,
+  geometry: Geometry,
   scrollY: number,
   viewportHeight: number,
   headerHeight: number,
-): Frame {
+) {
   const top = geometry.top - scrollY;
   const bottom = top + geometry.height;
   const viewport = Math.max(1, viewportHeight);
-  const entry = clamp((viewport - top) / (viewport * 0.35));
-  const exit = clamp((viewport - bottom) / (viewport * 0.55));
-  const progress = clamp((viewport - top) / (viewport + geometry.height));
-  const phase: ChapterPhase =
-    bottom <= 0 || top >= viewport
-      ? 'far'
-      : top > headerHeight
-        ? 'entering'
-        : bottom < viewport * 0.65
-          ? 'leaving'
-          : 'active';
-  return { entry, exit, progress, phase };
+  return {
+    entry: clamp((viewport - top) / (viewport * 0.35)),
+    progress: clamp((viewport - top) / (viewport + geometry.height)),
+    phase:
+      bottom <= 0 || top >= viewport
+        ? 'far'
+        : top > headerHeight
+          ? 'entering'
+          : bottom < viewport * 0.65
+            ? 'leaving'
+            : 'active',
+  };
 }
 
 export function chapterHeaderTheme(
-  chapters: { name: ChapterName; geometry: ChapterGeometry }[],
+  worlds: Geometry,
   scrollY: number,
   headerHeight: number,
-  viewportHeight = 0,
+  viewportHeight: number,
 ): 'dark' | 'light' | null {
-  const samplingPoint = scrollY + headerHeight;
-  // The top eight viewport percent belongs to the incoming chapter's blended
-  // edge. Prefer the later chapter once its readable background has arrived.
-  // Worlds is now an opaque frame: cap its threshold at the actual header so
-  // a tall display cannot leave dark ink on the atrium's dark upper ring.
-  const current = [...chapters]
-    .reverse()
-    .find(
-      ({ name, geometry }) =>
-        samplingPoint >=
-          geometry.top +
-            (name === 'worlds'
-              ? Math.min(headerHeight, viewportHeight * 0.08)
-              : viewportHeight * 0.08) &&
-        samplingPoint < geometry.top + geometry.height,
-    );
-  return current ? (current.name === 'worlds' ? 'dark' : 'light') : null;
+  const sample = scrollY + headerHeight;
+  if (sample >= worlds.top + worlds.height) return 'light';
+  return sample >= worlds.top + Math.min(headerHeight, viewportHeight * 0.08)
+    ? 'dark'
+    : null;
 }
 
-/** Native scroll chapters: one event-batched frame, no autoplay or idle loop.
- * Far sections keep their readable server-rendered composition and release
- * their transforms. All geometry is collected before the render pass writes. */
+/** One Worlds reveal controller, also driving the shared Breeze. No scene
+ * registry, layer parallax, callout stagger, pin spacer or idle animation loop. */
 export function mountHomeChapters(
   root: HTMLElement,
   breeze?: BreezeDriver,
 ): () => void {
+  const worldNode = root.querySelector<HTMLElement>(
+    '[data-home-chapter="worlds"]',
+  );
+  if (!worldNode) return () => {};
+  const worlds = worldNode;
+  const header = document.querySelector<HTMLElement>('.site-header');
+  const reveals = [
+    ...worlds.querySelectorAll<HTMLElement>('[data-chapter-reveal]'),
+  ];
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   const compact = window.matchMedia('(max-width: 767px)');
-  const header = document.querySelector<HTMLElement>('.site-header');
-  const chapters: Chapter[] = [
-    ...root.querySelectorAll<HTMLElement>('[data-home-chapter]'),
-  ]
-    .filter((node) =>
-      ['worlds', 'spaces', 'materials'].includes(
-        node.dataset.homeChapter ?? '',
-      ),
-    )
-    .map((node) => {
-      const layers = [
-        ...node.querySelectorAll<HTMLElement>('[data-chapter-depth]'),
-      ]
-        .filter((layer) =>
-          ['background', 'foreground', 'breeze', 'copy'].includes(
-            layer.dataset.chapterDepth ?? '',
-          ),
-        )
-        .map((layer) => ({
-          node: layer,
-          depth: layer.dataset.chapterDepth as Depth,
-          materialDepth: Object.hasOwn(
-            materialDepthOffsets,
-            layer.dataset.materialDepth ?? '',
-          )
-            ? (layer.dataset.materialDepth as MaterialDepth)
-            : undefined,
-          order: Math.max(
-            0,
-            Math.min(5, Number(layer.dataset.materialOrder) || 0),
-          ),
-        }));
-      const reveals = [
-        ...node.querySelectorAll<HTMLElement>('[data-chapter-reveal]'),
-      ];
-      const callouts = [
-        ...node.querySelectorAll<HTMLElement>('[data-callout-index]'),
-      ].map((callout) => ({
-        node: callout,
-        index: Math.max(
-          0,
-          Math.min(4, Number(callout.dataset.calloutIndex) || 0),
-        ),
-      }));
-      return {
-        node,
-        name: node.dataset.homeChapter as ChapterName,
-        geometry: { top: 0, height: 0 },
-        layers,
-        reveals,
-        callouts,
-        targets: [
-          ...new Set([
-            ...layers.map((layer) => layer.node),
-            ...reveals,
-            ...callouts.map((callout) => callout.node),
-          ]),
-        ],
-      };
-    });
-  if (!chapters.length) return () => {};
+  const originals = reveals.map((node) => ({
+    node,
+    styles: ['transform', 'opacity'].map((property) => ({
+      property,
+      value: node.style.getPropertyValue(property),
+      priority: node.style.getPropertyPriority(property),
+    })),
+  }));
+  const originalAttributes = {
+    phase: worlds.dataset.phase,
+    progress: worlds.dataset.progress,
+  };
+  const originalTheme = header?.dataset.chapterTheme;
+  let geometry: Geometry = { top: 0, height: 1 };
+  let viewport = Math.max(1, window.innerHeight),
+    headerHeight = 0;
+  let disposed = false,
+    frame = 0,
+    needsMeasure = true,
+    dirty = false;
 
-  let disposed = false;
-  let frame = 0;
-  let needsMeasure = true;
-  let viewportHeight = window.innerHeight;
-  let headerHeight = 0;
-  let staticApplied = false;
-  let intersection: IntersectionObserver | null = null;
-  let observerMargin = -1;
-  const near = new Set<Chapter>();
-  const toClear = new Set<Chapter>();
-  const byNode = new Map(chapters.map((chapter) => [chapter.node, chapter]));
-  const properties = ['transform', 'opacity', '--callout-reveal'];
-  const sectionProperties = [
-    '--chapter-entry',
-    '--chapter-exit',
-    '--chapter-progress',
-  ];
-  const originalStyles = new Map<
-    HTMLElement,
-    Map<string, { value: string; priority: string }>
-  >();
-  const originalAttributes = new Map<
-    HTMLElement,
-    { phase?: string; progress?: string }
-  >();
-  for (const chapter of chapters) {
-    originalAttributes.set(chapter.node, {
-      phase: chapter.node.dataset.phase,
-      progress: chapter.node.dataset.progress,
-    });
-    for (const [node, owned] of [
-      [chapter.node, sectionProperties],
-      ...chapter.targets.map((target) => [target, properties]),
-    ] as [HTMLElement, string[]][]) {
-      const snapshot = originalStyles.get(node) ?? new Map();
-      for (const property of owned)
-        snapshot.set(property, {
-          value: node.style.getPropertyValue(property),
-          priority: node.style.getPropertyPriority(property),
-        });
-      originalStyles.set(node, snapshot);
-    }
-  }
-  const restore = (node: HTMLElement, owned: string[]) => {
-    const snapshot = originalStyles.get(node);
-    for (const property of owned) {
-      const previous = snapshot?.get(property);
-      if (previous?.value)
-        node.style.setProperty(property, previous.value, previous.priority);
-      else node.style.removeProperty(property);
-    }
-  };
-  const clearChapter = (chapter: Chapter, staticView = false) => {
-    restore(chapter.node, sectionProperties);
-    for (const target of chapter.targets) restore(target, properties);
-    chapter.node.dataset.phase = 'far';
-    if (staticView) delete chapter.node.dataset.progress;
-  };
-  const headerTheme = () => {
-    if (!header) return;
-    const theme = chapterHeaderTheme(
-      chapters,
-      window.scrollY,
-      headerHeight,
-      viewportHeight,
-    );
-    if (theme && header.dataset.chapterTheme !== theme)
-      header.dataset.chapterTheme = theme;
-    else if (!theme && header.dataset.chapterTheme !== undefined)
-      delete header.dataset.chapterTheme;
-  };
-  const paintChapter = (chapter: Chapter, scrollY: number) => {
-    const state = chapterFrame(
-      chapter.geometry,
-      scrollY,
-      viewportHeight,
-      headerHeight,
-    );
-    chapter.node.dataset.phase = state.phase;
-    chapter.node.dataset.progress = state.progress.toFixed(4);
-    chapter.node.style.setProperty('--chapter-entry', state.entry.toFixed(4));
-    chapter.node.style.setProperty('--chapter-exit', state.exit.toFixed(4));
-    chapter.node.style.setProperty(
-      '--chapter-progress',
-      state.progress.toFixed(4),
-    );
-    const entry = smooth(state.entry);
-    const amplitude = compact.matches ? 0.4 : 1;
-    const poses = new Map<
-      HTMLElement,
-      { y: number; scale: number; opacity?: number; callout?: number }
-    >();
-    for (const layer of chapter.layers) {
-      const materialSettled = chapter.name === 'materials';
-      const drift = (state.progress - 0.5) * amplitude;
-      const pose: { y: number; scale: number; opacity?: number } = {
-        y: 0,
-        scale: 1,
-      };
-      if (layer.depth === 'background') {
-        pose.y = materialSettled ? (1 - entry) * 12 * amplitude : drift * 24;
-        pose.scale = 1.02 - entry * 0.02;
-        pose.opacity = 0.7 + entry * 0.3;
-      } else if (layer.depth === 'foreground') {
-        if (materialSettled && layer.materialDepth) {
-          // Six independent cut-outs share one scroll sample. Their entrances
-          // finish before entry=1; only a bounded 2–6px depth offset remains.
-          const reveal = smooth((state.entry - layer.order * 0.05) / 0.72);
-          const depthOffset =
-            -drift * 2 * materialDepthOffsets[layer.materialDepth];
-          pose.y = (1 - reveal) * 40 * amplitude + depthOffset;
-          pose.scale = 0.98 + reveal * 0.02;
-          pose.opacity = reveal;
-        } else {
-          // Retain the single-tableau fallback for a scene without cut-outs.
-          pose.y = materialSettled ? (1 - entry) * 40 * amplitude : -drift * 18;
-          pose.scale = materialSettled
-            ? 0.98 + entry * 0.02
-            : 1 + state.exit * 0.014;
-          if (materialSettled) pose.opacity = entry;
-        }
-      } else if (layer.depth === 'breeze') {
-        pose.y = materialSettled
-          ? drift * 42 + state.exit * 30 * amplitude
-          : -drift * 42 - state.exit * 16 * amplitude;
-      } else {
-        pose.y = (1 - entry) * 12 * amplitude;
+  const clear = () => {
+    if (!dirty) return;
+    for (const { node, styles } of originals) {
+      for (const { property, value, priority } of styles) {
+        if (value) node.style.setProperty(property, value, priority);
+        else node.style.removeProperty(property);
       }
-      poses.set(layer.node, pose);
     }
-    chapter.reveals.forEach((node, index) => {
-      const reveal = smooth((state.entry - Math.min(index, 4) * 0.045) / 0.72);
-      const pose = poses.get(node) ?? { y: 0, scale: 1, opacity: 1 };
-      pose.opacity = Math.min(pose.opacity ?? 1, reveal);
-      pose.y += (1 - reveal) * 18 * amplitude;
-      poses.set(node, pose);
-    });
-    for (const { node, index } of chapter.callouts) {
-      const reveal = smooth((state.entry - index * 0.065) / 0.66);
-      const pose = poses.get(node) ?? { y: 0, scale: 1, opacity: 1 };
-      pose.opacity = Math.min(pose.opacity ?? 1, reveal);
-      pose.y += (1 - reveal) * 15 * amplitude;
-      pose.callout = reveal;
-      poses.set(node, pose);
-    }
-    for (const [node, pose] of poses) {
-      node.style.transform = `translate3d(0, ${pose.y.toFixed(2)}px, 0) scale(${pose.scale.toFixed(4)})`;
-      // Breeze/copy opacity belongs to art direction unless this exact node
-      // participates in a reveal. Do not override authored translucency with 1.
-      if (pose.opacity !== undefined)
-        node.style.opacity = pose.opacity.toFixed(4);
-      if (pose.callout !== undefined)
-        node.style.setProperty('--callout-reveal', pose.callout.toFixed(4));
-    }
+    worlds.dataset.phase = 'far';
+    delete worlds.dataset.progress;
+    dirty = false;
   };
   const schedule = () => {
     if (disposed || document.hidden || frame) return;
     frame = requestAnimationFrame(render);
   };
-  const observe = () => {
-    if (typeof IntersectionObserver === 'undefined') return;
-    const margin = Math.round(viewportHeight * 0.35);
-    if (intersection && observerMargin === margin) return;
-    intersection?.disconnect();
-    observerMargin = margin;
-    intersection = new IntersectionObserver(
-      (entries) => {
-        if (disposed) return;
-        for (const entry of entries) {
-          const chapter = byNode.get(entry.target as HTMLElement);
-          if (!chapter) continue;
-          if (entry.isIntersecting) {
-            near.add(chapter);
-            toClear.delete(chapter);
-          } else {
-            near.delete(chapter);
-            toClear.add(chapter);
-          }
-        }
-        schedule();
-      },
-      { rootMargin: `${margin}px 0px`, threshold: 0 },
-    );
-    for (const chapter of chapters) intersection.observe(chapter.node);
-  };
   const measure = () => {
     const scrollY = window.scrollY;
-    viewportHeight = Math.max(1, window.innerHeight);
-    // Complete the read phase before touching any chapter/header styles.
-    const headerRect = header?.getBoundingClientRect();
-    const rectangles = chapters.map((chapter) =>
-      chapter.node.getBoundingClientRect(),
-    );
+    viewport = Math.max(1, window.innerHeight);
+    // Complete geometry reads before Breeze/theme/reveal writes.
+    const headerBounds = header?.getBoundingClientRect();
+    const worldBounds = worlds.getBoundingClientRect();
     const homeBounds = breeze ? root.getBoundingClientRect() : null;
-    headerHeight = headerRect?.height ?? 0;
-    chapters.forEach((chapter, index) => {
-      const rectangle = rectangles[index];
-      chapter.geometry = {
-        top: rectangle.top + scrollY,
-        height: rectangle.height,
-      };
-    });
-    const margin = viewportHeight * 0.35;
-    near.clear();
-    for (const chapter of chapters) {
-      const top = chapter.geometry.top - scrollY;
-      if (
-        top < viewportHeight + margin &&
-        top + chapter.geometry.height > -margin
-      ) {
-        near.add(chapter);
-        toClear.delete(chapter);
-      } else toClear.add(chapter);
-    }
-    if (homeBounds) breeze?.measure(homeBounds, scrollY);
+    headerHeight = headerBounds?.height ?? 0;
+    geometry = { top: worldBounds.top + scrollY, height: worldBounds.height };
+    if (homeBounds) breeze?.measure(homeBounds, scrollY, worldBounds);
     needsMeasure = false;
-    observe();
   };
   function render() {
     frame = 0;
-    if (disposed) return;
+    if (disposed || document.hidden) return;
     if (needsMeasure) measure();
-    headerTheme();
-    breeze?.paint(window.scrollY, viewportHeight, reduced.matches);
-    for (const chapter of toClear) clearChapter(chapter, reduced.matches);
-    toClear.clear();
-    if (reduced.matches) {
-      if (!staticApplied) {
-        for (const chapter of chapters) clearChapter(chapter, true);
-        staticApplied = true;
-      }
+    const scrollY = window.scrollY;
+    const theme = chapterHeaderTheme(geometry, scrollY, headerHeight, viewport);
+    if (header && header.dataset.chapterTheme !== (theme ?? undefined)) {
+      if (theme) header.dataset.chapterTheme = theme;
+      else delete header.dataset.chapterTheme;
+    }
+    breeze?.paint(scrollY, viewport, reduced.matches);
+    const state = chapterFrame(geometry, scrollY, viewport, headerHeight);
+    if (reduced.matches || state.phase === 'far') {
+      clear();
       return;
     }
-    staticApplied = false;
-    const scrollY = window.scrollY;
-    for (const chapter of near) paintChapter(chapter, scrollY);
+    dirty = true;
+    worlds.dataset.phase = state.phase;
+    worlds.dataset.progress = state.progress.toFixed(4);
+    const amplitude = compact.matches ? 0.4 : 1;
+    reveals.forEach((node, index) => {
+      // Preserve the atrium's existing restrained entrance exactly.
+      const reveal = smooth((state.entry - Math.min(index, 4) * 0.045) / 0.72);
+      node.style.transform = `translate3d(0, ${((1 - reveal) * 18 * amplitude).toFixed(2)}px, 0) scale(1.0000)`;
+      node.style.opacity = reveal.toFixed(4);
+    });
   }
-  const scroll = () => {
-    if (disposed || document.hidden) return;
-    // IO is the normal gate; the cached bounds also cover instant keyboard or
-    // fragment jumps before the browser delivers the next IO callback.
-    const margin = viewportHeight * 0.35;
-    let nearby = false;
-    for (const chapter of chapters) {
-      const top = chapter.geometry.top - window.scrollY;
-      const intersects =
-        top < viewportHeight + margin &&
-        top + chapter.geometry.height > -margin;
-      if (intersects) {
-        near.add(chapter);
-        toClear.delete(chapter);
-        nearby = true;
-      } else if (near.delete(chapter)) toClear.add(chapter);
-    }
-    if (
-      breeze ||
-      nearby ||
-      toClear.size ||
-      header?.dataset.chapterTheme !== undefined
-    )
-      schedule();
-  };
   const resize = () => {
-    needsMeasure = true;
-    schedule();
-  };
-  const motionPreference = () => {
-    for (const chapter of chapters) clearChapter(chapter, true);
-    staticApplied = reduced.matches;
     needsMeasure = true;
     schedule();
   };
@@ -435,24 +145,22 @@ export function mountHomeChapters(
     if (document.hidden) {
       if (frame) cancelAnimationFrame(frame);
       frame = 0;
-    } else {
-      needsMeasure = true;
-      schedule();
-    }
+    } else resize();
   };
-  const sizeObserver =
+  // The owner and its one chapter are the only scene measurements. Native
+  // scroll already gates reveals by cached geometry; no IntersectionObserver
+  // or removed-scene targets are necessary.
+  const sizes =
     typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(resize);
-  sizeObserver?.observe(root);
-  for (const chapter of chapters) sizeObserver?.observe(chapter.node);
-  if (header) sizeObserver?.observe(header);
-  window.addEventListener('scroll', scroll, { passive: true });
+  sizes?.observe(root);
+  sizes?.observe(worlds);
+  if (header) sizes?.observe(header);
+  window.addEventListener('scroll', schedule, { passive: true });
   window.addEventListener('resize', resize, { passive: true });
   window.addEventListener('pageshow', resize);
   document.addEventListener('visibilitychange', visibility);
-  reduced.addEventListener('change', motionPreference);
+  reduced.addEventListener('change', schedule);
   compact.addEventListener('change', resize);
-  // Do the first geometry/paint pass synchronously in the mount effect so a
-  // deep-link landing cannot flash a hidden or incorrectly themed chapter.
   render();
 
   return () => {
@@ -460,23 +168,22 @@ export function mountHomeChapters(
     disposed = true;
     if (frame) cancelAnimationFrame(frame);
     frame = 0;
-    intersection?.disconnect();
-    sizeObserver?.disconnect();
-    window.removeEventListener('scroll', scroll);
+    sizes?.disconnect();
+    window.removeEventListener('scroll', schedule);
     window.removeEventListener('resize', resize);
     window.removeEventListener('pageshow', resize);
     document.removeEventListener('visibilitychange', visibility);
-    reduced.removeEventListener('change', motionPreference);
+    reduced.removeEventListener('change', schedule);
     compact.removeEventListener('change', resize);
-    for (const chapter of chapters) {
-      clearChapter(chapter, true);
-      const previous = originalAttributes.get(chapter.node);
-      if (previous?.phase === undefined) delete chapter.node.dataset.phase;
-      else chapter.node.dataset.phase = previous.phase;
-      if (previous?.progress === undefined)
-        delete chapter.node.dataset.progress;
-      else chapter.node.dataset.progress = previous.progress;
+    clear();
+    for (const key of ['phase', 'progress'] as const) {
+      const value = originalAttributes[key];
+      if (value === undefined) delete worlds.dataset[key];
+      else worlds.dataset[key] = value;
     }
-    if (header) delete header.dataset.chapterTheme;
+    if (header) {
+      if (originalTheme === undefined) delete header.dataset.chapterTheme;
+      else header.dataset.chapterTheme = originalTheme;
+    }
   };
 }

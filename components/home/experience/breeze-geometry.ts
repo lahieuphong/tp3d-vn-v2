@@ -17,18 +17,34 @@ function curve(points: Point[], move = true) {
   }
   return d;
 }
-export function breezeGeometry(width: number, height: number) {
+export function breezeGeometry(
+  width: number,
+  height: number,
+  worldsTop = height * 0.66,
+) {
   const w = Math.max(1, width),
     h = Math.max(1, height);
   const family = breezeFamily(w);
   const xs =
     family === 'desktop'
-      ? [-0.15, 0.75, 0.52, 0.89, 0.27, 0.8, 0.28, 0.84, 1.15]
+      ? [-0.15, 0.75, 0.52, 0.89, 0.27, 1.14]
       : family === 'tablet'
-        ? [-0.12, 0.85, 0.6, 0.8, 0.27, 0.82, 0.3, 0.75, 1.12]
-        : [1.12, 0.78, 0.84, 0.26, 0.8, 0.24, 0.79, 0.3, -0.14];
-  const ys = [-0.015, 0.065, 0.18, 0.3, 0.44, 0.59, 0.74, 0.89, 1.025];
-  const spine = xs.map((x, i) => ({ x: x * w, y: ys[i] * h }));
+        ? [-0.12, 0.85, 0.6, 0.8, 0.27, 1.14]
+        : [1.12, 0.78, 0.84, 0.26, 0.8, 1.14];
+  // Opening control points are anchored to the opening's measured length,
+  // not stretched when later content is removed. The final two points belong
+  // to Worlds, ending at the lower right before the footer. No old scene slots.
+  const opening = Math.min(h * 0.8, Math.max(1, worldsTop));
+  const remaining = h - opening;
+  const ys = [
+    -0.039 * opening,
+    0.168 * opening,
+    0.466 * opening,
+    0.776 * opening,
+    opening * 1.14,
+    h + remaining * 0.06,
+  ];
+  const spine = xs.map((x, i) => ({ x: x * w, y: ys[i] }));
   const breadth = Math.min(w * (family === 'mobile' ? 0.25 : 0.18), 330);
   function fiber(fraction: number) {
     return spine.map((point, i) => {
@@ -68,11 +84,21 @@ export function breezePose(
   width: number,
   reduced = false,
 ) {
-  const progress = clamp((scrollY - top) / Math.max(1, height - viewport));
+  const progress = clamp((scrollY - top) / Math.max(1, height));
   const amplitude = width < 768 ? 3 : width < 1200 ? 5 : 8;
+  const release = clamp(
+    (scrollY + viewport * 0.25 - (top + height - viewport * 0.28)) /
+      Math.max(1, viewport * 0.28),
+  );
+  const exit = release * release * (3 - 2 * release);
   return {
     progress,
-    x: reduced ? 0 : Math.sin(progress * Math.PI * 2) * amplitude,
-    y: reduced ? 0 : -Math.sin(progress * Math.PI) * amplitude * 1.5,
+    x: reduced
+      ? 0
+      : Math.sin(progress * Math.PI * 2) * amplitude + exit * amplitude,
+    y: reduced
+      ? 0
+      : -Math.sin(progress * Math.PI) * amplitude * 1.5 + exit * amplitude,
+    opacity: 1 - exit,
   };
 }

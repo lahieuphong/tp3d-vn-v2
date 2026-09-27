@@ -13,6 +13,8 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
+  /* Only the end of the Home owner clips: the cloth still crosses its scenes. */
+  overflow: clip;
 }
 .cb-plane {
   position: absolute;
@@ -21,10 +23,75 @@
   height: 100%;
   overflow: visible;
   pointer-events: none;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 10svh), transparent);
 }
 .cb-back {
   z-index: 2;
 }
 .cb-front {
   z-index: 4;
+}
+
+.home-experience + .site-footer {
+  padding-top: 96px;
+  background: #e9e1d3;
+}
+
+/* The existing header owns navigation; only its chapter colour changes. */
+.site-header.spatial-home[data-chapter-theme] {
+  height: clamp(78px, 9.2svh, 108px);
+  padding-inline: 7.4%;
+  background: transparent;
+  border: 0;
+  color: #332b22;
+  transition:
+    color 350ms ease,
+    background 350ms ease;
+}
+body .site-header.spatial-home[data-chapter-theme='dark'] {
+  color: #f3e9d6;
+}
+.site-header.spatial-home[data-chapter-theme] .wordmark {
+  font-size: clamp(37px, 3.25vw, 55px);
+}
+.site-header.spatial-home[data-chapter-theme] .wordmark span {
+  font-size: clamp(6px, 0.5vw, 8px);
+  letter-spacing: 0.27em;
+}
+.site-header.spatial-home[data-chapter-theme] .desktop-nav {
+  margin-left: auto;
+  gap: clamp(24px, 2.3vw, 44px);
+}
+.site-header.spatial-home[data-chapter-theme] .desktop-nav a {
+  font-family: Cormorant, Georgia, serif;
+  font-size: clamp(14px, 1.08vw, 19px);
+}
+.site-header.spatial-home[data-chapter-theme] .header-separator {
+  display: none;
+}
+.site-header.spatial-home[data-chapter-theme] .edition {
+  font-size: 8px;
+  letter-spacing: 0.22em;
+}
+
+@media (max-width: 767px) {
+  .site-header.spatial-home[data-chapter-theme] {
+    height: 76px;
+    padding-inline: 6.5%;
+  }
+  .site-header.spatial-home[data-chapter-theme] .wordmark {
+    font-size: 35px;
+  }
+  .site-header.spatial-home[data-chapter-theme] .wordmark span {
+    font-size: 6px;
+    margin-top: 6px;
+  }
+  .home-experience + .site-footer {
+    padding-top: 72px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-header.spatial-home[data-chapter-theme] {
+    transition: none;
+  }
 }
