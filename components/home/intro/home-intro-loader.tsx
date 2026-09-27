@@ -5,6 +5,8 @@ import { mountHomeIntro } from './intro-controller';
 import type { CriticalAssetProgress } from './critical-assets';
 import { IntroMonogram } from './intro-monogram';
 import { IntroProgress } from './intro-progress';
+import { IntroHeader } from './intro-header';
+import { IntroBreeze } from './intro-breeze';
 
 /** SSR includes both this presentation overlay and the complete Home. The head
  * decision controls visibility before paint; no client-only replacement page. */
@@ -39,16 +41,28 @@ function IntroPresentation({ onComplete }: { onComplete: () => void }) {
     <div className="home-intro-loader" data-home-intro-overlay>
       <div className="hi-panel hi-panel-top" aria-hidden="true" />
       <div className="hi-panel hi-panel-bottom" aria-hidden="true" />
+      <div className="hi-object-shadow" aria-hidden="true" />
+      <IntroBreeze />
       <div className="hi-monogram-position">
         <div className="hi-monogram-motion">
           <div className="hi-monogram-handoff">
-            <div className="hi-monogram-arrival">
-              <IntroMonogram />
+            <div className="hi-monogram-pointer">
+              <div className="hi-monogram-arrival">
+                <IntroMonogram />
+              </div>
             </div>
           </div>
         </div>
       </div>
+      <IntroBreeze front />
+      <div className="hi-tagline-position">
+        <p className="hi-intro-slogan">
+          <span>A new breeze</span> <em>for living</em>
+        </p>
+      </div>
       <IntroProgress progress={progress} />
+      <p className="hi-bottom-brand">INTERIORS &amp; OBJECTS</p>
+      <IntroHeader />
     </div>
   );
 }

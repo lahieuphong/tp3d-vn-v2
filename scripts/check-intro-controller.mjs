@@ -110,12 +110,17 @@ function environment({
     body = new Node(),
     overlay = new Node(),
     bottom = new Node(),
+    progressRow = new Node(),
     home = new Node(),
     header = new Node(),
     footer = new Node(),
     skip = new Node();
   overlay.querySelector = (selector) =>
-    selector === '.hi-panel-bottom' ? bottom : null;
+    selector === '.hi-panel-bottom'
+      ? bottom
+      : selector === '.hi-progress-row'
+        ? progressRow
+        : null;
   const backgrounds = [header, home, footer, skip];
   home.inert = true;
   if (busy !== null) home.setAttribute('aria-busy', busy);
@@ -275,6 +280,12 @@ function environment({
     compact,
     fineDesktop,
     frames,
+    finishSequence() {
+      overlay.emit('animationend', {
+        animationName: 'hi-fade-in',
+        target: progressRow,
+      });
+    },
     flushFrames() {
       const work = [...frames.values()];
       frames.clear();
@@ -381,7 +392,8 @@ for (const start of [0, 650, 3000]) {
   assert.equal(e.overlay.getAttribute('data-intro-sequence'), 'playing');
   assert.equal(e.observations[0].options.timeoutMs, 4000);
   e.observations[0].complete();
-  await e.advance(1599);
+  e.finishSequence();
+  await e.advance(1799);
   assert.equal(e.html.dataset.homeIntro, 'waiting');
   await e.advance(1);
   assert.equal(e.html.dataset.homeIntro, 'ready');
@@ -411,8 +423,9 @@ for (const config of [{}, { mobile: true }, { reduced: true }]) {
   const e = environment(config);
   e.mount();
   e.observations[0].complete();
-  const enter = 1600 + (config.reduced ? 0 : 150),
-    exit = config.reduced ? 250 : config.mobile ? 900 : 1000;
+  e.finishSequence();
+  const enter = 1800 + (config.reduced ? 0 : 150),
+    exit = config.reduced ? 300 : config.mobile ? 900 : 1000;
   await e.advance(enter);
   assert.equal(
     e.html.dataset.homeIntro,
@@ -423,6 +436,22 @@ for (const config of [{}, { mobile: true }, { reduced: true }]) {
   assert.equal(e.completed, 0);
   await e.advance(1);
   assert.equal(e.completed, 1);
+  e.assertRestored();
+}
+// The real CSS sequence may start after hydration. A fast network must not
+// cut off that visible sequence, while a missing event still cannot trap entry.
+for (const animationEvent of [true, false]) {
+  const e = environment();
+  e.mount();
+  e.observations[0].complete();
+  await e.advance(2200);
+  assert.equal(e.html.dataset.homeIntro, 'waiting');
+  if (animationEvent) e.finishSequence();
+  else await e.advance(1800);
+  assert.equal(e.html.dataset.homeIntro, 'ready');
+  await e.advance(150);
+  assert.equal(e.html.dataset.homeIntro, 'revealing');
+  await e.advance(1100);
   e.assertRestored();
 }
 // Timeout does not fabricate the missing three completion units or linger at ready.
@@ -445,7 +474,8 @@ for (const reason of ['cleanup', 'pagehide', 'popstate', 'hidden'])
     const cleanup = e.mount();
     if (i % 2) {
       e.observations[0].complete();
-      await e.advance(1750);
+      e.finishSequence();
+      await e.advance(1950);
     }
     if (reason === 'cleanup') cleanup();
     else if (reason === 'hidden') {
@@ -470,7 +500,8 @@ for (const reason of ['cleanup', 'pagehide', 'popstate', 'hidden'])
   assert.equal(e.seen, 0);
   const second = e.mount(decision);
   e.observations[1].complete();
-  await e.advance(2850);
+  e.finishSequence();
+  await e.advance(3050);
   assert.equal(e.completed, 1);
   second();
   e.assertRestored();
@@ -506,28 +537,61 @@ for (const config of [{ hasOverlay: false }, { hasHome: false }]) {
   const e = environment();
   e.mount();
   e.observations[0].complete();
-  await e.advance(1750);
+  e.finishSequence();
+  await e.advance(1950);
   e.motion.matches = true;
   e.motion.emit('change');
   assert.equal(e.completed, 1);
   e.assertRestored();
 }
-// The simpler loader owns no pointer listeners or RAF, on any device.
-for (const config of [
-  {},
-  { mobile: true },
-  { reduced: true },
-  { fine: false },
-]) {
+// Pointer input is bounded, event-batched and absent on coarse/touch/reduced.
+for (const config of [{ mobile: true }, { reduced: true }, { fine: false }]) {
   const e = environment(config);
   const cleanup = e.mount();
-  for (let i = 0; i < 20; i++)
-    e.overlay.emit('pointermove', { clientX: i * 10, clientY: i * 10 });
+  e.overlay.emit('pointermove', {
+    clientX: 5000,
+    clientY: 5000,
+    pointerType: 'mouse',
+  });
   assert.equal(e.frames.size, 0);
   assert.equal(e.overlay.events.get('pointermove')?.size ?? 0, 0);
   cleanup();
   e.assertRestored();
 }
+{
+  const e = environment();
+  const cleanup = e.mount();
+  for (let i = 0; i < 20; i++)
+    e.overlay.emit('pointermove', {
+      clientX: 5000,
+      clientY: -500,
+      pointerType: 'mouse',
+    });
+  assert.equal(e.frames.size, 1, 'one frame for a burst of pointer input');
+  e.flushFrames();
+  assert.equal(e.overlay.style.getPropertyValue('--hi-pointer-x'), '1');
+  assert.equal(e.overlay.style.getPropertyValue('--hi-pointer-y'), '-1');
+  assert.equal(e.frames.size, 0, 'no perpetual pointer loop');
+  e.overlay.emit('pointerleave');
+  assert.equal(e.overlay.style.getPropertyValue('--hi-pointer-x'), '0');
+  e.overlay.emit('pointermove', {
+    clientX: 800,
+    clientY: 400,
+    pointerType: 'touch',
+  });
+  assert.equal(e.frames.size, 0);
+  e.overlay.emit('pointermove', { clientX: 1000, clientY: 400 });
+  e.motion.matches = true;
+  e.motion.emit('change');
+  assert.equal(
+    e.frames.size,
+    0,
+    'preference change cancels pending pointer work',
+  );
+  assert.equal(e.overlay.events.get('pointermove')?.size ?? 0, 0);
+  cleanup();
+  e.assertRestored();
+}
 console.log(
-  'PASS: visible sequence minimum, 4s asset deadline, honest timeout, desktop/mobile/reduced exits, restored-scroll reset, StrictMode, 120 complete cleanup cycles, no pointer/RAF work.',
+  'PASS: visible sequence minimum, 4s asset deadline, honest timeout, desktop/mobile/reduced exits, restored-scroll reset, StrictMode, 120 cleanup cycles and bounded pointer cleanup.',
 );

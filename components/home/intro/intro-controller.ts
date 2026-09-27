@@ -1,16 +1,17 @@
 import {
   preloadHomeCriticalAssets,
   type CriticalAssetProgress,
+  type CriticalAssetResult,
 } from './critical-assets';
 import { markHomeIntroPlayed, type HomeIntroDecision } from './intro-runtime';
 
 export const INTRO_TIMING = {
-  minimum: 1600,
+  minimum: 1800,
   maximum: 4000,
   ready: 150,
   desktop: 1000,
   mobile: 900,
-  reduced: 250,
+  reduced: 300,
 } as const;
 
 /** Owns only the entry gate, resource observation and temporary interaction
@@ -41,6 +42,16 @@ export function mountHomeIntro(
   const abort = new AbortController();
   const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const compact = window.matchMedia('(max-width: 767px)');
+  const pointer = window.matchMedia(
+    '(min-width: 1024px) and (hover: hover) and (pointer: fine)',
+  );
+  let pointerFrame = 0;
+  let pointerX = 0;
+  let pointerY = 0;
+  let visualReady = motion.matches;
+  let resources: CriticalAssetResult | undefined;
+  let minimumReached = false;
+  let readyScheduled = false;
   const restoration = decision.scrollRestoration ?? history.scrollRestoration;
   const sequence = overlay.getAttribute('data-intro-sequence');
   const savedStyles: {
@@ -76,6 +87,47 @@ export function mountHomeIntro(
   ownStyle(body, 'overflow-y', 'hidden');
   ownStyle(body, 'overscroll-behavior-x', 'none');
   ownStyle(body, 'overscroll-behavior-y', 'none');
+  ownStyle(overlay, '--hi-pointer-x', '0');
+  ownStyle(overlay, '--hi-pointer-y', '0');
+  const paintPointer = () => {
+    pointerFrame = 0;
+    overlay.style.setProperty('--hi-pointer-x', String(pointerX));
+    overlay.style.setProperty('--hi-pointer-y', String(pointerY));
+  };
+  const movePointer = (event: PointerEvent) => {
+    if (!pointer.matches || motion.matches || event.pointerType === 'touch')
+      return;
+    if (
+      html.dataset.homeIntro !== 'waiting' &&
+      html.dataset.homeIntro !== 'ready'
+    )
+      return;
+    pointerX = Math.max(
+      -1,
+      Math.min(1, (event.clientX / window.innerWidth) * 2 - 1),
+    );
+    pointerY = Math.max(
+      -1,
+      Math.min(1, (event.clientY / window.innerHeight) * 2 - 1),
+    );
+    if (!pointerFrame) pointerFrame = requestAnimationFrame(paintPointer);
+  };
+  const resetPointer = () => {
+    if (pointerFrame) cancelAnimationFrame(pointerFrame);
+    pointerFrame = 0;
+    pointerX = pointerY = 0;
+    paintPointer();
+  };
+  const updatePointer = () => {
+    overlay.removeEventListener('pointermove', movePointer);
+    overlay.removeEventListener('pointerleave', resetPointer);
+    resetPointer();
+    if (pointer.matches && !motion.matches) {
+      overlay.addEventListener('pointermove', movePointer, { passive: true });
+      overlay.addEventListener('pointerleave', resetPointer);
+    }
+  };
+  updatePointer();
   const resetScroll = () =>
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   resetScroll();
@@ -98,6 +150,10 @@ export function mountHomeIntro(
     abort.abort();
     timers.forEach(clearTimeout);
     timers.clear();
+    resetPointer();
+    overlay.removeEventListener('pointermove', movePointer);
+    overlay.removeEventListener('pointerleave', resetPointer);
+    pointer.removeEventListener('change', updatePointer);
     overlay.removeEventListener('animationend', animationEnd);
     window.removeEventListener('pagehide', complete);
     window.removeEventListener('popstate', complete);
@@ -128,6 +184,13 @@ export function mountHomeIntro(
   };
   const animationEnd = (event: AnimationEvent) => {
     if (
+      event.target === overlay.querySelector('.hi-progress-row') &&
+      event.animationName === 'hi-fade-in'
+    ) {
+      visualReady = true;
+      finishPreparation();
+    }
+    if (
       (html.dataset.homeIntro === 'revealing' &&
         event.target === overlay.querySelector('.hi-panel-bottom') &&
         event.animationName === 'hi-bottom-open') ||
@@ -141,10 +204,16 @@ export function mountHomeIntro(
     if (document.hidden) complete();
   };
   const preferenceChanged = () => {
+    updatePointer();
+    if (motion.matches) {
+      visualReady = true;
+      finishPreparation();
+    }
     if (html.dataset.homeIntro === 'revealing') complete();
   };
   const reveal = () => {
     resetScroll();
+    resetPointer();
     const duration = motion.matches
       ? INTRO_TIMING.reduced
       : compact.matches
@@ -157,12 +226,29 @@ export function mountHomeIntro(
     );
     later(complete, duration + 100); // Guard if animationend is unavailable.
   };
+  const finishPreparation = () => {
+    if (disposed || readyScheduled || !resources || !minimumReached) return;
+    if (!visualReady && !resources.timedOut) return;
+    readyScheduled = true;
+    html.setAttribute('data-home-intro', 'ready');
+    later(
+      reveal,
+      resources.timedOut || motion.matches ? 0 : INTRO_TIMING.ready,
+    );
+  };
   overlay.addEventListener('animationend', animationEnd);
   window.addEventListener('pagehide', complete);
   window.addEventListener('popstate', complete);
   window.addEventListener('pageshow', resetScroll);
   document.addEventListener('visibilitychange', visibility);
   motion.addEventListener('change', preferenceChanged);
+  pointer.addEventListener('change', updatePointer);
+  // CSS may start later than hydration (e.g. a newly foregrounded document).
+  // Wait for the visible sequence, but still escape missing animation events.
+  later(() => {
+    visualReady = true;
+    finishPreparation();
+  }, INTRO_TIMING.maximum);
   const assets = preloadHomeCriticalAssets(home, {
     signal: abort.signal,
     timeoutMs: INTRO_TIMING.maximum,
@@ -170,13 +256,11 @@ export function mountHomeIntro(
   });
   void assets.promise.then((result) => {
     if (disposed || result.cancelled) return;
+    resources = result;
     later(
       () => {
-        html.setAttribute('data-home-intro', 'ready');
-        later(
-          reveal,
-          result.timedOut || motion.matches ? 0 : INTRO_TIMING.ready,
-        );
+        minimumReached = true;
+        finishPreparation();
       },
       INTRO_TIMING.minimum - (performance.now() - startedAt),
     );

@@ -1,79 +1,108 @@
-# Homepage minimal loading experience — implementation and QA
+# Homepage art-directed loader — implementation and QA
 
-Revision: 27 September 2026. This report supersedes the previous cloth-and-slogan loader. Scope is the initial Home loader, refresh behavior and handoff only. Scene 1–5 components, timeline, content and other routes are unchanged. No deployment was performed.
+Revision: 27 September 2026. The supplied `image 16.jpg` is the visual target. This revision replaces the minimal TP-only composition while retaining the document-lifetime reload fix. Scope is the loader and its handoff. No Scene 1–5 component, route, content, geometry or scroll controller has been redesigned. No deployment was performed.
 
-## Reload bug and runtime state
+## Composition and files
 
-The previous `sessionStorage.tanphong_intro_seen` flag survived document reloads and therefore suppressed the loader on refresh. The intro no longer reads or writes sessionStorage or localStorage. Old stored values are harmless and ignored; unrelated Worlds navigation storage is preserved.
+The loader is a fixed, full-viewport composition of real layers: warm ivory light/plaster background, presentational brand/navigation/search/edition header, pale stone T and walnut P, rear/front transparent silk, serif tagline, resource progress, and bottom branding. The reference image is not used as a flattened page background.
 
-`intro-runtime.ts` owns a record on the current Window. The inline head bootstrap initializes it on every route. New Home documents and reloads play; client navigation reuses the record and skips the intro. Initial navigation to another route does not cause a later SPA visit to Home to replay that document's navigation type. Back/forward entry skips; `?intro=1` explicitly enables replay, including a fresh Home mount in the same runtime. A refresh resets the record naturally.
+| File                                                           | Responsibility                                                                         |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `components/home/intro/home-intro-loader.tsx`                  | Layer composition; controller-owning child and all visual layers unmount on completion |
+| `components/home/intro/intro-header.tsx`                       | Decorative, inert header using the existing navigation data; mobile mini-header        |
+| `components/home/intro/intro-monogram.tsx`                     | Existing brand outlines with stone/walnut material patterns and restrained depth       |
+| `components/home/intro/intro-breeze.tsx`                       | Two projections of one responsive alpha asset, with vector failure fallback            |
+| `components/home/intro/intro-progress.tsx`                     | Loading copy, accessible status and genuine resource completion                        |
+| `components/home/intro/home-intro.css`                         | Responsive composition, staged arrival, light pointer depth and handoff                |
+| `components/home/intro/intro-controller.ts`                    | Resource/visual readiness, finite deadlines, interaction locks and cleanup             |
+| `public/images/intro-walnut-360.webp`                          | 40,698-byte resize of the existing local wood texture                                  |
+| `scripts/check-intro-controller.mjs`, `scripts/check-site.mjs` | Motion/lifecycle and updated SSR composition regressions                               |
 
-The overlay and complete Home are both server-rendered. A small inline style plus head bootstrap gates Home/header before first paint, without replacing the SSR tree. Without JavaScript the intro stays hidden. If hydration never claims the gate, a 4500ms watchdog restores normal content and history scroll restoration.
+`intro-runtime.ts`, the head bootstrap in `app/layout.tsx`, and the critical-resource observer are retained. The original SVG/alpha asset provenance is documented in [HOME-INTRO-BREEZE-ASSET.md](HOME-INTRO-BREEZE-ASSET.md). No font, dependency, video, WebGL, Three.js, canvas or Sketchfab viewer was added.
 
-## Changed implementation files
+The loader header has no links/buttons and is hidden from assistive navigation. The actual SiteHeader remains inert and invisible underneath, then takes over during the last portion of the reveal. Both visual and input locks are removed after completion. The duplicated decorative header is part of the unmounted loader.
 
-| File                                                                                     | Responsibility                                                                       |
-| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `components/home/intro/intro-runtime.ts`                                                 | Document-lifetime decision, pre-paint gate and watchdog; replaces `intro-session.ts` |
-| `components/home/intro/home-intro-loader.tsx`                                            | Minimal presentation; fully unmounts the controller-owning child and overlay         |
-| `components/home/intro/intro-monogram.tsx`                                               | Existing TP outlines as two lightweight, flat inline SVG paths                       |
-| `components/home/intro/intro-progress.tsx`                                               | Loading copy, real resource progress and accessible status                           |
-| `components/home/intro/intro-controller.ts`                                              | Readiness/timing, temporary interaction locks and exact cleanup                      |
-| `components/home/intro/home-intro.css`                                                   | Center-to-upper motion, line, split reveal and responsive/reduced motion             |
-| `components/home/intro/critical-assets.ts`                                               | Existing resource observer; pending images stay on quiet fallback after timeout      |
-| `app/layout.tsx`                                                                         | Inline pre-paint CSS and runtime bootstrap                                           |
-| `scripts/check-{intro-runtime,intro-controller,home-preloader,site}.mjs`, `package.json` | Updated behavioral and SSR checks                                                    |
+## Sequence
 
-Removed obsolete `intro-session.ts`, `intro-breeze.tsx`, and `check-intro-session.mjs`. Existing raster assets are not requested by this loader. No new dependency, canvas, WebGL, video, Three.js or Sketchfab code is introduced.
+| Item               | Configuration                                                                  |
+| ------------------ | ------------------------------------------------------------------------------ |
+| TP arrival         | 80ms delay; 600ms opacity and scale .97 → 1                                    |
+| TP rise            | 600ms delay; 800ms transform, scale 1 → .955                                   |
+| Final TP center    | 43.5svh desktop/tablet; 37svh mobile, from 50svh initially                     |
+| Tagline            | 880ms delay; 550ms fade and 12px rise, using existing regular/italic Cormorant |
+| Loading copy       | 1120ms delay; 350ms fade                                                       |
+| Progress track     | 1230ms delay; 350ms fade                                                       |
+| Progress fill      | 1310ms delay; 250ms appearance, real fraction via scaleX                       |
+| Breeze             | One 7-second drift, -1.5% → +1.5%, 4px → -2px, scale 1 → 1.012; no reset loop  |
+| Minimum            | 1800ms from controller mount, plus completion of the visible entry sequence    |
+| Ready hold         | 150ms; omitted on resource timeout/reduced motion                              |
+| Resource deadline  | 4000ms, then proceed on fallbacks                                              |
+| Visual-event guard | 4000ms maximum before allowing reveal if animation-end never arrives           |
+| Reveal             | 1000ms desktop/tablet; 900ms mobile                                            |
+| Reduced motion     | Full composition, static upper TP and fabric, 300ms opacity-only exit          |
 
-## Visual sequence and timings
+The controller observes the final progress-track entrance event as well as resource readiness. This prevents a fast network from cutting off CSS entry animations that began later than hydration. The finite visual-event guard prevents a missing event from trapping the user. Fast normal entries take approximately 2950ms desktop or 2850ms mobile including the reveal; reduced motion approximately 2100ms. The asset deadline excludes the reveal itself.
 
-The initial viewport is warm ivory with only the compact TP. No header, navigation, slogan, architecture, cloth or portals are rendered inside the loader.
+Fine desktop pointer input is normalized and clamped: background ±1px, TP ±2px, fabric ±4px. One RAF batches a burst of pointer events; there is no idle RAF loop. Coarse/touch input and reduced motion disable it. Resizing across the pointer breakpoint and changing motion preferences update ownership and cancel queued work.
 
-| Phase                             | Configured behavior                                                                 |
-| --------------------------------- | ----------------------------------------------------------------------------------- |
-| TP arrival                        | Starts100ms;550ms opacity0→1 and scale.985→1                                        |
-| TP rise                           | Starts600ms;850ms translateY and scale1→.9                                          |
-| TP final center                   | 29% viewport height desktop/tablet;32% mobile                                       |
-| Loading copy                      | Starts950ms;350ms fade                                                              |
-| Progress track                    | Starts1050ms;350ms fade                                                             |
-| Progress fill                     | Visible from1200ms; actual settled-resource fraction,180ms scaleX transition        |
-| Minimum resource-ready hold point | 1600ms from controller mount, so delayed hydration cannot skip the visible sequence |
-| Ready pause                       | 150ms for normal completion; omitted on timeout/reduced motion                      |
-| Reveal                            | 1000ms desktop/tablet;900ms below768px                                              |
-| Asset deadline                    | 4000ms from resource observation, then reveal immediately                           |
-| Reduced motion                    | TP directly upper-center; static status;250ms opacity exit                          |
+## Aperture and handoff
 
-A fast normal desktop entry therefore takes approximately2750ms after controller mount, including the1000ms reveal; mobile2650ms and reduced motion1850ms. The4000ms deadline limits asset waiting, not the complete waiting-plus-reveal duration. CSS animation-end completes the sequence; a duration+100ms safety timer covers missing events.
+Two ivory background panels open vertically. Complete TP and silk objects remain above the opening and crossfade rather than being cut into moving halves. Progress fades first; the tagline stays briefly. Loader TP exits over 550ms, with a 300ms overlap against the Home TP's 600ms opacity/scale entrance. Loader silk exits over 800ms with a small upward/rightward movement, overlapping the existing continuous Home Breeze fade.
 
-The top/bottom ivory halves move out with `cubic-bezier(.76,0,.24,1)`. Progress fades over200ms with10px translation; TP fades over320ms with a small additional rise. The existing header appears near the end of the reveal. The Home scene is already underneath; no Home scene layout or choreography was rewritten.
+Home handoff rules are scoped to `html[data-home-intro='revealing']`, target existing inner surfaces, and disappear with the gate. They do not overwrite the scene's scroll transforms or introduce a new full-height Breeze stacking context. Normal Home content and choreography resume unchanged at scroll progress 0.
 
-## Real progress, fallback and cleanup
+## Reload, progress and fallbacks
 
-Five resource-completion units are observed in the current Scene1: architecture-A, the shared portal atlas (deduplicated across four nodes), and three selected first-view font faces. Home TP and continuous Breeze are inline SVG and need no additional image fetch. Optional TP texture does not block. No later chapter, Journal or Worlds resources are included.
+The original bug was `sessionStorage.tanphong_intro_seen` surviving refresh. It was removed in the preceding revision and remains removed. A Window-lifetime record plays on new Home documents/reloads, skips same-runtime SPA returns/back, and supports `?intro=1`. Old persisted flags are ignored. Unrelated Worlds origin storage is unchanged.
 
-`Promise.allSettled()` handles resource/decode success and failure. The percentage means checked/settled resources, not transferred bytes. Failures count as settled; pending resources retain partial progress on timeout. A timed-out image is marked unavailable and stays hidden on the existing neutral fallback so a late response cannot pop into the revealed scene. Route cancellation only releases observation and does not hide images.
+SSR includes the overlay and complete Home. Inline critical CSS and bootstrap gate Home before paint; without JavaScript the overlay stays hidden. The pre-hydration watchdog releases an unclaimed gate after 4500ms.
 
-Scroll resets to0 on full entry, pageshow during entry and before reveal. The existing scene controller observes the gate and keeps its timeline at0. Main, header, footer and skip link are temporarily inert. Completion/unmount restores prior inert, aria-busy, overflow, overscroll, scrollbar-gutter and history.scrollRestoration values. Every exit aborts resource callbacks and removes timers, media/page/visibility/animation listeners. No pointer listener or RAF is owned by the loader. The controller-owning React child unmounts, releasing its effect's references as well as the overlay DOM.
+Progress is settled critical-resource count / total, never a timer or invented byte percentage. `Promise.allSettled()` observes the existing architecture-A request, deduplicated portal atlas, and three selected first-view font faces. Home TP and continuous Breeze are inline SVG. Later chapters, Worlds and other pages are not gates.
 
-## Completed automated verification
+Failed resources count as settled. Pending resources remain partial on timeout; timed-out/failed images stay on the existing fallback surface to avoid a late image pop. The separate loader cloth is an eager responsive asset, not an extra wait for other site content. Failed cloth uses a lightweight vector fallback; TP texture patterns retain solid/vector material fallback. The mobile picture source explicitly selects the 39,308-byte 720px cloth. Desktop uses the existing 115,622-byte 1280px source. The two cloth layers reuse one response.
 
-- Production `yarn build`: passed.
-- TypeScript and lint: passed.
-- `yarn check:intro`:20 new/reload document decisions,10 SPA returns per document, modern/legacy navigation type, back/forward, force override, no persistent state access, pre-hydration watchdog, cache/decode/load failures, hanging resources, partial-progress deadline, cancellation and exact style restoration passed.
-- Controller suite: desktop/mobile/reduced motion timings, late hydration, restored scroll/hash, StrictMode replay, missing DOM, hidden tab/pagehide/popstate, preference change and120 cleanup cycles passed.
-- Existing `check:home` and `check:hero`: passed, including existing14-viewport geometry checks. These are deterministic tests, not visual browser measurements of this new loader.
-- Production route crawler:44 pages,78 image URLs,8 expected invalid-slug404 cases passed. Loader SSR exists only on Home and precedes the complete server-rendered Home.
-- `git diff --check`: passed.
+## Cleanup and accessibility
 
-Pre-commit verification on 27 September also passed `yarn build:vercel`, `yarn check:content`, `yarn check:assets` and `yarn check:worlds`. The production crawl was repeated on port 4484 with the same 44-page, 78-image and 8-invalid-route results; that verification server was then stopped. Changed-file formatting passes. Repository-wide formatting still flags 11 unchanged Worlds files outside this change. This pass did not perform live browser QA or performance profiling.
+The controller-owning child unmounts with the overlay, header, TP, both cloth layers, tagline, progress, brand and panels. Timers, resource callbacks, pointer/media/page/visibility/animation listeners and queued RAF are released. Exact previous style priorities, inert states, aria-busy, scroll restoration and scrollbar gutter are restored. Hidden-tab/pagehide/history interruptions release the gate. There are no persistent invisible full-screen loader nodes or persistent will-change rules.
 
-## Browser QA and measurement limits for this revision
+Loading copy is a polite output; the native progress element describes resource checks. Decorative header/material/cloth SVGs are not announced. During loading, underlying Home/navigation are temporarily inert. Mobile keeps the mini-header, TP, two adapted fabric layers, two-line tagline, 62vw progress track and bottom branding; tablet keeps the material composition with compact header utilities.
 
-Live visual QA is not yet complete. The Chrome tab-control backend could not start. Native Chrome inspection was then blocked by automatic approval review because the active window could expose unrelated private ChatGPT content. A dedicated localhost window was requested. The isolated in-app browser is unavailable. These restrictions were not bypassed.
+## Automated checks
 
-A local-only QA proxy/dashboard has been prepared in the ignored `work/intro-qa/` directory. It serves the production build without cache, records actual phase/geometry/console/heap observations, and exposes controls for14 exact iframe viewport sizes,20 actual document reloads,10 SPA round trips and browser Back. It has not been represented as an executed browser test until reports are collected. Production code contains none of this instrumentation.
+Production build, TypeScript, lint, intro/preloader/runtime/controller tests, Home/hero regression tests and route/image crawl are run for this change. Runtime tests include 20 new/reload documents and 10 SPA returns per document. Controller tests cover late CSS readiness, missing animation events, exact min/deadline, cache/decode/error/timeout, StrictMode, reduced motion, pointer bounds, preference changes and 120 cleanup cycles. These deterministic tests are not browser RAM/GPU measurements.
 
-Still requiring live verification: center/upper/reveal screenshots at all14 requested sizes; native Cmd+R/F5/reload button (Ctrl+R additionally on a platform where it is a reload shortcut); hard reload/cache-disabled behavior; throttled/failed resource rendering; console/hydration after interactive navigation; actual reduced-motion emulation;20-reload and10-round-trip RAM observations; a GPU/frame trace. No RAM plateau, zero-leak guarantee, FPS, VRAM or live mobile result is claimed. Deterministic cleanup checks cannot substitute for those measurements.
+Live QA results are recorded separately below. The historical [HOME-ENTRY-PERFORMANCE.md](HOME-ENTRY-PERFORMANCE.md) trace predates this revision and must not be reused as its performance evidence.
 
-The previous [entry performance report](HOME-ENTRY-PERFORMANCE.md) describes a removed loader and is historical only. Its timings, heap figures and screenshots are not measurements of this implementation.
+## Actual browser observations
+
+The user opened the local QA dashboard and started its suite. The proxy collected **60 reports** from Chrome: all14 requested CSS viewport sizes, **20 unique document reloads**, **10 Home → Worlds → Home round trips**, and one Back-to-Home test. The proxy disabled cache with `Cache-Control: no-store`. Measurements and limitations are preserved in [HOME-INTRO-BROWSER-QA.json](HOME-INTRO-BROWSER-QA.json).
+
+- All20 reload documents mounted exactly one intro.19 traversed the reveal phase; one ended early through interruption cleanup. This is not a claim that all20 were watched through a full visible sequence.
+- The10 SPA round trips kept the same document ID and intro run count1. Back-to-Home likewise did not add an intro run.
+- All60 reports found zero remaining loader nodes, zero loader animations, no scroll lock and zero canvas elements after completion/navigation.
+- All sampled layouts had zero horizontal overflow. Foreground samples at320/360/375px confirmed initial center and final37svh TP center, readable separated tagline/progress regions and clean unmount. The full14-size set includes background/throttled samples, so a complete visual pass is not claimed.
+- The instrumented pages recorded no JavaScript errors, unhandled rejections or console errors, including hydration errors, during this batch.
+- Some documents were hidden or became hidden. Their animation timings cannot establish smoothness or frame rate. A final readiness refinement now waits for the progress-track entrance event before exit; this change passed deterministic tests after the browser batch.
+
+| Renderer JS-heap observation | Actual bytes |
+| ---------------------------- | -----------: |
+| First reload completion      |  149,356,490 |
+| Minimum across20 reloads     |   68,184,663 |
+| Maximum across20 reloads     |  189,041,132 |
+| Last reload completion       |   87,841,915 |
+| First SPA navigation sample  |  114,570,359 |
+| Last of10 SPA round trips    |   72,002,999 |
+
+Heap values rose and fell rather than increasing on every reload, and no loader DOM remained. This **does not prove a stable memory plateau or absence of all leaks**. `performance.memory` includes framework/QA/browser allocations; it is not process RSS or GPU VRAM. No explicit GC or isolated clean-profile run was performed.
+
+The measured batch preceded the final walnut texture resize, explicit mobile picture source, cloth failure silhouette and visual-readiness guard. These refinements have final build/type/lint and deterministic-test verification; the entire browser suite was not repeated after them.
+
+## Remaining visual/profiling limits
+
+The scoped browser backend could not start. Automatic approval review also rejected native Chrome state and screenshot capture because the app binding could not prove it targeted only the authorized localhost window, despite the user's confirmation. The privacy restriction was not bypassed. Consequently, this revision has **no captured1440×900/1920×1080 screenshot comparison**, no direct physical Cmd+R/F5/Ctrl+R/button verification, no live slow-network/failure recording, no live reduced-motion emulation and no Chrome GPU/frame trace. Corresponding logic/fallback/reduced-motion paths have deterministic coverage, not invented browser measurements. Zero canvas observations and DOM cleanup are not a VRAM measurement.
+
+## Final build result
+
+PASS: production `yarn build`, TypeScript, lint, intro/runtime/preloader/controller regression suites, Home/hero/asset suites and `git diff --check`. Final production crawl:44 pages,80 image URLs,8 expected invalid-slug404 cases. The build retains Vinext's existing informational route-classification notice. The final cloth fallback also handles cached failures that happened before hydration.
+
+Preview: `http://127.0.0.1:4490/?intro=1`. Only loader components, their tests/docs and one optimized texture changed; the Scene1–5, Worlds, Projects, Spaces and other route source files remain untouched.

@@ -21,3 +21,9 @@ The same responsive resource can be reused for rear/main/front layers without se
 ```text
 Use case: product-mockup. Asset type: one isolated transparent fabric layer for a refined architectural website opening. Create a photorealistic flowing ivory organza/silk veil, genuinely transparent RGBA background. Broad horizontal ribbon sheet flows diagonally from lower-left edge across the middle to upper-right edge, the long cloth crossing the full composition. Two gentle broad folds, fine soft translucent fibers, realistic light rippling fabric, quiet elegant warm cream palette. Film-like soft natural side light revealing threads and thin semi-transparent edges, not shiny plastic. Wide 1536 by 1024 composition, cloth occupies a broad sweeping diagonal band, airy negative transparent space above and below. Render only the cloth itself, isolated as a compositing cutout. Absolutely no letters, T, P, monogram, logo, text, typography, people, objects, leaves, architecture, wall, ground, floor, shadows on background, color field, grid or checkerboard. Background alpha must be truly transparent. The fabric itself should have partial alpha/translucency so it can overlay an ivory scene with depth.
 ```
+
+## 27 September reference-composition revision
+
+The full loader reuses these exact cloth sources in two depth layers. A `<picture>` source selects the 720px export below768px even on high-DPR phones; desktop/tablet use the existing responsive image. Only transforms/opacity animate. On image failure, a small inline vector cloth silhouette remains while the page continues loading.
+
+The walnut face now uses `public/images/intro-walnut-360.webp` (360 × 540, 40,698 bytes), resized from the existing `wood-720.webp` with Sharp at quality76/effort6. This is an optimized texture sample, not new generated artwork. The existing stone sample is reused by both the Home and loader. No new image generation or flattened reference screenshot was used in this revision.

@@ -1,0 +1,79 @@
+{
+  "revision": "Reference-composition build before final texture/picture/fallback/visual-readiness refinements",
+  "browser": "Chrome via user-operated local QA dashboard; exact CSS viewport iframes",
+  "cache": "QA proxy uses Cache-Control: no-store",
+  "reports": 60,
+  "viewports": [
+    "1440x900",
+    "320x568",
+    "360x800",
+    "375x812",
+    "390x844",
+    "430x932",
+    "768x1024",
+    "820x1180",
+    "1024x768",
+    "1280x800",
+    "1366x768",
+    "1728x1117",
+    "1920x1080",
+    "2560x1440"
+  ],
+  "reloads": {
+    "count": 20,
+    "uniqueDocuments": 20,
+    "runCounts": [1],
+    "fullRevealPhases": 19,
+    "heapBytes": {
+      "first": 149356490,
+      "min": 68184663,
+      "max": 189041132,
+      "last": 87841915,
+      "lastFive": [71126089, 110590571, 129128542, 157958141, 87841915]
+    }
+  },
+  "navigation": [
+    {
+      "documentId": "1790503510278.2",
+      "count": 20,
+      "homeReturns": 10,
+      "introRuns": [1],
+      "heapBytes": {
+        "first": 114570359,
+        "last": 72002999,
+        "min": 70554505,
+        "max": 123600031
+      }
+    },
+    {
+      "documentId": "1790503640436.9",
+      "count": 2,
+      "homeReturns": 1,
+      "introRuns": [1],
+      "heapBytes": {
+        "first": 70708978,
+        "last": 70643998,
+        "min": 70643998,
+        "max": 70708978
+      }
+    }
+  ],
+  "failures": {
+    "errors": [],
+    "retainedOverlay": 0,
+    "retainedIntroAnimations": 0,
+    "lockedScroll": 0,
+    "canvas": 0,
+    "horizontalOverflow": 0
+  },
+  "visibility": {
+    "instrumentedDocuments": 18,
+    "hiddenAtStart": 4
+  },
+  "limitations": [
+    "Some runs were hidden/throttled; visual timing/smoothness cannot be inferred.",
+    "performance.memory is renderer JS heap including QA/framework/extension allocations, not process RAM or VRAM.",
+    "Final readiness/asset refinements have deterministic tests/build; this batch predates them.",
+    "No automated screenshot or Chrome Performance/GPU trace was captured because scoped browser control was unavailable."
+  ]
+}

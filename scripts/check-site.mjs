@@ -46,16 +46,37 @@ while (pending.length) {
     assert.match(
       loader,
       /class="[^"]*\bhi-intro-monogram\b[^"]*"/,
-      'Home: loader requires its compact inline TP monogram',
+      'Home: loader requires its material TP monogram',
     );
     assert.match(
       loader,
       /<svg\b/,
       'Home: the loader TP remains a lightweight SVG',
     );
+    for (const detail of [
+      'hi-intro-breeze',
+      'hi-intro-slogan',
+      'hi-header',
+      'hi-wordmark',
+      'hi-bottom-brand',
+      'hi-entry-stone-face',
+      'hi-entry-walnut-face',
+      'A new breeze',
+      'for living',
+      'EST. 2026',
+    ]) {
+      assert(loader.includes(detail), `Home intro is missing ${detail}`);
+    }
+    assert.match(loader, /class="hi-header"[^>]*aria-hidden="true"[^>]*inert/);
+    assert.equal(
+      (loader.match(/class="hi-intro-breeze /g) ?? []).length,
+      2,
+      'one rear and one front cloth layer',
+    );
     assert.doesNotMatch(
       loader,
-      /hi-intro-breeze|hi-intro-slogan|hi-horizon|<image\b|<img\b|A new breeze/,
+      /<(?:a|button)\b/i,
+      'loader navigation must remain presentational',
     );
     assert.match(loader, /LOADING THE SPACE/);
     assert.match(loader, /<output\b[^>]*aria-live="polite"/);
@@ -72,12 +93,12 @@ while (pending.length) {
     }
     assert.doesNotMatch(
       loader,
-      /<(?:nav|header|canvas|video|iframe|h1)\b/i,
-      'Home: loader contains no navigation, heavy viewer or hero content',
+      /<(?:canvas|video|iframe|h1)\b/i,
+      'Home: loader contains no heavy viewer or duplicate hero heading',
     );
     assert.doesNotMatch(
       loader,
-      /\bclass="[^"]*\b(?:hi-wordmark|sh-monogram|sh-ribbon|spatial-hero)\b|spatial-architecture|data-hero-layer/,
+      /\bclass="[^"]*\b(?:sh-monogram|sh-ribbon|spatial-hero)\b|spatial-architecture|data-hero-layer/,
       'Home: the entry composition must be independent of the actual Homepage architecture and TP',
     );
     const head = html.match(/<head\b[^>]*>([\s\S]*?)<\/head>/)?.[1];

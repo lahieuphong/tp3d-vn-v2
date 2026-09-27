@@ -10,7 +10,7 @@ export function IntroProgress({
     <div className="hi-loading">
       <div className="hi-loading-exit">
         <output className="hi-status" aria-live="polite">
-          LOADING THE SPACE
+          LOADING THE SPACE...
         </output>
         <progress
           className="sr-only"

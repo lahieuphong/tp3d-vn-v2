@@ -1,6 +1,6 @@
 # Homepage entry — measured performance and limits
 
-> Historical report: this loader was replaced on 27 September 2026. The measurements below do not apply to the current minimal TP loader. See [current implementation and QA](HOME-INTRO-QA.md).
+> Historical report: this loader was replaced on 27 September 2026. The measurements below do not apply to the current reference-composition loader. See [current implementation and QA](HOME-INTRO-QA.md).
 
 Recorded on 26 September 2026 against the **dedicated stone/walnut TP + breeze entry composition**, not the former minimal wordmark loader. The Chrome trace below was captured **before** the final header `transition: none` and fixed-width percentage fixes. Those fixes are present in source, but no second trace was obtained; no measured improvement is claimed for them.
 
