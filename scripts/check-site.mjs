@@ -330,24 +330,35 @@ while (pending.length) {
     }
     const worldOptions = [
       ...chapterBodies.worlds.matchAll(
-        /<a\b(?=[^>]*class="[^"]*\bhc-world-option\b)[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g,
+        /<a\b(?=[^>]*class="[^"]*\bhc-atrium-room-link\b)[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g,
       ),
     ];
     assert.equal(
       worldOptions.length,
       4,
-      'Home: Worlds must expose four working selector links',
+      'Home: the atrium must expose four working room links',
     );
     for (const [index, [, href, body]] of worldOptions.entries()) {
-      assert.match(
+      assert.equal(
         href,
-        /^\/worlds(?:\/[a-z0-9-]+)?$/,
-        'Home: world option must lead to the catalogue or a detail',
+        [
+          '/spaces/living',
+          '/spaces/bedroom',
+          '/worlds/modern-bathroom',
+          '/spaces/kitchen',
+        ][index],
+        'Home: atrium room links use existing Spaces or the published bathroom World',
       );
       assert(
         body.includes(['Living', 'Bedroom', 'Bathroom', 'Kitchen'][index]),
       );
     }
+    assert.match(chapterBodies.worlds, /<em>the worlds\.<\/em>/);
+    assert.doesNotMatch(
+      chapterBodies.worlds,
+      /worlds-architecture|hc-world-selector|hc-worlds-daylight|the space\./,
+    );
+    assert.match(chapterBodies.worlds, /worlds-atrium\.webp/);
     assert.equal(
       (chapterBodies.spaces.match(/class="hc-room"/g) ?? []).length,
       4,

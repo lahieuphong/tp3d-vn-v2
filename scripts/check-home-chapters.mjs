@@ -303,6 +303,11 @@ assert.equal(
 );
 assert.equal(chapterHeaderTheme(geometry, 2992, 80, 900), 'dark');
 assert.equal(
+  chapterHeaderTheme(geometry, 3000, 108, 1440),
+  'dark',
+  'the opaque atrium uses ivory header text at its top even on tall desktop viewports',
+);
+assert.equal(
   chapterHeaderTheme(geometry, 3872, 80, 900),
   'light',
   'later overlapping light chapter wins',

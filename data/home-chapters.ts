@@ -1,4 +1,3 @@
-import { images } from './images';
 import { materials } from './materials';
 import { spaces } from './spaces';
 import { worlds } from './worlds';
@@ -7,8 +6,6 @@ export type WorldsChapterOption = {
   id: string;
   title: string;
   href: string;
-  previewImage: string;
-  previewAlt: string;
 };
 
 export type SpacesChapterItem = {
@@ -28,8 +25,8 @@ export type MaterialChapterCallout = {
   href: string;
 };
 
-/** The selector has an editorial category order; scene facts and photographs
- * still come from the existing catalogue. Unreleased scenes lead to Worlds. */
+/** Room labels belong to the atrium openings. Prefer the existing Space;
+ * Bathroom currently has a published World but no Space detail. */
 export const worldsChapterOptions: WorldsChapterOption[] = [
   'Living',
   'Bedroom',
@@ -39,16 +36,15 @@ export const worldsChapterOptions: WorldsChapterOption[] = [
   const categoryWorlds = worlds.filter((world) => world.category === category);
   const world =
     categoryWorlds.find((item) => item.available) ?? categoryWorlds[0];
-  const fallback = spaces.find((space) => space.title === category)?.image;
+  const space = spaces.find((item) => item.title === category);
   return {
     id: category.toLowerCase(),
     title: world?.category ?? category,
-    href: world?.available ? `/worlds/${world.slug}` : '/worlds',
-    previewImage: world?.image.src ?? fallback?.src ?? images.living,
-    previewAlt:
-      world?.image.alt ??
-      fallback?.alt ??
-      'A contemporary interior from the Tân Phong collection',
+    href: space
+      ? `/spaces/${space.slug}`
+      : world?.available
+        ? `/worlds/${world.slug}`
+        : '/worlds',
   };
 });
 

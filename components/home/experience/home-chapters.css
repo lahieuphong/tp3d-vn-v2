@@ -143,159 +143,6 @@
   white-space: nowrap;
 }
 
-/* 03 — the deep architectural passage. Only the local preview changes when
-   a category is hovered/focused; entering an actual viewer is a separate route. */
-.hc-worlds {
-  --hc-overlap: 16svh;
-  margin-top: calc(-1 * var(--hc-overlap));
-  color: #f3e9d6;
-}
-.hc-worlds .hc-backdrop {
-  background: #473b2d;
-}
-.hc-worlds .hc-backdrop img {
-  object-position: 50% 55%;
-}
-.hc-worlds .hc-backdrop::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    #231c1359,
-    transparent 38%,
-    transparent 72%,
-    #241a1a33
-  );
-}
-.hc-world-copy {
-  position: absolute;
-  left: 7.6%;
-  top: 22%;
-  width: 29%;
-  z-index: 5;
-}
-.hc-world-copy h2 {
-  margin: 34px 0 32px;
-}
-.hc-world-title-mask {
-  overflow: clip;
-  display: flow-root;
-  padding-inline: 5px;
-  margin-inline: -5px;
-}
-.hc-world-copy .hc-body {
-  max-width: 300px;
-}
-.hc-world-copy .hc-signoff {
-  font-size: clamp(7px, 0.62vw, 11px);
-  letter-spacing: 0.22em;
-}
-.hc-world-selector {
-  position: absolute;
-  right: 5%;
-  top: 27%;
-  width: 19%;
-  padding-left: 30px;
-  border-left: 1px solid #eee0c44d;
-  z-index: 5;
-}
-.hc-world-selector nav {
-  display: grid;
-  gap: 28px;
-}
-.hc-world-option {
-  display: flex;
-  min-height: 48px;
-  gap: 16px;
-  align-items: center;
-  opacity: 0.67;
-  transition: opacity 250ms;
-}
-.hc-world-option.is-active,
-.hc-world-option:hover,
-.hc-world-option:focus-visible {
-  opacity: 1;
-}
-.hc-world-option > span {
-  font-size: clamp(30px, 2.55vw, 51px);
-  line-height: 1.1;
-  letter-spacing: -0.03em;
-}
-.hc-world-option small {
-  font: 400 9px/1 var(--hc-sans);
-  letter-spacing: 0.12em;
-}
-.hc-world-option i {
-  width: 32px;
-  height: 1px;
-  background: currentColor;
-  opacity: 0;
-  margin-left: auto;
-}
-.hc-world-option.is-active i {
-  opacity: 0.7;
-}
-.hc-world-preview {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-top: 54px;
-}
-.hc-world-preview-image {
-  width: clamp(58px, 5.5vw, 96px);
-  height: clamp(58px, 5.5vw, 96px);
-  border: 1px solid #e8d7b88c;
-  border-radius: 50%;
-  overflow: hidden;
-  flex: none;
-}
-.hc-world-preview-image .editorial-image {
-  height: 100%;
-}
-.hc-world-preview .hc-link {
-  font-size: 8px;
-  letter-spacing: 0.18em;
-  gap: 12px;
-}
-.hc-worlds-baseline {
-  z-index: 5;
-  position: absolute;
-  left: 4.3%;
-  right: 4.3%;
-  bottom: 5.5%;
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  font: 500 8px/1.5 var(--hc-sans);
-  letter-spacing: 0.27em;
-}
-.hc-worlds-baseline i {
-  margin-left: auto;
-  height: 1px;
-  width: 90px;
-  opacity: 0.5;
-  background: currentColor;
-}
-.hc-worlds-daylight {
-  position: absolute;
-  left: 31%;
-  top: 11%;
-  width: 46%;
-  height: 86%;
-  border-radius: 50% 50% 0 0 / 34% 34% 0 0;
-  overflow: clip;
-  opacity: calc(var(--chapter-exit, 0) * 0.9);
-  transform: scale(calc(1 + var(--chapter-exit, 0) * 0.035));
-  z-index: 0;
-  pointer-events: none;
-}
-.hc-worlds-daylight img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
 /* 04 — four actual room links, with generous arched image windows. */
 .hc-spaces {
   margin-top: calc(-1 * var(--hc-overlap));
@@ -673,19 +520,6 @@ body .site-header.spatial-home[data-chapter-theme='dark'] {
   .hc-chapter {
     min-height: 780px;
   }
-  .hc-world-copy {
-    top: 20%;
-  }
-  .hc-world-copy h2 {
-    font-size: clamp(70px, 7.1vw, 100px);
-    margin-block: 25px;
-  }
-  .hc-world-selector {
-    top: 24%;
-  }
-  .hc-world-selector nav {
-    gap: 20px;
-  }
   .hc-spaces-heading {
     top: 15%;
   }
@@ -707,36 +541,6 @@ body .site-header.spatial-home[data-chapter-theme='dark'] {
   }
 }
 @media (min-width: 768px) and (max-width: 1199px) {
-  .hc-world-copy {
-    left: 7%;
-    width: 49%;
-    top: 18%;
-  }
-  .hc-world-copy h2 {
-    font-size: clamp(78px, 10vw, 102px);
-  }
-  .hc-world-copy .hc-body {
-    font-size: 22px;
-    max-width: 290px;
-  }
-  .hc-world-selector {
-    right: 5.5%;
-    top: 44%;
-    width: 30%;
-    padding-left: 20px;
-  }
-  .hc-world-option > span {
-    font-size: 35px;
-  }
-  .hc-world-preview {
-    gap: 12px;
-  }
-  .hc-worlds .hc-backdrop::after {
-    background: linear-gradient(90deg, #2d2114a6, transparent 95%);
-  }
-  .hc-worlds .hc-backdrop img {
-    object-position: 56% 55%;
-  }
   .hc-spaces .hc-backdrop img {
     object-position: 44% 50%;
   }
@@ -834,98 +638,11 @@ body .site-header.spatial-home[data-chapter-theme='dark'] {
     font-size: 19px;
     line-height: 1.3;
   }
-  .hc-worlds {
-    min-height: 108svh;
-    padding: 135px 7% 105px;
-  }
-  /* A portrait art window below the copy preserves the complete central arch.
-     Fitting the landscape plate to this entire tall section crops it to a slice. */
-  .hc-worlds .hc-backdrop > div {
-    inset: auto 0 0;
-    height: max(420px, 62svh);
-    max-height: 82%;
-    mask-image: linear-gradient(to bottom, transparent, #000 23%);
-    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 23%);
-  }
-  .hc-worlds .hc-backdrop img {
-    object-position: 55% 72%;
-  }
   .hc-spaces .hc-backdrop img {
     object-position: 42% 50%;
   }
   .hc-materials .hc-backdrop img {
     object-position: 57% 50%;
-  }
-  .hc-worlds .hc-backdrop::after {
-    background: linear-gradient(90deg, #241b10b8, #33281738);
-  }
-  .hc-world-copy {
-    position: relative;
-    inset: auto;
-    width: 100%;
-  }
-  .hc-world-copy h2 {
-    font-size: clamp(72px, 19vw, 92px);
-    margin: 25px 0;
-  }
-  .hc-world-copy .hc-body {
-    max-width: 270px;
-    font-size: 19px;
-  }
-  .hc-world-copy .hc-signoff {
-    font-size: 7px;
-  }
-  .hc-world-selector {
-    position: relative;
-    inset: auto;
-    padding: 0;
-    border: 0;
-    width: 100%;
-    margin-top: 42px;
-  }
-  .hc-world-selector nav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px 20px;
-  }
-  .hc-world-option {
-    gap: 12px;
-    min-height: 48px;
-  }
-  .hc-world-option > span {
-    font-size: 30px;
-  }
-  .hc-world-option small {
-    font-size: 8px;
-  }
-  .hc-world-option i {
-    display: none;
-  }
-  .hc-world-preview {
-    margin-top: 23px;
-  }
-  .hc-world-preview-image {
-    width: 58px;
-    height: 58px;
-  }
-  .hc-world-preview .hc-link {
-    font-size: 9px;
-  }
-  .hc-worlds-baseline {
-    bottom: 40px;
-    left: 7%;
-    right: 7%;
-    font-size: 6px;
-    letter-spacing: 0.19em;
-  }
-  .hc-worlds-baseline > span:last-child {
-    max-width: 140px;
-    text-align: right;
-  }
-  .hc-worlds-baseline i {
-    width: 25px;
-  }
-  .hc-worlds-daylight {
-    display: none;
   }
   .hc-spaces {
     padding: 132px 7% 90px;
@@ -1096,9 +813,6 @@ body .site-header.spatial-home[data-chapter-theme='dark'] {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hc-worlds-daylight {
-    display: none;
-  }
   .hc-chapter *,
   .site-header.spatial-home[data-chapter-theme] {
     transition: none !important;

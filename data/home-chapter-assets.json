@@ -1,10 +1,4 @@
 {
-  "worlds-architecture": {
-    "width": 1586,
-    "height": 992,
-    "src": "/images/home-chapters/worlds-architecture.webp",
-    "srcSet": "/images/home-chapters/worlds-architecture-720.webp 720w, /images/home-chapters/worlds-architecture-1280.webp 1280w, /images/home-chapters/worlds-architecture.webp 1586w"
-  },
   "spaces-architecture": {
     "width": 1586,
     "height": 992,
@@ -22,5 +16,17 @@
     "height": 1254,
     "src": "/images/home-chapters/material-tableau.webp",
     "srcSet": "/images/home-chapters/material-tableau-720.webp 720w, /images/home-chapters/material-tableau.webp 1254w"
+  },
+  "worlds-atrium": {
+    "width": 1672,
+    "height": 941,
+    "src": "/images/home-chapters/worlds-atrium.webp",
+    "srcSet": "/images/home-chapters/worlds-atrium-720.webp 720w, /images/home-chapters/worlds-atrium-1280.webp 1280w, /images/home-chapters/worlds-atrium.webp 1672w"
+  },
+  "worlds-atrium-preview": {
+    "width": 320,
+    "height": 320,
+    "src": "/images/home-chapters/worlds-atrium-preview.webp",
+    "srcSet": "/images/home-chapters/worlds-atrium-preview-160.webp 160w, /images/home-chapters/worlds-atrium-preview.webp 320w"
   }
 }

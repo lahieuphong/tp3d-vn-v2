@@ -72,11 +72,17 @@ export function chapterHeaderTheme(
   const samplingPoint = scrollY + headerHeight;
   // The top eight viewport percent belongs to the incoming chapter's blended
   // edge. Prefer the later chapter once its readable background has arrived.
+  // Worlds is now an opaque frame: cap its threshold at the actual header so
+  // a tall display cannot leave dark ink on the atrium's dark upper ring.
   const current = [...chapters]
     .reverse()
     .find(
-      ({ geometry }) =>
-        samplingPoint >= geometry.top + viewportHeight * 0.08 &&
+      ({ name, geometry }) =>
+        samplingPoint >=
+          geometry.top +
+            (name === 'worlds'
+              ? Math.min(headerHeight, viewportHeight * 0.08)
+              : viewportHeight * 0.08) &&
         samplingPoint < geometry.top + geometry.height,
     );
   return current ? (current.name === 'worlds' ? 'dark' : 'light') : null;

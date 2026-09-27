@@ -1,0 +1,350 @@
+/* One architectural frame. Room labels share the image's cover coordinates;
+   the existing document-space Breeze stays above it and below the live type. */
+.hc-chapter.hc-worlds {
+  --atrium-ratio: 1.776833;
+  --atrium-gutter: 5.25%;
+  --hc-overlap: 16svh;
+  height: 100svh;
+  min-height: 680px;
+  margin-top: calc(-1 * var(--hc-overlap));
+  /* Absorb the following scene's existing overlap outside this complete frame. */
+  margin-bottom: 14svh;
+  color: #f5edde;
+}
+.hc-atrium-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: clip;
+  background: #59432c;
+  pointer-events: none;
+}
+.hc-atrium-backdrop > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 0%;
+}
+.hc-atrium-backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  /* Photographic exposure masks keep ivory copy readable on the sunlit floor. */
+  background:
+    linear-gradient(
+      180deg,
+      #241a1480,
+      transparent 18%,
+      transparent 66%,
+      #24190d33
+    ),
+    linear-gradient(28deg, #24190dc2, #24190d38 29%, transparent 52%);
+}
+.hc-atrium-copy {
+  position: absolute;
+  z-index: 5;
+  left: var(--atrium-gutter);
+  bottom: 10.2%;
+  width: min(29%, 510px);
+}
+.hc-atrium-copy h2 {
+  font-size: clamp(78px, 5.65vw, 145px);
+  line-height: 0.87;
+  letter-spacing: -0.055em;
+  margin: 10px 0 19px;
+}
+.hc-atrium-copy h2 em {
+  white-space: nowrap;
+  font-weight: 400;
+}
+.hc-atrium-copy .hc-body {
+  max-width: 28em;
+  font-size: clamp(17px, 1.08vw, 26px);
+  line-height: 1.38;
+  text-wrap: pretty;
+}
+.hc-atrium-copy .hc-signoff {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: clamp(7px, 0.52vw, 10px);
+  margin-top: 18px;
+  letter-spacing: 0.22em;
+}
+.hc-signoff > span {
+  width: 35px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.65;
+}
+.hc-atrium-rooms {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  left: 50%;
+  width: max(100%, calc(100svh * var(--atrium-ratio)));
+  height: max(100%, calc(100vw / var(--atrium-ratio)));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.hc-atrium-room {
+  position: absolute;
+  transform-origin: left center;
+}
+.hc-atrium-living {
+  left: 8.3%;
+  top: 21%;
+  transform: rotate(16deg);
+}
+.hc-atrium-bedroom {
+  left: 30.8%;
+  top: 33.2%;
+  transform: rotate(7deg);
+}
+.hc-atrium-bathroom {
+  left: 63.1%;
+  top: 34.5%;
+  transform: rotate(-7deg);
+}
+.hc-atrium-kitchen {
+  left: 83.5%;
+  top: 26.1%;
+  transform: rotate(-17deg);
+}
+.hc-atrium-room-link {
+  display: flex;
+  align-items: baseline;
+  gap: clamp(12px, 1.1vw, 26px);
+  min-height: 48px;
+  padding: 7px 4px 12px;
+  pointer-events: auto;
+  text-shadow: 0 1px 10px #20170c66;
+}
+.hc-atrium-room-link small {
+  font: 400 clamp(9px, 0.68vw, 14px)/1 var(--hc-sans);
+  letter-spacing: 0.1em;
+}
+.hc-atrium-room-link > span {
+  position: relative;
+  font-size: clamp(25px, 1.9vw, 49px);
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+.hc-atrium-room-link > span::after {
+  content: '';
+  position: absolute;
+  width: 32px;
+  height: 1px;
+  bottom: -12px;
+  left: 0;
+  background: currentColor;
+  opacity: 0.6;
+  transition:
+    width 220ms ease,
+    opacity 220ms ease;
+}
+.hc-atrium-room-link:hover > span::after,
+.hc-atrium-room-link:focus-visible > span::after {
+  width: 100%;
+  opacity: 1;
+}
+.hc-atrium-cta {
+  position: absolute;
+  z-index: 5;
+  right: 4.5%;
+  bottom: 11%;
+  display: flex;
+  align-items: center;
+  gap: 17px;
+  min-height: 48px;
+  text-shadow: 0 1px 8px #24190d55;
+}
+.hc-atrium-preview {
+  display: block;
+  width: clamp(72px, 6.1vw, 120px);
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 1px solid #f5edde99;
+}
+.hc-atrium-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 350ms ease;
+}
+.hc-atrium-cta .hc-link {
+  font-size: clamp(8px, 0.52vw, 11px);
+  gap: 14px;
+}
+.hc-atrium-cta:hover img {
+  transform: scale(1.035);
+}
+.hc-atrium-baseline {
+  position: absolute;
+  z-index: 5;
+  left: var(--atrium-gutter);
+  right: 5.1%;
+  bottom: 3.5%;
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  font: 500 clamp(7px, 0.52vw, 10px)/1.6 var(--hc-sans);
+  letter-spacing: 0.23em;
+}
+
+/* A grouped overlay replaces architectural coordinates on narrow viewports. */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .hc-atrium-copy {
+    width: 45%;
+    bottom: 14%;
+  }
+  .hc-atrium-copy h2 {
+    font-size: clamp(74px, 9vw, 94px);
+  }
+  .hc-atrium-copy .hc-body {
+    max-width: 330px;
+    font-size: 20px;
+  }
+  .hc-atrium-rooms {
+    width: 34%;
+    height: auto;
+    top: auto;
+    left: auto;
+    right: 6%;
+    bottom: 28%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 23px 18px;
+    transform: none;
+  }
+  .hc-atrium-room {
+    position: static;
+    transform: none;
+  }
+  .hc-atrium-room-link {
+    gap: 9px;
+  }
+  .hc-atrium-room-link > span {
+    font-size: 26px;
+  }
+  .hc-atrium-cta {
+    right: 6%;
+    bottom: 15%;
+    gap: 12px;
+  }
+  .hc-atrium-preview {
+    width: 54px;
+  }
+  .hc-atrium-backdrop::after {
+    background: linear-gradient(
+      180deg,
+      #241a1440,
+      transparent 28%,
+      #24190d99 84%
+    );
+  }
+}
+@media (max-width: 767px) {
+  .hc-chapter.hc-worlds {
+    --atrium-gutter: 7%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-start;
+    gap: 18px;
+    height: auto;
+    min-height: max(100svh, 760px);
+    padding: 300px var(--atrium-gutter) 70px;
+  }
+  .hc-atrium-backdrop > img {
+    object-position: 51% 0;
+  }
+  .hc-atrium-backdrop::after {
+    background: linear-gradient(
+      180deg,
+      #241a1433,
+      transparent 20%,
+      #24190d59 38%,
+      #24190de0 78%,
+      #24190dec
+    );
+  }
+  .hc-atrium-copy {
+    position: relative;
+    inset: auto;
+    width: 100%;
+  }
+  .hc-atrium-copy h2 {
+    font-size: clamp(68px, 17.8vw, 84px);
+    margin: 9px 0 15px;
+  }
+  .hc-atrium-copy .hc-body {
+    max-width: 330px;
+    font-size: 18px;
+    line-height: 1.33;
+  }
+  .hc-atrium-copy .hc-signoff {
+    font-size: 6.5px;
+    margin-top: 16px;
+    gap: 12px;
+  }
+  .hc-atrium-copy .hc-signoff > span {
+    width: 24px;
+  }
+  .hc-atrium-rooms {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    height: auto;
+    transform: none;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 18px;
+  }
+  .hc-atrium-room {
+    position: static;
+    transform: none;
+  }
+  .hc-atrium-room-link {
+    gap: 13px;
+    padding: 5px 0;
+    min-height: 44px;
+  }
+  .hc-atrium-room-link small {
+    font-size: 8px;
+  }
+  .hc-atrium-room-link > span {
+    font-size: 28px;
+  }
+  .hc-atrium-room-link > span::after {
+    display: none;
+  }
+  .hc-atrium-cta {
+    position: relative;
+    inset: auto;
+    gap: 15px;
+  }
+  .hc-atrium-preview {
+    width: 48px;
+  }
+  .hc-atrium-cta .hc-link {
+    font-size: 8px;
+    gap: 20px;
+  }
+  .hc-atrium-baseline {
+    bottom: 25px;
+    right: 7%;
+    font-size: 6px;
+    letter-spacing: 0.15em;
+  }
+  .hc-atrium-baseline > span:last-child {
+    max-width: 125px;
+    text-align: right;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hc-atrium-cta:hover img {
+    transform: none;
+  }
+}
