@@ -83,7 +83,6 @@ function fixture({
   }
   const images = [
     new ImageNode('/architecture.webp'),
-    new ImageNode('/ribbon.webp'),
     ...Array.from({ length: 4 }, () => new ImageNode('/portal-atlas.webp')),
   ];
   const fonts = noFonts
@@ -103,7 +102,7 @@ function fixture({
     querySelectorAll(selector) {
       assert.equal(
         selector,
-        '[data-hero-layer="architecture-a"] img, .sh-monogram img, .sh-ribbon-cloth, .sh-portals img',
+        '[data-hero-layer="architecture-a"] img, .sh-monogram img, .sh-portals img',
       );
       return images;
     },
@@ -161,24 +160,24 @@ function fixture({
   const f = fixture({ cached: true });
   const task = f.start();
   assert.equal(f.callbacks[0].completed, 0);
-  assert.equal(f.callbacks[0].total, 6);
+  assert.equal(f.callbacks[0].total, 5);
   const result = await task.promise;
-  assert.equal(result.completed, 6);
-  assert.equal(result.total, 6);
+  assert.equal(result.completed, 5);
+  assert.equal(result.total, 5);
   assert.equal(result.failed, 0);
   assert.equal(result.progress, 1);
   assert.equal(result.timedOut, false);
   assert.equal(result.cancelled, false);
   assert.deepEqual(
     f.images.map((image) => image.decodeCalls),
-    [1, 1, 1, 0, 0, 0],
+    [1, 1, 0, 0, 0],
   );
   assert.equal(f.fontCalls.length, 3);
   assert.ok(f.fontCalls.every(({ font }) => font.includes('Spatial')));
   assert.ok(f.fontCalls[0].text.includes('tân phong'));
   assert.deepEqual(
     f.callbacks.map(({ completed }) => completed),
-    [0, 1, 2, 3, 4, 5, 6],
+    [0, 1, 2, 3, 4, 5],
   );
   f.assertClean();
 }
@@ -195,11 +194,11 @@ function fixture({
   await flush();
   assert.equal(
     f.callbacks.at(-1).completed,
-    5,
+    4,
     'background decode still pending',
   );
   decode.resolve();
-  assert.equal((await task.promise).completed, 6);
+  assert.equal((await task.promise).completed, 5);
   f.assertClean();
 }
 
@@ -213,16 +212,15 @@ function fixture({
       () => Promise.resolve([{}]),
     ],
   });
-  f.images[1].decodeResult = () => Promise.reject(new Error('decode failed'));
+  f.images[0].decodeResult = () => Promise.reject(new Error('decode failed'));
   const task = f.start();
   f.images[0].load();
-  f.images[1].load();
-  f.images[2].dispatch('error');
+  f.images[1].dispatch('error');
   const result = await task.promise;
-  assert.equal(result.completed, 6);
+  assert.equal(result.completed, 5);
   assert.equal(result.failed, 4);
   assert.equal(result.timedOut, false);
-  assert.equal(f.images[0].dataset.criticalState, undefined);
+  assert.equal(f.images[0].dataset.criticalState, 'failed');
   assert.equal(f.warnings.length, 0, 'production asset failures stay silent');
   assert.ok(
     f.images
@@ -239,11 +237,22 @@ function fixture({
   f.images[1].decodeResult = () => {
     throw new Error('unsupported decode');
   };
-  f.images[2].decode = undefined;
   const result = await f.start().promise;
   assert.equal(result.failed, 2);
-  assert.equal(result.completed, 6);
-  assert.equal(f.images[2].dataset.criticalState, undefined);
+  assert.equal(result.completed, 5);
+  assert.equal(f.images[2].dataset.criticalState, 'failed');
+  f.assertClean();
+}
+
+// A browser without decode() still settles each image after load, without
+// adding a raster dependency for the inline shared Breeze.
+{
+  const f = fixture({ cached: true });
+  f.images[0].decode = undefined;
+  f.images[1].decode = undefined;
+  const result = await f.start().promise;
+  assert.equal(result.completed, 5);
+  assert.equal(result.failed, 0);
   f.assertClean();
 }
 
@@ -263,7 +272,7 @@ function fixture({
   assert.equal(result.timedOut, true);
   assert.equal(result.cancelled, false);
   assert.equal(result.completed, 2);
-  assert.equal(result.progress, 2 / 6);
+  assert.equal(result.progress, 2 / 5);
   assert.equal(result.failed, 0);
   f.assertClean();
   const count = f.callbacks.length;
@@ -293,7 +302,7 @@ function fixture({
   );
   assert.deepEqual(
     [...f.warnings[0][1].pendingResources],
-    ['/ribbon.webp', '/portal-atlas.webp'],
+    ['/portal-atlas.webp'],
   );
   task.cancel();
   assert.equal(f.warnings.length, 1);
@@ -350,8 +359,8 @@ for (let i = 0; i < 30; i++) {
 {
   const f = fixture({ cached: true, noFonts: true });
   const result = await f.start().promise;
-  assert.equal(result.total, 3);
-  assert.equal(result.completed, 3);
+  assert.equal(result.total, 2);
+  assert.equal(result.completed, 2);
   f.assertClean();
 }
 

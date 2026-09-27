@@ -25,7 +25,6 @@ export function spatialFrame(
   const reveal = ease(range(p, 0.52, 0.82));
   const depth = ease(range(p, 0, 0.85));
   const architecture = storyReady ? ease(range(p, 0.32, 0.7)) : 0;
-  const veil = Math.sin(Math.PI * range(p, 0.3, 0.7));
   const move = (x: number, y: number, scale = 1) =>
     `translate3d(${x.toFixed(3)}px, ${y.toFixed(3)}px, 0) scale(${scale.toFixed(5)})`;
   const opacity = (value: number) => value.toFixed(5);
@@ -61,15 +60,6 @@ export function spatialFrame(
     '.sh-monogram': {
       transform: `translate3d(calc(var(--sh-monogram-story-x, 0px) * ${depth}), calc(var(--sh-monogram-story-y) * ${depth}), 0) scale(calc(1 + (var(--sh-monogram-story-scale) - 1) * ${depth})) rotateY(${compact ? 0 : depth}deg)`,
     },
-    '.sh-ribbon': {
-      opacity: opacity(0.86 + 0.14 * veil),
-      transform: `translate3d(${-7 * Math.sin(Math.PI * depth)}%, ${-2 * depth}%, 0) rotate(${compact ? 0 : -3 * veil}deg) scale(${1 + (compact ? 0.04 : 0.09) * veil})`,
-      zIndex: p < 0.64 ? '4' : '1',
-    },
-    '.sh-veil': {
-      opacity: opacity((compact ? 0.25 : 0.38) * veil),
-      transform: `translate3d(${-30 + 60 * range(p, 0.3, 0.7)}%, 0, 0) scale(1.06)`,
-    },
     '.sh-leaves': {
       transform: move(compact ? 0 : 12 * depth, compact ? 0 : -42 * depth),
     },
@@ -87,8 +77,10 @@ export function spatialFrame(
 
 export function mountSpatialHero(element: HTMLElement): SpatialHeroController {
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const compact = window.matchMedia('(max-width: 1023px)');
-  const stage = element.querySelector<HTMLElement>('.sh-stage')!;
+  const compact = window.matchMedia('(max-width: 1199px)');
+  const stage =
+    element.querySelector<HTMLElement>('.sh-plane') ??
+    element.querySelector<HTMLElement>('.sh-stage')!;
   const header = document.querySelector<HTMLElement>('.site-header');
   const discovery = element.querySelector<HTMLElement>('.sh-discovery');
   const story = element.querySelector<HTMLElement>('.sh-story');

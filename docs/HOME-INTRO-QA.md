@@ -29,7 +29,7 @@ Asset prompt, provenance and source/export paths: [HOME-INTRO-BREEZE-ASSET.md](H
 
 ## Critical assets and progress
 
-Normal first-view tracking has six completion units: existing architecture-A image; existing first Breeze; first-view portal atlas (deduplicated across four nodes); Cormorant Spatial regular; Cormorant Spatial italic; Manrope Spatial. Font loads target only the necessary face/glyph samples. The Home TP is inline SVG; optional texture images have vector/solid fallback and do not gate entry.
+After the visual-continuity refactor, normal first-view tracking has five completion units: existing architecture-A image; first-view portal atlas (deduplicated across four nodes); Cormorant Spatial regular; Cormorant Spatial italic; Manrope Spatial. The shared Home Breeze is inline SVG and has no separate image request or decode gate. Font loads target only the necessary face/glyph samples. The Home TP is inline SVG; optional texture images have vector/solid fallback and do not gate entry. Historical entry performance observations below predate that refactor.
 
 `Promise.allSettled()` observes the existing responsive image requests and decode promises. No duplicate `Image` fetches, later chapter preload, GLB request or world viewer creation is added. The Hero request remains eager/high priority while Home is concealed. The loader cloth and optional mineral/wood samples are nonblocking visual assets.
 

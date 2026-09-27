@@ -81,12 +81,33 @@
   font-family: var(--sh-serif);
 }
 .sh-stage {
+  position: relative;
+  display: grid;
+  align-items: start;
+  height: 100%;
+}
+/* Separate sticky planes share the HomeExperience stacking context. */
+.sh-plane {
   position: sticky;
   top: 0;
   height: var(--sh-stage-height);
+  grid-area: 1 / 1;
+  pointer-events: none;
+}
+.sh-plane-background {
+  z-index: 0;
   overflow: clip;
-  isolation: isolate;
-  perspective: 1400px;
+}
+.sh-plane-objects {
+  z-index: 3;
+}
+.sh-plane-content {
+  z-index: 5;
+  margin-bottom: 0;
+}
+.sh-plane-content a,
+.sh-plane-content button {
+  pointer-events: auto;
 }
 .spatial-hero h1,
 .spatial-hero h2,
@@ -160,30 +181,11 @@
   overflow: visible;
   transform: scaleX(1.16);
 }
-.sh-ribbon,
-.sh-leaves,
-.sh-veil {
+.sh-leaves {
   position: absolute;
   inset: 0;
   pointer-events: none;
-}
-.sh-ribbon {
-  z-index: 4;
-  opacity: 0.86;
-}
-.sh-ribbon svg,
-.sh-veil svg,
-.sh-leaves svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-.sh-leaves {
   z-index: 5;
-}
-.sh-veil {
-  z-index: 1;
-  opacity: 0;
 }
 .sh-discovery,
 .sh-story,
@@ -205,10 +207,8 @@
 .spatial-hero[data-scene='discovery'] .sh-story,
 .spatial-hero[data-scene='discovery'] .sh-center-copy,
 .spatial-hero[data-scene='discovery'] [data-hero-layer='architecture-b'],
-.spatial-hero[data-scene='discovery'] .sh-veil,
 .spatial-hero[data-scene='story'] .sh-discovery,
 .spatial-hero[data-scene='story'] .sh-portals,
-.spatial-hero[data-scene='story'] .sh-veil,
 .spatial-hero[data-scene='story'][data-story-image='ready']
   [data-hero-layer='architecture-a'] {
   visibility: hidden;
@@ -511,7 +511,7 @@
     transform: translate(3px, -2px);
   }
 }
-@media (min-width: 1024px) and (max-height: 820px) {
+@media (min-width: 1200px) and (max-height: 820px) {
   .sh-story-column {
     top: 17%;
   }
@@ -533,7 +533,7 @@
     margin-top: 15px !important;
   }
 }
-@media (min-width: 640px) and (max-width: 1023px) {
+@media (min-width: 768px) and (max-width: 1199px) {
   .spatial-hero {
     --sh-monogram-story-y: 8svh;
     --sh-monogram-story-scale: 0.92;
@@ -633,7 +633,7 @@
     right: 5.5%;
   }
 }
-@media (max-width: 639px) {
+@media (max-width: 767px) {
   .spatial-hero {
     --sh-stage-height: max(760px, 100svh);
     height: calc(var(--sh-stage-height) + 90svh);
@@ -715,10 +715,6 @@
     width: 38%;
     height: 18%;
     opacity: 0.75;
-  }
-  .sh-ribbon {
-    inset: 0 -50%;
-    opacity: 0.65;
   }
   .sh-leaves {
     display: none;
@@ -900,24 +896,7 @@
   }
 }
 
-/* One alpha cloth image replaces the filament geometry; motion stays on its
-   existing outer surface and parallax wrapper. */
-.sh-ribbon-cloth {
-  display: block;
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  object-fit: fill;
-  opacity: 0.7;
-  transform: translateX(-3%);
-}
-@media (max-width: 639px) {
-  .sh-ribbon-cloth {
-    opacity: 0.65;
-  }
-}
-
-@media (min-width: 640px) and (max-width: 1023px) and (orientation: portrait) {
+@media (min-width: 768px) and (max-width: 1199px) and (orientation: portrait) {
   .spatial-hero {
     --sh-monogram-story-y: 24svh;
     --sh-monogram-story-scale: 0.8;
@@ -982,15 +961,23 @@
   .sh-stage {
     position: relative;
     height: auto;
-    overflow: clip;
-    perspective: none;
+    display: block;
+    overflow: visible;
+  }
+  .sh-plane {
+    position: absolute;
+    inset: 0 0 auto;
+    margin: 0;
+  }
+  .sh-plane-content {
+    position: relative;
+    height: auto;
     padding-top: var(--sh-stage-height);
   }
   .sh-discovery {
     height: var(--sh-stage-height);
   }
   .sh-architecture[data-hero-layer='architecture-a'],
-  .sh-ribbon,
   .sh-leaves {
     height: var(--sh-stage-height);
   }
@@ -1015,7 +1002,6 @@
     pointer-events: auto;
     transform: none;
     padding: 96px 12%;
-    background: #eee4d2;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 9%;
@@ -1038,7 +1024,6 @@
     font-size: clamp(18px, 1.3vw, 24px);
   }
   .sh-center-copy,
-  .sh-veil,
   .sh-scroll-indicator,
   .sh-colophon,
   [data-hero-layer='architecture-b'] {
@@ -1051,7 +1036,7 @@
     min-height: 44px;
   }
 }
-@media (prefers-reduced-motion: reduce) and (max-width: 1023px) {
+@media (prefers-reduced-motion: reduce) and (max-width: 1199px) {
   .sh-portals {
     top: calc(var(--sh-stage-height) * 0.5);
   }
@@ -1071,7 +1056,7 @@
     padding: 80px 8%;
   }
 }
-@media (prefers-reduced-motion: reduce) and (max-width: 639px) {
+@media (prefers-reduced-motion: reduce) and (max-width: 767px) {
   .sh-monogram {
     top: calc(var(--sh-stage-height) * 0.23);
     height: calc(var(--sh-stage-height) * 0.18);
@@ -1102,14 +1087,6 @@
     scale(calc(1 - var(--sh-exit, 0) * 0.08));
   opacity: calc(1 - var(--sh-exit, 0));
 }
-.sh-ribbon > [data-hero-surface] {
-  transform: translate3d(
-      calc(var(--sh-exit, 0) * 5vw),
-      calc(var(--sh-exit, 0) * 15svh),
-      0
-    )
-    scale(calc(1 + var(--sh-exit, 0) * 0.12));
-}
 .sh-story-column {
   transform: translateY(calc(var(--sh-exit, 0) * -12px));
   opacity: calc(1 - var(--sh-exit, 0) * 0.3);
@@ -1122,9 +1099,14 @@
     display: none;
   }
   .sh-monogram > [data-hero-surface],
-  .sh-ribbon > [data-hero-surface],
   .sh-story-column {
     transform: none;
     opacity: 1;
   }
+}
+
+.sh-leaves svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }

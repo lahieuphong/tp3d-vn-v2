@@ -82,7 +82,7 @@ function environment({ reduced = false, compact = false } = {}) {
       '(prefers-reduced-motion: reduce)',
       Object.assign(new Events(), { matches: reduced }),
     ],
-    ['(max-width: 1023px)', Object.assign(new Events(), { matches: compact })],
+    ['(max-width: 1199px)', Object.assign(new Events(), { matches: compact })],
   ]);
   window.matchMedia = (query) => media.get(query);
   const hero = new Node(),
@@ -103,7 +103,7 @@ function environment({ reduced = false, compact = false } = {}) {
     },
   });
   hero.children.set('img[data-hero-deferred]', image);
-  hero.children.set('.sh-stage', new Node());
+  hero.children.set('.sh-plane', new Node());
   hero.children.set('.sh-discovery', new Node());
   class ResizeObserver {
     active = true;

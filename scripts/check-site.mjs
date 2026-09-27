@@ -127,7 +127,7 @@ while (pending.length) {
     assert.match(hero, /id="spatial-hero-story"/);
     assert.match(hero, /becomes a way/);
     assert.match(hero, /of seeing\./);
-    for (const layer of ['sh-monogram', 'sh-ribbon'])
+    for (const layer of ['sh-monogram'])
       assert.equal(
         (hero.match(new RegExp('class="' + layer + '"', 'g')) ?? []).length,
         1,
@@ -176,9 +176,29 @@ while (pending.length) {
       'Home: only the opening story and three new chapter sections should render',
     );
     assert.equal(
-      (main.match(/class="hc-breeze-journey"/g) ?? []).length,
+      (main.match(/\bdata-continuous-breeze(?:=|\s|>)/g) ?? []).length,
       1,
-      'Home: the three lower chapters must share one continuous breeze artwork',
+      'Home: all five scenes share one Breeze owner',
+    );
+    assert.doesNotMatch(
+      main,
+      /\bclass="[^"]*\b(?:sh-ribbon|sh-veil|hc-breeze-journey)\b/,
+      'Home: section-local ribbons and transition veils are removed',
+    );
+    assert.equal(
+      (main.match(/\bid="cb-cloth"/g) ?? []).length,
+      1,
+      'Home: depth projections share one continuous geometry definition',
+    );
+    assert.equal(
+      (main.match(/\bhref="#cb-cloth"/g) ?? []).length,
+      2,
+      'Home: back/front projections reference the same fabric',
+    );
+    assert.equal(
+      (main.match(/\bdata-breeze-svg(?:=|\s|>)/g) ?? []).length,
+      2,
+      'Home: exactly two controlled depth projections',
     );
     assert(
       main.indexOf('spatial-hero-story') <

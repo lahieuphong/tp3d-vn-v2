@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { materialChapterCallouts } from '@/data/home-chapters';
 import { ChapterImage } from './chapter-image';
-import { ChapterColophon } from './breeze-connector';
+import { ChapterColophon } from './chapter-colophon';
 import { MaterialComposition } from './material-composition';
 
 export function MaterialsChapter() {

@@ -1,0 +1,30 @@
+.home-experience {
+  position: relative;
+  width: 100%;
+  max-width: none;
+  overflow-x: clip;
+  background: #e8dcc8;
+}
+/* No transform, opacity, isolation or paint containment on this parent: its
+   children must interleave with the scene's background / object / copy planes. */
+.continuous-breeze {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.cb-plane {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.cb-back {
+  z-index: 2;
+}
+.cb-front {
+  z-index: 4;
+}

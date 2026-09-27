@@ -1,3 +1,4 @@
+import type { BreezeDriver } from './breeze-renderer';
 type ChapterName = 'worlds' | 'spaces' | 'materials';
 type ChapterPhase = 'far' | 'entering' | 'active' | 'leaving';
 type Depth = 'background' | 'foreground' | 'breeze' | 'copy';
@@ -84,7 +85,10 @@ export function chapterHeaderTheme(
 /** Native scroll chapters: one event-batched frame, no autoplay or idle loop.
  * Far sections keep their readable server-rendered composition and release
  * their transforms. All geometry is collected before the render pass writes. */
-export function mountHomeChapters(root: HTMLElement): () => void {
+export function mountHomeChapters(
+  root: HTMLElement,
+  breeze?: BreezeDriver,
+): () => void {
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   const compact = window.matchMedia('(max-width: 767px)');
   const header = document.querySelector<HTMLElement>('.site-header');
@@ -213,7 +217,7 @@ export function mountHomeChapters(root: HTMLElement): () => void {
       chapters,
       window.scrollY,
       headerHeight,
-      reduced.matches ? 0 : viewportHeight,
+      viewportHeight,
     );
     if (theme && header.dataset.chapterTheme !== theme)
       header.dataset.chapterTheme = theme;
@@ -342,6 +346,7 @@ export function mountHomeChapters(root: HTMLElement): () => void {
     const rectangles = chapters.map((chapter) =>
       chapter.node.getBoundingClientRect(),
     );
+    const homeBounds = breeze ? root.getBoundingClientRect() : null;
     headerHeight = headerRect?.height ?? 0;
     chapters.forEach((chapter, index) => {
       const rectangle = rectangles[index];
@@ -362,6 +367,7 @@ export function mountHomeChapters(root: HTMLElement): () => void {
         toClear.delete(chapter);
       } else toClear.add(chapter);
     }
+    if (homeBounds) breeze?.measure(homeBounds, scrollY);
     needsMeasure = false;
     observe();
   };
@@ -370,6 +376,7 @@ export function mountHomeChapters(root: HTMLElement): () => void {
     if (disposed) return;
     if (needsMeasure) measure();
     headerTheme();
+    breeze?.paint(window.scrollY, viewportHeight, reduced.matches);
     for (const chapter of toClear) clearChapter(chapter, reduced.matches);
     toClear.clear();
     if (reduced.matches) {
@@ -400,7 +407,12 @@ export function mountHomeChapters(root: HTMLElement): () => void {
         nearby = true;
       } else if (near.delete(chapter)) toClear.add(chapter);
     }
-    if (nearby || toClear.size || header?.dataset.chapterTheme !== undefined)
+    if (
+      breeze ||
+      nearby ||
+      toClear.size ||
+      header?.dataset.chapterTheme !== undefined
+    )
       schedule();
   };
   const resize = () => {

@@ -464,11 +464,18 @@ fixture.scroll(2920);
 fixture.flush();
 assert.equal(
   fixture.header.dataset.chapterTheme,
+  undefined,
+  'reduced motion keeps the shared overlap, so dark-scene ink waits for the blended background',
+);
+fixture.scroll(3003);
+fixture.flush();
+assert.equal(
+  fixture.header.dataset.chapterTheme,
   'dark',
-  'reduced motion has no masked overlap, so ink changes as soon as the header reaches dark architecture',
+  'static composition changes ink once dark architecture has arrived',
 );
 const reducedWrites = fixture.counts().writes;
-fixture.scroll(2921);
+fixture.scroll(3004);
 fixture.flush();
 assert.equal(
   fixture.counts().writes,

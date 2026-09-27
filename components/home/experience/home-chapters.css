@@ -1,9 +1,5 @@
-/* Three chapters share the opening's palette and typography. No page-wide pin,
-   animation clock, scroll container, or permanent layer promotion. */
-.home-experience {
-  overflow: clip;
-  background: #e8dcc8;
-}
+/* Scene roots stay in the HomeExperience stacking context. Only local image
+   windows clip; the shared Breeze can cross every architecture boundary. */
 .home-chapters {
   --hc-serif: 'Cormorant Spatial', Cormorant, Georgia, serif;
   --hc-sans: 'Manrope Spatial', Manrope, Arial, sans-serif;
@@ -11,15 +7,20 @@
   --hc-paper: #ede2cd;
   position: relative;
   display: flow-root;
-  isolation: isolate;
-  z-index: 2;
+  width: 100%;
+  max-width: none;
   color: var(--hc-ink);
   font-family: var(--hc-serif);
 }
 .hc-chapter {
+  --hc-overlap: 14svh;
+  --scene-padding: 6.2%;
   position: relative;
+  width: 100%;
+  max-width: none;
   height: 112svh;
   min-height: 820px;
+  /* Deliberately no overflow, isolation, transform or root z-index here. */
 }
 .hc-chapter h2,
 .hc-chapter h3 {
@@ -45,9 +46,16 @@
 .hc-backdrop {
   position: absolute;
   inset: 0;
-  z-index: -3;
+  z-index: 0;
   overflow: clip;
   background: var(--hc-paper);
+  pointer-events: none;
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--hc-overlap));
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--hc-overlap)
+  );
 }
 .hc-backdrop > div {
   position: absolute;
@@ -57,6 +65,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: 50% 50%;
 }
 .hc-eyebrow {
   font: 500 clamp(8px, 0.61vw, 11px)/2 var(--hc-sans);
@@ -93,6 +102,7 @@
 }
 .hc-axis {
   position: absolute;
+  z-index: 5;
   right: 7%;
   top: 21%;
   font: 500 8px/2.1 var(--hc-sans);
@@ -107,28 +117,8 @@
   opacity: 0.5;
   margin: 16px auto;
 }
-.hc-breeze-journey {
-  position: absolute;
-  inset: -13svh 0 0;
-  z-index: 1;
-  pointer-events: none;
-  opacity: 0.74;
-  overflow: clip;
-  mask-image: linear-gradient(
-    to bottom,
-    transparent,
-    #000 14svh,
-    #000 97%,
-    transparent
-  );
-}
-.hc-breeze-journey img {
-  width: 100%;
-  height: 100%;
-  object-fit: fill;
-}
 .hc-colophon {
-  z-index: 3;
+  z-index: 5;
   position: absolute;
   left: 4%;
   right: 4%;
@@ -156,13 +146,12 @@
 /* 03 — the deep architectural passage. Only the local preview changes when
    a category is hovered/focused; entering an actual viewer is a separate route. */
 .hc-worlds {
-  margin-top: -12svh;
+  --hc-overlap: 16svh;
+  margin-top: calc(-1 * var(--hc-overlap));
   color: #f3e9d6;
 }
 .hc-worlds .hc-backdrop {
   background: #473b2d;
-  mask-image: linear-gradient(to bottom, transparent, #000 12svh);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 12svh);
 }
 .hc-worlds .hc-backdrop img {
   object-position: 50% 55%;
@@ -184,7 +173,7 @@
   left: 7.6%;
   top: 22%;
   width: 29%;
-  z-index: 3;
+  z-index: 5;
 }
 .hc-world-copy h2 {
   margin: 34px 0 32px;
@@ -209,7 +198,7 @@
   width: 19%;
   padding-left: 30px;
   border-left: 1px solid #eee0c44d;
-  z-index: 4;
+  z-index: 5;
 }
 .hc-world-selector nav {
   display: grid;
@@ -270,7 +259,7 @@
   gap: 12px;
 }
 .hc-worlds-baseline {
-  z-index: 3;
+  z-index: 5;
   position: absolute;
   left: 4.3%;
   right: 4.3%;
@@ -298,7 +287,7 @@
   overflow: clip;
   opacity: calc(var(--chapter-exit, 0) * 0.9);
   transform: scale(calc(1 + var(--chapter-exit, 0) * 0.035));
-  z-index: -1;
+  z-index: 0;
   pointer-events: none;
 }
 .hc-worlds-daylight img {
@@ -309,17 +298,13 @@
 
 /* 04 — four actual room links, with generous arched image windows. */
 .hc-spaces {
-  margin-top: -12svh;
-}
-.hc-spaces .hc-backdrop {
-  mask-image: linear-gradient(to bottom, transparent, #000 12svh);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 12svh);
+  margin-top: calc(-1 * var(--hc-overlap));
 }
 .hc-spaces-heading {
   position: absolute;
   top: 17%;
-  left: 6.2%;
-  z-index: 3;
+  left: var(--scene-padding);
+  z-index: 5;
 }
 .hc-spaces-heading h2 {
   margin-top: 21px;
@@ -330,7 +315,7 @@
   left: 44%;
   top: 26%;
   width: 18%;
-  z-index: 3;
+  z-index: 5;
 }
 .hc-spaces-intro::before {
   content: '';
@@ -354,12 +339,13 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 2.8%;
-  z-index: 3;
 }
 .hc-room {
   min-width: 0;
 }
 .hc-room-arch {
+  position: relative;
+  z-index: 3;
   height: 41svh;
   min-height: 280px;
   border-radius: 50% 50% 0 0 / 32% 32% 0 0;
@@ -376,6 +362,8 @@
   object-fit: cover;
 }
 .hc-room-caption {
+  position: relative;
+  z-index: 5;
   display: flex;
   align-items: baseline;
   gap: clamp(10px, 1.25vw, 20px);
@@ -398,6 +386,8 @@
   transition: transform 350ms ease;
 }
 .hc-room > .hc-eyebrow {
+  position: relative;
+  z-index: 5;
   font-size: clamp(6px, 0.5vw, 9px);
   margin-top: 11px;
   letter-spacing: 0.22em;
@@ -420,19 +410,15 @@
 /* 05 — six depth groups in one composed still-life, with live callouts. */
 .hc-materials {
   height: 110svh;
-  margin-top: -10svh;
+  margin-top: calc(-1 * var(--hc-overlap));
   min-height: 860px;
-}
-.hc-materials .hc-backdrop {
-  mask-image: linear-gradient(to bottom, transparent, #000 10svh);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 10svh);
 }
 .hc-materials-copy {
   position: absolute;
   left: 18%;
   top: 13%;
   width: 34%;
-  z-index: 4;
+  z-index: 5;
 }
 .hc-materiality {
   margin-left: -2vw;
@@ -485,7 +471,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  z-index: 2;
+  z-index: 3;
   margin: 0;
 }
 .hc-material-composition {
@@ -683,21 +669,7 @@ body .site-header.spatial-home[data-chapter-theme='dark'] {
   letter-spacing: 0.22em;
 }
 
-@media (min-width: 1024px) and (max-width: 1199px) {
-  .hc-world-selector {
-    width: 22%;
-    right: 4%;
-    padding-left: 20px;
-  }
-  .hc-world-preview {
-    gap: 10px;
-  }
-  .hc-world-preview .hc-link {
-    gap: 8px;
-    letter-spacing: 0.13em;
-  }
-}
-@media (min-width: 1024px) and (max-height: 820px) {
+@media (min-width: 1200px) and (max-height: 820px) {
   .hc-chapter {
     min-height: 780px;
   }
@@ -734,7 +706,7 @@ body .site-header.spatial-home[data-chapter-theme='dark'] {
     margin-top: 22px;
   }
 }
-@media (min-width: 640px) and (max-width: 1023px) {
+@media (min-width: 768px) and (max-width: 1199px) {
   .hc-world-copy {
     left: 7%;
     width: 49%;
@@ -763,7 +735,13 @@ body .site-header.spatial-home[data-chapter-theme='dark'] {
     background: linear-gradient(90deg, #2d2114a6, transparent 95%);
   }
   .hc-worlds .hc-backdrop img {
-    object-position: 53% center;
+    object-position: 56% 55%;
+  }
+  .hc-spaces .hc-backdrop img {
+    object-position: 44% 50%;
+  }
+  .hc-materials .hc-backdrop img {
+    object-position: 56% 50%;
   }
   .hc-spaces {
     height: 120svh;
@@ -828,10 +806,11 @@ body .site-header.spatial-home[data-chapter-theme='dark'] {
     font-size: 21px;
   }
   .hc-material-scene {
-    left: 13%;
-    width: 81%;
-    height: 59%;
-    bottom: 5%;
+    left: 12%;
+    width: 76%;
+    height: auto;
+    aspect-ratio: 1;
+    bottom: 8%;
   }
   .hc-leader {
     width: 45px;
@@ -841,10 +820,11 @@ body .site-header.spatial-home[data-chapter-theme='dark'] {
     right: 8%;
   }
 }
-@media (max-width: 639px) {
+@media (max-width: 767px) {
   .hc-chapter {
+    --scene-padding: 7%;
     height: auto;
-    min-height: 0;
+    min-height: 100svh;
   }
   .hc-eyebrow {
     font-size: 8px;
@@ -858,8 +838,23 @@ body .site-header.spatial-home[data-chapter-theme='dark'] {
     min-height: 108svh;
     padding: 135px 7% 105px;
   }
+  /* A portrait art window below the copy preserves the complete central arch.
+     Fitting the landscape plate to this entire tall section crops it to a slice. */
+  .hc-worlds .hc-backdrop > div {
+    inset: auto 0 0;
+    height: max(420px, 62svh);
+    max-height: 82%;
+    mask-image: linear-gradient(to bottom, transparent, #000 23%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 23%);
+  }
   .hc-worlds .hc-backdrop img {
-    object-position: 50% center;
+    object-position: 55% 72%;
+  }
+  .hc-spaces .hc-backdrop img {
+    object-position: 42% 50%;
+  }
+  .hc-materials .hc-backdrop img {
+    object-position: 57% 50%;
   }
   .hc-worlds .hc-backdrop::after {
     background: linear-gradient(90deg, #241b10b8, #33281738);
@@ -931,10 +926,6 @@ body .site-header.spatial-home[data-chapter-theme='dark'] {
   }
   .hc-worlds-daylight {
     display: none;
-  }
-  .hc-breeze-journey {
-    left: 12%;
-    opacity: 0.48;
   }
   .hc-spaces {
     padding: 132px 7% 90px;
@@ -1105,17 +1096,6 @@ body .site-header.spatial-home[data-chapter-theme='dark'] {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hc-chapter {
-    margin-top: 0;
-  }
-  .hc-backdrop {
-    mask-image: none !important;
-    -webkit-mask-image: none !important;
-  }
-  .hc-breeze-journey {
-    inset: 0;
-    mask-image: none;
-  }
   .hc-worlds-daylight {
     display: none;
   }

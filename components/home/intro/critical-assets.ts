@@ -33,8 +33,10 @@ type CriticalAssetRoot = Pick<ParentNode, 'querySelectorAll'> & {
   fonts?: FontFaceSet;
 };
 
+// ContinuousBreeze is inline SVG. It is ready with the DOM, so no removed
+// per-scene raster ribbon or below-the-fold decoration belongs in this gate.
 const criticalImages =
-  '[data-hero-layer="architecture-a"] img, .sh-monogram img, .sh-ribbon-cloth, .sh-portals img';
+  '[data-hero-layer="architecture-a"] img, .sh-monogram img, .sh-portals img';
 
 /** These text samples select only the first-view faces/subsets. Waiting for
  * document.fonts.ready would also wait for content in later chapters. */

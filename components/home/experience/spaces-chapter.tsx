@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { spacesChapterItems } from '@/data/home-chapters';
 import { EditorialImage } from '@/components/shared/editorial-image';
 import { ChapterImage } from './chapter-image';
-import { ChapterColophon } from './breeze-connector';
+import { ChapterColophon } from './chapter-colophon';
 
 export function SpacesChapter() {
   return (
@@ -51,13 +51,12 @@ export function SpacesChapter() {
             href={space.href}
             prefetch={false}
             key={space.id}
-            data-callout-index={index}
           >
-            <div className="hc-room-arch">
+            <div className="hc-room-arch" data-callout-index={index}>
               <EditorialImage
                 src={space.image}
                 alt={space.alt}
-                sizes="(max-width: 639px) 44vw, (max-width: 1023px) 42vw, 24vw"
+                sizes="(max-width: 767px) 44vw, (max-width: 1199px) 42vw, 24vw"
               />
             </div>
             <div className="hc-room-caption">

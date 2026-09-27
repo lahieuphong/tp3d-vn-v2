@@ -3,7 +3,15 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { mountSpatialHero } from './hero-timeline';
 import './spatial-hero.css';
 
-export function SpatialHero({ children }: { children: ReactNode }) {
+export function SpatialHero({
+  children,
+  architecture,
+  objects,
+}: {
+  children: ReactNode;
+  architecture: ReactNode;
+  objects: ReactNode;
+}) {
   const root = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!root.current) return;
@@ -19,19 +27,25 @@ export function SpatialHero({ children }: { children: ReactNode }) {
       data-motion="scroll"
     >
       <div className="sh-stage">
-        {children}
-        <div className="sh-departure" aria-hidden="true" />
-        <footer className="sh-colophon">
-          <span className="sh-colophon-brand" aria-hidden="true">
-            tân phong
-          </span>
-          <span className="sh-colophon-line" aria-hidden="true" />
-          <span className="sh-scroll-indicator">
-            SCROLL TO DISCOVER <span aria-hidden="true">↓</span>
-          </span>
-          <span className="sh-colophon-line" aria-hidden="true" />
-          <span className="sh-colophon-edition">EST. 2026</span>
-        </footer>
+        <div className="sh-plane sh-plane-background">
+          {architecture}
+          <div className="sh-departure" aria-hidden="true" />
+        </div>
+        <div className="sh-plane sh-plane-objects">{objects}</div>
+        <div className="sh-plane sh-plane-content">
+          {children}
+          <footer className="sh-colophon">
+            <span className="sh-colophon-brand" aria-hidden="true">
+              tân phong
+            </span>
+            <span className="sh-colophon-line" aria-hidden="true" />
+            <span className="sh-scroll-indicator">
+              SCROLL TO DISCOVER <span aria-hidden="true">↓</span>
+            </span>
+            <span className="sh-colophon-line" aria-hidden="true" />
+            <span className="sh-colophon-edition">EST. 2026</span>
+          </footer>
+        </div>
       </div>
     </section>
   );
