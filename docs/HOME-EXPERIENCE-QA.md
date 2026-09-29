@@ -1,3 +1,5 @@
+> Historical implementation record. Current transition: [StoryWorldBridge](HOME-STORY-WORLD-BRIDGE.md).
+
 # Home — five architectural chapters
 
 Implemented on 26 September 2026 against the existing scroll-story code. This report supersedes the old Home composition described in earlier opening documents. It does **not** reuse results from the former autoplay version as evidence for this implementation.

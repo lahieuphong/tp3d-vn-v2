@@ -63,6 +63,9 @@ function environment({ reduced = false, compact = false } = {}) {
     querySelector(selector) {
       return this.children.get(selector) ?? null;
     }
+    closest() {
+      return null;
+    }
     contains(node) {
       return node === this;
     }

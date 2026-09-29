@@ -1,6 +1,8 @@
+> Historical implementation record. Current transition: [StoryWorldBridge](HOME-STORY-WORLD-BRIDGE.md).
+
 # Homepage section cleanup
 
-The later [Sky Portal refinement](HOME-SKY-PORTAL.md) supersedes this report's
+The later [StoryWorldBridge refinement](HOME-STORY-WORLD-BRIDGE.md) supersedes this report's
 Story/Worlds connection, Breeze route and controller details. The two removed
 sections remain removed; the following notes document the preceding cleanup.
 

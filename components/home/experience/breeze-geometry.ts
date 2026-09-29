@@ -1,4 +1,4 @@
-/** One cloth in document coordinates. Width is measured across the curve's
+/** One cloth in shared-stage coordinates. Width is measured across the curve's
  * normal, never obtained by stretching a landscape image over a tall page. */
 export type BreezeFamily = 'mobile' | 'tablet' | 'desktop';
 type Point = { x: number; y: number };
@@ -16,37 +16,6 @@ function curve(points: Point[], move = true) {
     d += `C${num(b.x + (c.x - a.x) / 6)} ${num(b.y + (c.y - a.y) / 6)} ${num(c.x - (e.x - b.x) / 6)} ${num(c.y - (e.y - b.y) / 6)} ${num(c.x)} ${num(c.y)}`;
   }
   return d;
-}
-export function breezeGeometry(
-  width: number,
-  height: number,
-  worldsTop = height * 0.66,
-) {
-  const w = Math.max(1, width),
-    h = Math.max(1, height);
-  const family = breezeFamily(w);
-  const xs =
-    family === 'desktop'
-      ? [-0.15, 0.75, 0.52, 0.89, 0.27, 1.14]
-      : family === 'tablet'
-        ? [-0.12, 0.85, 0.6, 0.8, 0.27, 1.14]
-        : [1.12, 0.78, 0.84, 0.26, 0.8, 1.14];
-  // Opening control points are anchored to the opening's measured length,
-  // not stretched when later content is removed. The final two points belong
-  // to Worlds, ending at the lower right before the footer. No old scene slots.
-  const opening = Math.min(h * 0.8, Math.max(1, worldsTop));
-  const remaining = h - opening;
-  const ys = [
-    -0.039 * opening,
-    0.168 * opening,
-    0.466 * opening,
-    0.776 * opening,
-    opening * 1.14,
-    h + remaining * 0.06,
-  ];
-  const spine = xs.map((x, i) => ({ x: x * w, y: ys[i] }));
-  const breadth = Math.min(w * (family === 'mobile' ? 0.25 : 0.18), 330);
-  return drawCloth(spine, breadth, family);
 }
 function drawCloth(
   spine: Point[],
@@ -86,55 +55,28 @@ function drawCloth(
   const threads = Array.from({ length: 37 }, (_, i) => curve(fiber(i / 36)));
   return { family, outline, folds, threads };
 }
-/** Bounded, reversible movement sampled by the existing native scroll loop. */
-export function breezePose(
-  scrollY: number,
-  top: number,
-  height: number,
-  viewport: number,
-  width: number,
-  reduced = false,
-) {
-  const progress = clamp((scrollY - top) / Math.max(1, height));
-  const amplitude = width < 768 ? 3 : width < 1200 ? 5 : 8;
-  const release = clamp(
-    (scrollY + viewport * 0.25 - (top + height - viewport * 0.28)) /
-      Math.max(1, viewport * 0.28),
-  );
-  const exit = release * release * (3 - 2 * release);
-  return {
-    progress,
-    x: reduced
-      ? 0
-      : Math.sin(progress * Math.PI * 2) * amplitude + exit * amplitude,
-    y: reduced
-      ? 0
-      : -Math.sin(progress * Math.PI) * amplitude * 1.5 + exit * amplitude,
-    opacity: 1 - exit,
-  };
-}
-
-/** Key states belong to the same spline. The Story path converges into the
- * photographic aperture and becomes an oculus-to-reflection route. */
-export function portalBreezeGeometry(
+/** The same cloth goes from Story midground to a camera-close billow, then
+ * recedes through the skylight. Coordinates are local to the shared stage. */
+export function bridgeBreezeGeometry(
   width: number,
   height: number,
-  trackTop: number,
-  stage: number,
-  span: number,
+  openingDistance: number,
   progress: number,
 ) {
   const p = clamp(progress);
   const family = breezeFamily(width);
   const mobile = family === 'mobile';
-  const ease = (t: number) => {
-    const v = clamp(t);
-    return v * v * (3 - 2 * v);
+  const ease = (n: number) => {
+    const t = clamp(n);
+    return t * t * (3 - 2 * t);
   };
-  const converge = ease((p - 0.25) / 0.29),
-    emerge = ease((p - 0.55) / 0.43);
-  const opening = trackTop + stage * 0.84;
-  const yBase = trackTop + span * p;
+  const mix = (a: number, b: number, t: number) => a + (b - a) * t;
+  const approach = ease((p - 0.28) / 0.15);
+  const emerge = ease((p - 0.55) / 0.24);
+  const sweep = ease((p - 0.425) / 0.105);
+  const travel = ease((p - 0.74) / 0.18);
+  const legacyHeight = openingDistance + height * (mobile ? 1.94 : 2.04);
+  const opening = openingDistance + height * 0.84;
   const oldX =
     family === 'desktop'
       ? [-0.15, 0.75, 0.52, 0.89, 0.27, 1.14]
@@ -147,36 +89,39 @@ export function portalBreezeGeometry(
     0.466 * opening,
     0.776 * opening,
     1.14 * opening,
-    height + (height - opening) * 0.06,
+    legacyHeight + (legacyHeight - opening) * 0.06,
   ];
-  const apertureY = 0.54 - 0.39 * ease((p - 0.5) / 0.4);
-  const intoX = [0.94, 0.8, 0.63, 0.46, 0.46, 0.5];
-  const intoY = [-0.22, 0.02, 0.22, 0.38, apertureY + 0.035, apertureY];
+  // A diagonal, folded sheet passes across the camera, not an opaque panel.
+  const veilX = [0.39, 0.32, 0.49, 0.57, 0.67, 0.82].map(
+    (x) => x + sweep * 1.45 - 0.55,
+  );
+  const veilY = [-0.48, -0.08, 0.22, 0.53, 0.88, 1.45];
   const worldX = mobile
-    ? [0.5, 0.68, 0.74, 0.86, 0.92, 0.96]
-    : [0.5, 0.65, 0.62, 0.56, 0.74, 0.93];
-  const worldY = [0.055, 0.15, 0.32, 0.46, 0.65, 0.84];
-  const mix = (a: number, b: number, t: number) => a + (b - a) * t;
+    ? [0.5, 0.67, 0.74, 0.79, 0.86, 0.9]
+    : [0.5, 0.64, 0.65, 0.57, 0.73, 0.87];
+  const worldY = [0.065, 0.17, 0.34, 0.49, 0.66, mobile ? 0.73 : 0.81];
   const spine = oldX.map((x, i) => ({
     x: mix(
-      mix(x * width, intoX[i] * width, converge),
-      worldX[i] * width,
+      mix(x * width, veilX[i] * width, approach),
+      mix(0.5, worldX[i], 0.6 + 0.4 * travel) * width,
       emerge,
     ),
     y: mix(
-      mix(oldY[i], yBase + intoY[i] * stage, converge),
-      yBase + worldY[i] * stage,
+      mix(oldY[i] - openingDistance, veilY[i] * height, approach),
+      mix(0.06, worldY[i], 0.68 + 0.32 * travel) * height,
       emerge,
     ),
   }));
-  const breadth =
-    Math.min(width * (mobile ? 0.25 : 0.18), 330) *
-    mix(1, mobile ? 0.57 : 0.68, converge) *
-    mix(1, 0.92, emerge);
+  const originalBreadth = Math.min(width * (mobile ? 0.25 : 0.18), 330);
+  const breadth = mix(
+    mix(originalBreadth, width * (mobile ? 1.1 : 1.16), approach),
+    originalBreadth * (mobile ? 0.6 : 0.7),
+    ease((p - 0.52) / 0.14),
+  );
   const taper = [1, 1, 1, 1, 1, 1].map((v, i) =>
     mix(
-      mix(v, [1, 1, 0.9, 0.6, 0.25, 0.01][i], converge),
-      [0.01, 0.95, 0.66, 0.7, 0.45, 0.01][i],
+      mix(v, [0.8, 1.08, 1.38, 1.36, 1.24, 0.9][i], approach),
+      [0.005, 0.7, 0.8, 0.7, 0.38, 0.005][i],
       emerge,
     ),
   );

@@ -21,17 +21,17 @@ export function WorldsChapter() {
         <p className="hc-eyebrow" data-chapter-reveal="1">
           3D WORLDS
         </p>
-        <h2 id="home-worlds-title" data-chapter-reveal="2">
-          Enter
+        <h2 id="home-worlds-title">
+          <span data-chapter-reveal="2">Enter</span>
           <br />
-          <em>the worlds.</em>
+          <em data-chapter-reveal="3">the worlds.</em>
         </h2>
-        <div data-chapter-reveal="3">
-          <p className="hc-body">
+        <div>
+          <p className="hc-body" data-chapter-reveal="4">
             Step inside our interiors and explore them in 3D. Move freely,
             discover details, and experience spaces as if you were really there.
           </p>
-          <p className="hc-eyebrow hc-signoff">
+          <p className="hc-eyebrow hc-signoff" data-chapter-reveal="5">
             <span aria-hidden="true" />
             REAL SPACES. REAL PERSPECTIVE.
           </p>
@@ -56,7 +56,7 @@ export function WorldsChapter() {
         href="/worlds"
         prefetch={false}
         className="hc-atrium-cta"
-        data-chapter-reveal="4"
+        data-chapter-reveal="6"
       >
         <span className="hc-atrium-preview" aria-hidden="true">
           <ChapterImage
@@ -71,7 +71,7 @@ export function WorldsChapter() {
       <div
         className="hc-atrium-baseline"
         aria-hidden="true"
-        data-chapter-reveal="5"
+        data-chapter-reveal="6"
       >
         <span>SCROLL TO DISCOVER</span>
         <span>SPACES SHAPED BY A NEW BREEZE</span>

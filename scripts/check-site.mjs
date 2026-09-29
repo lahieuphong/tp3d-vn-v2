@@ -123,7 +123,7 @@ while (pending.length) {
     assert.equal(
       (main.match(/<h1\b/g) ?? []).length,
       1,
-      'Home: the complete five-scene journey must have one h1',
+      'Home: the complete opening and Worlds journey must have one h1',
     );
     const hero = html.match(
       /<section\b[^>]*class="[^"]*\bspatial-hero\b[^"]*"[^>]*>([\s\S]*?)<\/section>/,
@@ -177,7 +177,7 @@ while (pending.length) {
     assert.doesNotMatch(
       main,
       /<canvas\b|<iframe\b|\bclass="[^"]*\bemh-/,
-      'Home: all five scenes must use live DOM without old Hero/WebGL/embed layers',
+      'Home: the opening and Worlds must use live DOM without old Hero/WebGL/embed layers',
     );
 
     const chapters = [
@@ -192,8 +192,24 @@ while (pending.length) {
     );
     assert.equal(
       (main.match(/<section\b/g) ?? []).length,
-      2,
-      'Home: only the opening story and Worlds section should render',
+      3,
+      'Home: the bridge wrapper must contain only the opening and Worlds sections',
+    );
+    assert.equal(
+      (main.match(/<section\b[^>]*\bdata-story-world-bridge(?:=|\s|>)/g) ?? [])
+        .length,
+      1,
+      'Home: exactly one Story-to-Worlds bridge must render',
+    );
+    assert.equal(
+      (main.match(/\bdata-story-world-stage(?:=|\s|>)/g) ?? []).length,
+      1,
+      'Home: Story and Worlds share one sticky stage',
+    );
+    assert.doesNotMatch(
+      main,
+      /data-sky-track|sky-static-aperture/,
+      'Home: the superseded sky portal must not render',
     );
     assert.equal(
       (main.match(/\bdata-continuous-breeze(?:=|\s|>)/g) ?? []).length,
@@ -335,7 +351,10 @@ while (pending.length) {
         body.includes(['Living', 'Bedroom', 'Bathroom', 'Kitchen'][index]),
       );
     }
-    assert.match(chapterBodies.worlds, /<em>the worlds\.<\/em>/);
+    assert.match(
+      chapterBodies.worlds,
+      /<em\b[^>]*data-chapter-reveal="3"[^>]*>the worlds\.<\/em>/,
+    );
     assert.doesNotMatch(
       chapterBodies.worlds,
       /worlds-architecture|hc-world-selector|hc-worlds-daylight|the space\./,

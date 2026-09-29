@@ -1,3 +1,5 @@
+> Historical implementation record. Current transition: [StoryWorldBridge](HOME-STORY-WORLD-BRIDGE.md).
+
 # Homepage visual continuity — 27 September 2026
 
 Scope: existing Scene 1–5, visual ownership, stacking, clipping, responsive composition and transitions. Copy, font families, content, routes and scene photography are preserved. No deployment was performed.

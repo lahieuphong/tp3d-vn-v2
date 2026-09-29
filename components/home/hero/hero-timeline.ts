@@ -76,6 +76,8 @@ export function spatialFrame(
 }
 
 export function mountSpatialHero(element: HTMLElement): SpatialHeroController {
+  const owner =
+    element.closest<HTMLElement>('[data-story-world-sequence]') ?? element;
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   const compact = window.matchMedia('(max-width: 1199px)');
   const stage =
@@ -121,11 +123,10 @@ export function mountSpatialHero(element: HTMLElement): SpatialHeroController {
     // All layout reads precede writes and occur only on mount/resize, never on
     // normal scroll frames. Native scrollY is the only per-scroll input.
     if (measureNeeded) {
-      const bounds = element.getBoundingClientRect();
+      const bounds = owner.getBoundingClientRect();
       top = bounds.top + window.scrollY;
       stageHeight = stage.offsetHeight;
-      // The portal extends the sticky owner without extending the approved
-      // Discovery → Story scrub. This marker contains only that original range.
+      // Discovery hands its existing nodes to Story at the end of this range.
       distance = Math.max(
         1,
         element.querySelector<HTMLElement>('[data-opening-range]')
@@ -259,6 +260,7 @@ export function mountSpatialHero(element: HTMLElement): SpatialHeroController {
   queueSecondary();
   const observer = new ResizeObserver(resize);
   observer.observe(element);
+  if (owner !== element) observer.observe(owner);
   observer.observe(stage);
   window.addEventListener('scroll', scroll, { passive: true });
   window.addEventListener('resize', resize, { passive: true });
@@ -267,7 +269,7 @@ export function mountSpatialHero(element: HTMLElement): SpatialHeroController {
   element.addEventListener('focusout', schedule);
   reduced.addEventListener('change', resize);
   compact.addEventListener('change', resize);
-  schedule();
+  update();
   return {
     destroy() {
       if (disposed) return;

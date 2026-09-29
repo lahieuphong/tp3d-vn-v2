@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { mountSpatialHero } from './hero-timeline';
 import './spatial-hero.css';
 
@@ -13,7 +13,7 @@ export function SpatialHero({
   objects: ReactNode;
 }) {
   const root = useRef<HTMLElement>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!root.current) return;
     const controller = mountSpatialHero(root.current);
     return () => controller.destroy();

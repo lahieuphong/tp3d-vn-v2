@@ -1,4 +1,4 @@
-/** Document lifetime only. A refresh creates a new Window and a new decision;
+/** Document lifetime only. A refresh preserves native scroll restoration;
  * client navigation reuses this record. No persistent storage participates. */
 export type HomeIntroDecision = {
   play: boolean;
@@ -12,6 +12,7 @@ type HomeIntroRuntime = {
   played: boolean;
   expired: boolean;
   watchdog?: number;
+  restoreWatchdog?: number;
   scrollRestoration?: ScrollRestoration;
 };
 declare global {
@@ -27,9 +28,18 @@ export const HOME_INTRO_BOOTSTRAP = `(() => {
   const navigation = performance.getEntriesByType('navigation')[0];
   const type = navigation ? navigation.type : performance.navigation?.type === 2 ? 'back_forward' : performance.navigation?.type === 1 ? 'reload' : 'navigate';
   const force = new URLSearchParams(location.search).get('intro') === '1';
-  const play = location.pathname === '/' && (force || type !== 'back_forward');
+  const play = location.pathname === '/' && (force || type === 'navigate');
   const runtime = window.__tpHomeIntroRuntime = {play, claimed: false, played: false, expired: false};
-  if (!play) return;
+  if (!play) {
+    if (location.pathname === '/' && (type === 'reload' || type === 'back_forward')) {
+      document.documentElement.setAttribute('data-home-restoring', '');
+      runtime.restoreWatchdog = window.setTimeout(() => {
+        document.documentElement.removeAttribute('data-home-restoring');
+        runtime.restoreWatchdog = undefined;
+      }, 4500);
+    }
+    return;
+  }
   runtime.scrollRestoration = history.scrollRestoration;
   history.scrollRestoration = 'manual';
   document.documentElement.setAttribute('data-home-intro', 'waiting');
@@ -47,6 +57,7 @@ export const HOME_INTRO_BOOTSTRAP = `(() => {
  * a new Home document paints ivory, never an exposed Homepage/header. */
 export const HOME_INTRO_CRITICAL_CSS = `
 .home-intro-loader{display:none}
+html[data-home-restoring] .home-experience{opacity:0}
 html[data-home-intro]{background:#eee9df;overflow:hidden;scrollbar-gutter:stable}
 html[data-home-intro] .home-intro-loader{display:block;position:fixed;inset:0;z-index:200;overflow:clip}
 html[data-home-intro] .site-header,html[data-home-intro] .site-footer,html[data-home-intro] .skip-link{visibility:hidden}

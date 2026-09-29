@@ -5,13 +5,12 @@
   --hc-sans: 'Manrope Spatial', Manrope, Arial, sans-serif;
   --atrium-ratio: 1.776833;
   --atrium-gutter: 5.25%;
-  --hc-overlap: 16svh;
   position: relative;
   width: 100%;
   max-width: none;
   height: 100svh;
   min-height: 680px;
-  margin-top: calc(-1 * var(--hc-overlap));
+  margin-top: 0;
   margin-bottom: 0;
   color: #f5edde;
   font-family: var(--hc-serif);

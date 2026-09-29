@@ -1,5 +1,5 @@
-import { breezeGeometry } from './breeze-geometry';
-const initial = breezeGeometry(1440, 2646, 1746);
+import { bridgeBreezeGeometry } from './breeze-geometry';
+const initial = bridgeBreezeGeometry(1440, 900, 990, 0);
 /** Two depth projections of ONE shared definition. Complementary masks partition
  * the same cloth, without overlapping image segments or section-local assets. */
 export function ContinuousBreeze() {
@@ -11,7 +11,7 @@ export function ContinuousBreeze() {
     >
       <svg
         className="cb-plane cb-back"
-        viewBox="0 0 1440 2646"
+        viewBox="0 0 1440 900"
         preserveAspectRatio="xMidYMid meet"
         focusable="false"
         data-breeze-svg
@@ -60,6 +60,13 @@ export function ContinuousBreeze() {
           </radialGradient>
           <mask id="cb-canopy" maskUnits="userSpaceOnUse">
             <rect width="100%" height="100%" fill="white" />
+            <path
+              data-breeze-rim
+              d=""
+              fill="black"
+              fillRule="evenodd"
+              opacity="0"
+            />
             <ellipse
               data-breeze-canopy
               cx="0"
@@ -117,7 +124,7 @@ export function ContinuousBreeze() {
       </svg>
       <svg
         className="cb-plane cb-front"
-        viewBox="0 0 1440 2646"
+        viewBox="0 0 1440 900"
         preserveAspectRatio="xMidYMid meet"
         focusable="false"
         data-breeze-svg
