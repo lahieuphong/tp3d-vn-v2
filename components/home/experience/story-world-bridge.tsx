@@ -4,7 +4,7 @@ import './story-world-bridge.css';
 
 /** The opening's existing approach hands its live Story nodes to the bridge.
  * One sticky stage keeps that handoff exact: no duplicate Story or Worlds plate.
- * The approach marker is outside the 250svh / 210svh Story → Worlds range. */
+ * The approach marker is outside the 260svh / 220svh Story → Worlds range. */
 export function StoryWorldBridge({ children }: { children: ReactNode }) {
   return (
     <div className="story-world-sequence" data-story-world-sequence>

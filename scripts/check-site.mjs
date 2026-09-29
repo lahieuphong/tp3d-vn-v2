@@ -298,11 +298,42 @@ while (pending.length) {
         chapterImages.length,
         `Home: ${name} is missing its visual assets`,
       );
-      for (const [image] of chapterImages) {
+      const roomPreviews = [
+        ...body.matchAll(
+          /<picture\b[^>]*class="hc-room-preview hc-room-preview-([a-z]+)"[^>]*>([\s\S]*?)<\/picture>/g,
+        ),
+      ];
+      assert.deepEqual(
+        roomPreviews.map(([, room]) => room),
+        ['living', 'bedroom', 'bathroom', 'kitchen'],
+        'Home: each atrium room has one decorative preview',
+      );
+      const previewFallbacks = new Set();
+      for (const [, room, preview] of roomPreviews) {
+        const source = preview.match(/<source\b[^>]*>/)?.[0];
+        assert(source, `Home: ${room} preview needs a desktop source`);
         assert.match(
-          image,
-          /src="\/images\//,
-          `Home: ${name} image must be local`,
+          source,
+          /media="\(min-width: 1200px\) and \(hover: hover\) and \(pointer: fine\)"/,
+        );
+        assert.equal(
+          source.match(/srcset="([^"]+)"/i)?.[1],
+          `/images/home-chapters/room-preview-${room}.webp`,
+        );
+        const fallback = preview.match(/<img\b[^>]*>/)?.[0];
+        assert(fallback, `Home: ${room} preview needs a fallback`);
+        assert.equal(
+          fallback.match(/\bsrc="([^"]+)"/)?.[1],
+          'data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; width=&#x27;1&#x27; height=&#x27;1&#x27;/%3E',
+          'Home: non-hover devices use only the empty inline preview',
+        );
+        assert.match(fallback, /width="192" height="192" alt=""/);
+        previewFallbacks.add(fallback);
+      }
+      for (const [image] of chapterImages) {
+        assert(
+          /src="\/images\//.test(image) || previewFallbacks.has(image),
+          `Home: ${name} image must be local or a verified preview placeholder`,
         );
         assert.match(
           image,

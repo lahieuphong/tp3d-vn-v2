@@ -150,6 +150,7 @@ function browser({ reduced = false, compact = false, missing = false } = {}) {
   const reveals = Array.from({ length: 11 }, (_, i) => {
     const node = new Node();
     node.dataset.chapterReveal = String(i % 7);
+    node.tagName = i % 7 === 0 || i % 7 === 6 ? 'A' : 'SPAN';
     return node;
   });
   const nodes = {
@@ -196,6 +197,7 @@ function browser({ reduced = false, compact = false, missing = false } = {}) {
     window,
     document,
     ResizeObserver,
+    performance: { now: () => ++sequence * 16.7 },
     requestAnimationFrame(fn) {
       const id = ++sequence;
       frames.set(id, fn);
@@ -276,10 +278,10 @@ f.flush();
 assert(f.reveals.every((n) => Number(n.style.opacity) === 1 && !n.inert));
 assert.equal(f.header.dataset.chapterTheme, 'dark');
 // Stillness is a real scroll interval, with no repeated visual style writes.
-f.scroll(990 + 1350 * 0.86);
+f.scroll(990 + 1350 * 0.88);
 f.flush();
 f.operations.length = 0;
-for (const progress of [0.87, 0.9, 0.95, 1]) {
+for (const progress of [0.89, 0.9, 0.95, 1]) {
   f.scroll(990 + 1350 * progress);
   f.flush();
 }
@@ -349,7 +351,8 @@ for (let i = 0; i < 30; i++) {
 const missing = browser({ missing: true });
 missing.createStoryWorldTimeline(missing.root)();
 assert.deepEqual(missing.count(), { frames: 0, listeners: 0, observers: 0 });
-const { storyWorldFrame, worldContentReveal } = mathModule.exports;
+const { storyWorldFrame, worldContentReveal, settleCamera } =
+  mathModule.exports;
 for (const [w, h] of [
   [320, 568],
   [375, 812],
@@ -380,26 +383,26 @@ for (const [w, h] of [
       storyWorldFrame((100 - i) / 100, w, h),
     ).reverse(),
   );
-  assert.equal(storyWorldFrame(0.18, w, h).textOpacity, 1, 'reading hold');
+  assert.equal(storyWorldFrame(0.16, w, h).textOpacity, 1, 'reading hold');
   assert.equal(
-    storyWorldFrame(0.36, w, h).textOpacity,
-    0.65,
+    storyWorldFrame(0.32, w, h).textOpacity,
+    0.7,
     'restrained departure',
   );
   assert.equal(storyWorldFrame(0.55, w, h).textOpacity, 0);
   assert.equal(storyWorldFrame(0.55, w, h).skyVisible, true);
-  assert.equal(storyWorldFrame(0.72, w, h).scale, 1);
-  assert.equal(storyWorldFrame(0.72, w, h).imageY, 0);
+  assert.equal(storyWorldFrame(0.84, w, h).scale, 1);
+  assert.equal(storyWorldFrame(0.84, w, h).imageY, 0);
   assert.equal(
-    storyWorldFrame(0.78, w, h).dissolve,
+    storyWorldFrame(0.64, w, h).dissolve,
     1,
     'Breeze finishes before UI appears',
   );
   for (let order = 0; order < 7; order++) {
-    assert.equal(worldContentReveal(0.78, order), 0);
-    assert.equal(worldContentReveal(0.86, order), 1);
+    assert.equal(worldContentReveal(0.74, order), 0);
+    assert.equal(worldContentReveal(0.88, order), 1);
   }
-  const { progress: _ignored, ...settled } = storyWorldFrame(0.86, w, h);
+  const { progress: _ignored, ...settled } = storyWorldFrame(0.88, w, h);
   for (const p of [0.88, 0.9, 0.95, 1]) {
     const { progress: _ignored, ...held } = storyWorldFrame(p, w, h);
     assert.deepEqual(
@@ -409,6 +412,36 @@ for (const [w, h] of [
     );
   }
 }
+// Only architecture may trail input, with bounded residual and no idle loop.
+const cameraTarget = { storyScale: 1.05, storyY: -10, scale: 1.2, imageY: 8 };
+let previous = { storyScale: 1, storyY: 0, scale: 4.8, imageY: 300 };
+let remaining = true;
+for (let i = 0; i < 12; i++) {
+  const result = settleCamera(cameraTarget, previous, 16.7, 1);
+  assert(Math.abs(result.pose.scale - cameraTarget.scale) <= 0.0025);
+  assert(Math.abs(result.pose.imageY - cameraTarget.imageY) <= 2);
+  previous = result.pose;
+  remaining = result.moving;
+}
+assert.equal(remaining, false, 'micro inertia finishes within 200ms');
+assert.deepEqual(
+  { ...settleCamera(cameraTarget, previous, 16.7, 0).pose },
+  cameraTarget,
+);
+const gated = browser();
+const clearGated = gated.createStoryWorldTimeline(gated.root, gated.breeze);
+for (const p of [0.75, 0.8, 0.85]) {
+  gated.scroll(990 + 1350 * p);
+  gated.flush();
+  assert(
+    gated.reveals.filter((n) => n.tagName === 'A').every((n) => n.inert),
+    'moving links remain inert',
+  );
+}
+gated.scroll(990 + 1350 * 0.9);
+gated.flush();
+assert(gated.reveals.every((n) => !n.inert));
+clearGated();
 assert.doesNotMatch(
   source,
   /preventDefault|setState|wheel|setInterval|pointermove/,

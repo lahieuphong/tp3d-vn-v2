@@ -54,28 +54,6 @@ export function ContinuousBreeze() {
             <stop offset=".73" stopColor="black" />
             <stop offset="1" stopColor="black" />
           </linearGradient>
-          <radialGradient id="cb-canopy-feather">
-            <stop offset=".45" stopColor="black" />
-            <stop offset="1" stopColor="white" />
-          </radialGradient>
-          <mask id="cb-canopy" maskUnits="userSpaceOnUse">
-            <rect width="100%" height="100%" fill="white" />
-            <path
-              data-breeze-rim
-              d=""
-              fill="black"
-              fillRule="evenodd"
-              opacity="0"
-            />
-            <ellipse
-              data-breeze-canopy
-              cx="0"
-              cy="0"
-              rx="0"
-              ry="0"
-              fill="url(#cb-canopy-feather)"
-            />
-          </mask>
           <mask
             id="cb-front-mask"
             maskUnits="objectBoundingBox"
@@ -130,9 +108,7 @@ export function ContinuousBreeze() {
         data-breeze-svg
       >
         <g mask="url(#cb-front-mask)">
-          <g mask="url(#cb-canopy)">
-            <use href="#cb-cloth" data-breeze-pose />
-          </g>
+          <use href="#cb-cloth" data-breeze-pose />
         </g>
       </svg>
     </div>

@@ -46,6 +46,9 @@
 body .site-header.spatial-home[data-chapter-theme='dark'] {
   color: #f3e9d6;
 }
+body .site-header.spatial-home[data-chapter-theme='sky'] {
+  color: #332b22dc;
+}
 .site-header.spatial-home[data-chapter-theme] .wordmark {
   font-size: clamp(37px, 3.25vw, 55px);
 }

@@ -1,3 +1,4 @@
+/* oxlint-disable next/no-img-element -- Tiny local previews, requested only by desktop hover-capable sources. */
 import Link from 'next/link';
 import { worldsChapterOptions } from '@/data/home-chapters';
 import { ChapterImage } from './chapter-image';
@@ -16,6 +17,7 @@ export function WorldsChapter() {
           asset="worlds-atrium"
           sizes="(max-aspect-ratio: 1672/941) 178svh, 100vw"
         />
+        <span className="swb-sky-light" />
       </div>
       <div className="hc-atrium-copy">
         <p className="hc-eyebrow" data-chapter-reveal="1">
@@ -63,6 +65,26 @@ export function WorldsChapter() {
             asset="worlds-atrium-preview"
             sizes="(max-width: 1199px) 54px, 96px"
           />
+          {worldsChapterOptions.map((room) => (
+            <picture
+              className={`hc-room-preview hc-room-preview-${room.id}`}
+              key={room.id}
+            >
+              <source
+                media="(min-width: 1200px) and (hover: hover) and (pointer: fine)"
+                srcSet={`/images/home-chapters/room-preview-${room.id}.webp`}
+              />
+              <img
+                src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E"
+                width="192"
+                height="192"
+                alt=""
+                loading="lazy"
+                decoding="async"
+                fetchPriority="low"
+              />
+            </picture>
+          ))}
         </span>
         <span className="hc-link">
           EXPLORE 3D WORLDS <span aria-hidden="true">⟶</span>

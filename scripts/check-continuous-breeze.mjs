@@ -74,13 +74,11 @@ for (const [width, height] of sizes) {
     assert(!/NaN|Infinity/.test(g.outline));
   }
   const final = strand(samples.at(-1).threads[18]);
-  assert(Math.abs(final[0][0] - width * 0.5) < 5, 'origin stays at skylight');
   assert(
-    final.at(-1)[6] > width * 0.8 && final.at(-1)[6] < width * 0.95,
-    'tail guides to CTA',
+    final.every((segment) => segment[0] > width && segment[6] > width),
+    'cloth passes the lens and exits right; no atrium return',
   );
-  assert(final.at(-1)[7] < height * 0.85, 'tail ends within the stage');
 }
 console.log(
-  'Bridge cloth: single connected spline, reversible occlusion / skylight / CTA route.',
+  'Bridge cloth: single connected spline, reversible camera passage, exits outside atrium.',
 );

@@ -23,8 +23,6 @@ export function createBreezeRenderer(root: HTMLElement): BreezeDriver {
   const threads = [
     ...root.querySelectorAll<SVGPathElement>('[data-breeze-thread]'),
   ];
-  const canopy = root.querySelector<SVGEllipseElement>('[data-breeze-canopy]');
-  const rim = root.querySelector<SVGPathElement>('[data-breeze-rim]');
   const silk = [...root.querySelectorAll<SVGStopElement>('#cb-silk stop')];
   const front = [
     ...root.querySelectorAll<SVGStopElement>(
@@ -43,8 +41,6 @@ export function createBreezeRenderer(root: HTMLElement): BreezeDriver {
     ...front,
     ...back,
     ...(outline ? [outline] : []),
-    ...(canopy ? [canopy] : []),
-    ...(rim ? [rim] : []),
   ];
   const saved = nodes.map((node) => ({
     node,
@@ -85,7 +81,7 @@ export function createBreezeRenderer(root: HTMLElement): BreezeDriver {
       if (reduced) return;
       const p = Math.min(progress, storyWorldTiming.breezeOutEnd);
       const state = storyWorldFrame(p, width, height);
-      const geometryKey = p <= 0.28 ? 'story' : p.toFixed(5);
+      const geometryKey = p <= 0.26 ? 'story' : p.toFixed(5);
       if (geometryKey !== lastGeometry) {
         lastGeometry = geometryKey;
         const geometry = bridgeBreezeGeometry(width, height, opening, p);
@@ -95,7 +91,7 @@ export function createBreezeRenderer(root: HTMLElement): BreezeDriver {
         threads.forEach((node, i) =>
           node.setAttribute('d', geometry.threads[i]),
         );
-        const depth = range(p, 0.28, 0.4);
+        const depth = range(p, 0.26, 0.4);
         front.forEach((stop, i) => {
           const start = i === 2 || i === 3 ? 0 : 255;
           const value = Math.round(start + (255 - start) * depth);
@@ -112,26 +108,23 @@ export function createBreezeRenderer(root: HTMLElement): BreezeDriver {
             'stop-opacity',
             String(
               originalSilk[i] +
-                ((i === 0 || i === silk.length - 1 ? 0.5 : 0.96) -
-                  originalSilk[i]) *
+                ([0.18, 0.6, 0.23, 0.68, 0.18][i] - originalSilk[i]) *
                   state.occlusion,
             ),
           ),
         );
       }
       const arrival = Math.max(0, opening - Math.max(0, scroll - top));
-      const approach = range(p, 0.28, 0.43) * (1 - state.emerge);
+      const approach = range(p, 0.26, 0.42);
       const sx =
         1 + approach * (width < 1200 ? 0.09 : 0.14) + state.dissolve * 0.12;
       const sy = 1 + approach * 0.06 - state.dissolve * 0.22;
-      const x = state.dissolve * width * 0.025;
-      const y = arrival + state.dissolve * height * 0.025;
+      const x = state.dissolve * width * 0.28;
+      const y = arrival + -state.dissolve * height * 0.035;
       const transform = `translate(${x.toFixed(2)} ${y.toFixed(2)}) translate(${width * 0.55} ${height * 0.5}) rotate(${(-2 * approach).toFixed(3)}) scale(${sx.toFixed(5)} ${sy.toFixed(5)}) translate(${-width * 0.55} ${-height * 0.5})`;
       // Finish the camera veil in the sky. The skylight / atrium stays clear;
       // the cloth must not reappear over the architecture during pull-back.
-      const opacity = (
-        1 - range(p, 0.53, storyWorldTiming.pullbackStart)
-      ).toFixed(5);
+      const opacity = (1 - state.dissolve).toFixed(5);
       const signature = `${transform}/${opacity}/${p}`;
       if (signature === lastPose) return;
       lastPose = signature;
@@ -139,35 +132,6 @@ export function createBreezeRenderer(root: HTMLElement): BreezeDriver {
         node.setAttribute('transform', transform);
         node.setAttribute('opacity', i === 0 && p >= 0.4 ? '0' : opacity);
       });
-      // A feathered tree silhouette partitions the same cloth: the lower tail
-      // reappears over the reflected floor. No extra tree image is mounted.
-      const canopyAmount = range(p, 0.64, 0.71);
-      canopy?.setAttribute('cx', String(width * 0.505));
-      canopy?.setAttribute('cy', String(height * 0.45));
-      canopy?.setAttribute('rx', String(width * 0.11 * canopyAmount));
-      canopy?.setAttribute('ry', String(height * 0.17 * canopyAmount));
-      // Occlude only the cloth where the photographed skylight rim sits. This
-      // never clips the Worlds image or acts as a transition aperture.
-      if (rim && width >= 768) {
-        const imageHeight = Math.max(height, width / (1672 / 941));
-        const imageWidth = imageHeight * (1672 / 941);
-        const cx = width * 0.5;
-        const cy = state.originY + state.imageY;
-        const ring = (rx: number, ry: number, dy: number) => {
-          const x = imageWidth * rx * state.scale;
-          const y = imageHeight * ry * state.scale;
-          const center = cy + imageHeight * dy * state.scale;
-          return `M${cx - x} ${center}a${x} ${y} 0 1 0 ${x * 2} 0a${x} ${y} 0 1 0 ${-x * 2} 0Z`;
-        };
-        rim.setAttribute(
-          'd',
-          ring(0.32, 0.165, 0.055) + ring(0.235, 0.107, 0.005),
-        );
-        rim.setAttribute(
-          'opacity',
-          String(range(p, 0.62, 0.65) * (1 - range(p, 0.69, 0.72))),
-        );
-      }
     },
     destroy() {
       for (const { node, attributes } of saved)

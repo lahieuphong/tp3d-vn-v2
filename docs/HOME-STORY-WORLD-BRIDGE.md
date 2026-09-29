@@ -1,155 +1,143 @@
-# Story → Worlds: continuous camera bridge
+# Homepage cinematic smoothness pass
 
-Implemented locally on 2026-09-29. Replaces the floating elliptical transition.
+Implemented locally on 2026-09-30. Supersedes the earlier bridge timing pass.
+Approved scene compositions, navigation and Footer layout are preserved.
 
-## Architecture
+## Timeline
 
-`HomeExperience → StoryWorldBridge → StoryWorldStickyStage` contains the existing
-live Hero/Story nodes, **one** full-size atrium image, Worlds HTML and one
-`ContinuousBreeze` definition. The small approved CTA thumbnail is retained.
-`sky-portal-track.tsx`, `sky-portal-frame.ts`, `sky-portal.css`, the old
-`chapter-motion.ts`, aperture image and document-space cloth departure are removed.
-The discovery navigation cards are unrelated and remain unchanged.
+One native-scroll progress value drives the existing Story and one atrium image.
+The sticky stage remains 100svh. The bridge is 260svh desktop, 230svh tablet,
+220svh mobile; the preceding Discovery approach remains 110/110/90svh.
 
-The native sticky stage is **100svh**. Story → Worlds owns **250svh desktop**,
-**230svh tablet**, **210svh mobile**. Its scroll distance is that height minus
-one viewport. The existing Discovery approach (110svh desktop/tablet, 90svh mobile)
-feeds the same stage before bridge progress zero, avoiding duplicate Story nodes
-or a visible handoff. Footer is outside this owner and stays in normal flow.
+| Bridge progress | Choreography                                                                                                                                      |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0–16%           | Stable Story reading zone.                                                                                                                        |
+| 16–52%          | Architecture continues accelerating forward; text recedes from 16%, leaves/text depart completely by 46%.                                         |
+| 26–54%          | Cloth grows toward the lens, crosses the camera and travels beyond the right edge. Architecture reveals behind its directional weave over 41–52%. |
+| 52–64%          | Full-frame sky hold: 12% of the bridge, with no Story or Worlds copy. Cloth dissolves while exiting and is completely gone at 64%.                |
+| 64–84%          | A single camera pull-back opens the skylight into the atrium; mobile reaches rest at 83%.                                                         |
+| 74–88%          | Rooms and original Worlds copy reveal in a restrained stagger.                                                                                    |
+| 86% onward      | Room links become interactive only after their reveal is complete; CTA waits until its reveal finishes at 88%.                                    |
+| 88–100%         | Fully still reading composition: no camera, cloth, light or UI changes.                                                                           |
+| 100%            | Sticky releases into the normal-flow Footer.                                                                                                      |
 
-The project has no GSAP or Lenis. `createStoryWorldTimeline` is a scoped native
-scroll controller, with one scheduled RAF per input burst, cached geometry,
-synchronous restoration and complete cleanup. It adds no wheel interception,
-scroll snap, forced scroll position, pointer camera or animation dependency.
+After camera rest there is 25.6svh desktop, 20.8svh tablet and 20.4svh mobile
+of scroll before Footer begins entering. The completely still, fully revealed
+UI holds for the last 12%: 19.2/15.6/14.4svh respectively. There is no blank spacer.
 
-## Choreography
+## Camera and cloth
 
-| Progress | Result                                                                                                                            |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| 0–18%    | Approved Story reading composition held.                                                                                          |
-| 18–36%   | Architecture pushes 1 → 1.055, text recedes 10px / opacity .65, TP shrinks to .94 and moves down 16px.                            |
-| 28–53%   | One cloth approaches, billows across the lens and recedes. A soft full-frame diagonal reveal follows underneath it over 42.5–53%. |
-| 53–58%   | Actual atrium sky holds across the viewport; cloth fades out by 58%, no Worlds UI.                                                |
-| 58–72%   | The same image pulls back through the skylight into the atrium, ending at exact scale 1 / translation 0.                          |
-| 72–78%   | Camera is stopped; atrium remains clear before the unchanged UI reveal.                                                           |
-| 78–86%   | Rooms, eyebrow, Enter, the worlds., body, signoff and CTA appear at 78/78.5/79/80/81/82/83%, each over 3% progress.               |
-| 86–100%  | Completely still composition: no camera, exposure, type or cloth changes; no repeated visual style writes.                        |
-| 100%     | Sticky releases directly into Footer in normal flow.                                                                              |
+Story entry uses a power-2.6 acceleration. The atrium uses one logarithmic scale
+trajectory with asymmetric arrival `1 - (1 - t)^4 * (1 + 4t)`: velocity is zero
+at either end, peaks at 25% of the move, then decelerates over a longer tail.
+There is no separate near-final zoom stage or scale snap.
 
-This implements the clarified sequence: **Scene 2 → Breeze passes camera → sky →
-Breeze fades out → skylight / camera pull-back → Enter the Worlds → stillness →
-Footer**. The final still interval spans 21svh desktop, 18.2svh tablet and 15.4svh
-mobile within the existing bridge length. Scroll remains native and reversible.
-Temporary image/cloth promotion ends at 78%, before UI arrival.
+The real oculus is about 20% of the 1672×941 photograph's height. Full-frame sky
+therefore needs a bounded ~4.8–5× crop on this same image; 1.24× cannot fill the
+viewport with its sky. The camera crosses the restrained 1.24× close-up during
+its arrival and ends at exact scale 1 / translation 0. The optical origin follows
+the photographed skylight at 11.6% of covered image height; proportional vertical
+translation maintains image coverage across aspect ratios. Source resolution
+limits close-up sharpness. No alternate sky or second full-size plate is loaded.
 
-The oculus occupies only about 20% of the existing 1672×941 plate height. A
-1.25× zoom cannot yield full-frame sky. The brief sky crop therefore uses a
-bounded 4.8–5× transform on that **same image**, resolving first into a restrained
-1.24× camera pose (1.18 tablet landscape / 1.12 portrait / 1.08 mobile) and then
-scale 1. No substitute sky or duplicate plate is used. The source resolution
-limits sharpness during the close-up. Portrait framing resolves the crop earlier.
+Only architecture may trail scroll by a bounded 2px / .25% scale (less on narrow
+viewports). The tiny residual decays over roughly 180–200ms; native scroll, text
+and hit targets never use this filtered pose. There is no GSAP, Lenis, wheel
+interception or permanent RAF loop. Layout is cached on mount/resize; restoration
+resamples synchronously. Reverse scroll uses the same reversible functions.
 
-Header remains one clickable element, changing only colour at 64%. Temporary
-photographic top shading maintains contrast and disappears in the final design.
-Cloth and imagery have no pointer events. Worlds links are individually inert
-until their own reveal; departed Story is inert. Reverse scroll samples exactly
-the same functions, including all accessibility states.
+The cloth uses one definition and a connected directional spline. Its near-camera
+breadth is narrower, its weave retains texture, and translucent fill is reduced.
+The old return curve and unused canopy/rim masks are removed. A 2.5% feathered
+architecture reveal follows behind the cloth rather than a white full-screen
+veil. Cloth continues translating while dissolving; it is absent throughout the
+atrium pull-back and final scene.
 
-On mobile only the front cloth projection paints; there is no canopy mask,
-pointer parallax or SVG filter. Short screens use smaller existing type sizes to
-keep all links within the stage. Reduced motion removes sticky camera/veil
-entirely, exposes all content in normal flow and uses the actual sky at the top
-of the atrium image. No additional sky image is mounted.
+## Light, interactions and device complexity
 
-Reload and browser history preserve native scroll. A short pre-paint restoration
-gate prevents the default opening frame flashing before restored geometry is
-sampled. The existing intro still runs on a fresh navigation or `?intro=1`.
+- Small local radial gradients suggest warm Story light (up to .03 opacity) and
+  sky light (up to .055); they fade into the existing photographic exposure
+  treatment before arrival. No animated full-image brightness/filter or blur.
+- Header stays spatially fixed: charcoal → softer charcoal at the sky → warm
+  ivory, with 350ms color interpolation. A temporary top shade fades by 84%.
+- Settled desktop room hover/focus translates only the title 3px, keeps its number
+  still, expands the underline 60→100%, and dims other room labels to .65.
+  One small gradient emphasizes the selected opening at .045 opacity.
+- The CTA preview crossfades to the selected room over 220ms. Four 192×192 WebP
+  thumbnails are generated from existing assets by `scripts/build-room-previews.mjs`.
+  They are small preview images, not duplicate background layers.
+- CTA hover/focus scales the thumbnail to 1.04, moves the arrow 5px and rotates a
+  partial circular line 6°. No looping animation.
+- Tablet reduces Story depth and micro inertia by 30%; mobile by 50%. Mobile
+  paints one cloth projection, uses the shorter bridge, and does not request room
+  hover images. Room/CTA hit targets remain at least 44px tall.
+- Reduced motion removes the sticky zoom, inertia, cloth and light motion; all
+  content flows normally and links remain available. No hover parallax.
+- Invisible/moving links are inert and excluded from keyboard interaction. Reverse
+  scrolling disables interactions again before camera movement resumes.
 
-## Atrium cloth removal
+The source is one flat photograph, so no fabricated depth cutouts or duplicated
+floor were added. Optional reflection lag was skipped; camera, light and cloth
+supply the depth without a second full-size image, Canvas, WebGL or video effect.
 
-The user requested removing the ribbon over the skylight / atrium while keeping
-all other behavior. The renderer now fades the lens veil over 53–58% and leaves
-its opacity at zero throughout the pull-back and final scene. Camera, content,
-layout, scroll length and footer timing are unchanged. Lint, TypeScript, Home
-checks and production build pass. Earlier performance observations below predate
-this opacity-only adjustment.
+## Verification
 
-## Verification of the stillness revision
+Passed: lint, TypeScript, Home/cloth controller checks, Hero checks, Intro checks,
+production Vercel build and `git diff --check`.
 
-- Lint, TypeScript, production build, Home/cloth, Hero and Intro checks pass.
-- Controller regression checks enforce camera rest at 72%, Breeze fully gone
-  before UI at 78%, complete UI at 86%, and zero visual style writes during hold.
-- Chrome checked at 320×568, 390×844, 768×1024, 1024×768, 1440×900, 1920×1080
-  and 2560×1440. Final links fit, no horizontal overflow and no gap before Footer.
-- MutationObserver checks across the final hold found no visual changes. The
-  first 86% samples at some dimensions rounded just below the boundary because
-  native scroll positions are quantized; the follow-up sampled 87/90/95/100%.
-- Mobile forward/reverse traversal produced the same image, cloth and UI samples.
-- Reload at scrollY 1867.5 restored progress .65 exactly.
-- Reduced-motion mobile QA confirmed a relative, normal-flow stage, hidden cloth,
-  all UI opacity 1 and all links available. Native wheel scrolling released the
-  final still frame into Footer with no gap or Breeze restart.
-- New screenshots at 0/15/30/45/55/65/75/85/100% and reports are in ignored
-  `work/story-world-stillness/`. Production contains no QA controls.
-- A new 20-cycle production QA run kept DOM at 520 elements, one full-size Worlds
-  image, one cloth definition, two projections, one header, zero Canvas elements
-  and zero WebGL context requests. Observed JS heap: 48,054,015–53,107,889 bytes.
-- The same run measured 819 RAF intervals over 14,192ms: median 16.7ms, p95 18ms,
-  26 intervals above 33ms and one 55ms long task. These include QA and browser
-  overhead; they are not isolated animation FPS or physical-trackpad measurements.
-  Total Chrome process RAM and VRAM were not measured. The cycle harness observed no runtime errors. The separate clean preview logged “Language detection is not supported for this page”; its source was not identified, and no matching message was found in the inspected app/runtime sources.
+Regression checks cover bounded/finite inertia and its 200ms settle, image
+coverage, exact final camera pose, cloth exit, interaction locking, reverse
+sampling, reduced motion, hidden-tab inactivity, restoration and cleanup.
 
-## Original bridge verification (before the timing revision)
+Chrome production QA at 320×568, 390×844, 768×1024, 1024×768, 1440×900,
+1920×1080 and 2560×1440 found no horizontal overflow, no Footer gap, and all final
+room/CTA links within the viewport. MutationObserver audits over 89/92/96/100%
+plus an idle pause found zero visual style/path changes at every tested size.
+Mobile forward/reverse samples matched after the bounded settling interval.
 
-- Lint, TypeScript, Vercel production build, Home/cloth, Hero and Intro checks.
-- Controller checks cover viewport image coverage, late focus activation, native
-  reverse sampling, bfcache, reduced motion, cached bounds, hidden-tab inactivity
-  and 30 mount/cleanup cycles.
-- Chrome production screenshots at 0/15/30/45/55/65/75/85/100%.
-- Responsive Chrome viewports: 320×568, 375×812, 390×844, 430×932, 768×1024,
-  820×1180, 1024×768, 1440×900, 1728×1117, 1920×1080, 2560×1440. No horizontal
-  overflow, all final room/CTA links within the viewport with ≥44px hit height,
-  exactly 0px gap between Home and Footer, one backdrop image and one header.
-- Chrome reload at scrollY 1867.5 preserved bridge progress .65. Native CTA click
-  to Worlds and Back restored scrollY 2340 / progress 1 after router restoration.
-- Reduced-motion local proxy tested normal flow, no Breeze and all UI opacity 1
-  with inert false, without changing the user's OS preferences.
-- No console/hydration errors observed on the tested production route.
+Reload at scrollY 1774 restored progress .64996 exactly, without a restoration
+gate remaining. Desktop and mobile reduced-motion QA confirmed a relative stage,
+no image transform, hidden cloth/light, all link opacity 1 and no inert links.
+Keyboard CTA focus verified scale 1.04, arrow 5px and rotation 6°.
 
-Local evidence is in ignored `work/story-world-bridge/` (screenshots, per-viewport
-JSON, reverse/restoration and performance observations). The QA proxy and controls
-are excluded from the production bundle. Performance observations are appended
-below; DOM/heap samples are not process RAM or VRAM measurements.
+A 31-second, 1680×800 MP4 records the actual Chrome tab through Opening,
+Discovery, Story, Breeze, sky, atrium and Footer. QA drives native scroll at a
+controlled slow rate with reading pauses; it is not a physical trackpad recording.
+The recording is only a local QA artifact, never a website asset. Visual review
+also used full-size intermediate screenshots. Refinement reduced the cloth fill
+and reveal feather and corrected the departing leaf selector.
 
-## Original bridge Performance trace (before the timing revision)
+## Performance observations and limits
 
-A real Chrome Performance recording with Screenshots + Memory enabled was saved
-as `work/story-world-bridge/chrome-performance.json.gz`. The trace includes 20
-forward/reverse cycles on the production preview and the local QA controls.
-Renderer counters: JS heap 34,571,552–36,791,620 bytes, one document, nodes
-1,086–1,087 ending at 1,086; listener count declined from 1,176 to 1,159. This
-supports no accumulating DOM/listener growth in the sampled run; it is not a
-measurement of total Chrome process RAM. The trace includes installed extensions.
+Real Chrome DevTools Performance recording used Screenshots + Memory, without
+CPU/network throttling, covering slow/fast/reverse scroll and mid-scene pauses.
+Local QA controls and installed browser extensions were present.
 
-Raw main-thread trace events: 4,247 Paint events, maximum 2.90ms; 825 Layout
-events, maximum 42.50ms; one RunTask above 50ms, maximum 210.24ms. The QA harness
-itself reads geometry to drive scroll and audits computed styles between cycles,
-so these events cannot all be attributed to application animation. Browser
-observations do not establish a universal 60fps guarantee or physical-trackpad
-performance on other devices. Native small/large wheel scroll and reverse scroll
-were also exercised separately.
+| Observation                                | Result                                                                                                        |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| Slow/fast/reverse/pause RAF cadence        | 1,118 intervals; median 16.7ms, p95 17.6ms; 6 above 33ms.                                                     |
+| Long tasks during that controlled sequence | None observed by PerformanceObserver.                                                                         |
+| Separate 20-cycle stress cadence           | 819 intervals; median 16.7ms, p95 31.3ms; 30 above 33ms; five long tasks of 54–134ms.                         |
+| Stress DOM                                 | 537 elements before and after; one full-size Worlds image, one header, one cloth definition, two projections. |
+| Stress JS heap samples                     | 49,314,002–62,242,192 bytes; no runtime errors observed.                                                      |
+| DevTools renderer JS heap                  | 32,932,020–34,933,780 bytes; final 33,018,068 bytes.                                                          |
+| DevTools document/nodes/listeners          | One document; nodes 1084–1085 ending at 1084; listeners 1184 initially, 1173 finally.                         |
+| Maximum Layout / Paint / UpdateLayoutTree  | 8.133ms / 8.796ms / 7.612ms in the saved trace.                                                               |
+| Canvas / WebGL requests                    | Zero / zero.                                                                                                  |
 
-The unprofiled production run recorded 819 RAF intervals in 14,979ms, median
-16.7ms / p95 33.3ms, 52 intervals over 33ms and five observed long tasks of
-51–93ms. DOM remained 519 elements before/after, with one backdrop, one header,
-one cloth definition and two depth projections. These cadence values include QA
-and browser overhead. Development-run numbers differ and are not substituted
-for the production observation.
+The full trace includes one 172.885ms main-thread task outside the controlled
+sequence. Its 166.369ms FunctionCall belongs to the browser extension's
+`content-scripts/codex.js`, not the application. These observations include QA
+and browser overhead; they are not a universal 60fps or mid-range-device claim.
+The stress run still has dropped-frame intervals.
 
-Canvas elements and WebGL context requests were both zero. The trace contains
-compositor layer updates/activation; temporary will-change declarations are absent
-at the final hold. Chrome did not expose GPU memory counters in this trace, so no
-VRAM number is claimed. The large image sky crop still incurs raster/compositor
-cost and is limited by the existing image's resolution.
+Compositor layer activation/update and GPU tasks are present. Temporary
+`will-change` declarations are removed at camera rest. GPU memory counters were
+not exposed, so VRAM is not measured. JS heap is not total Chrome process RAM;
+total process RAM was not measured either. The enlarged sky crop still carries
+raster/compositor cost despite using one source image.
 
-The saved DevTools trace precedes the cloth-only rim mask refinement and this stillness timing revision. It documents the earlier baseline, not the current timings. Current revision measurements appear above.
+Evidence is in ignored `work/cinematic-pass/`: screenshots, per-viewport stillness
+reports, reverse/stress/motion reports, `chrome-performance.json.gz`,
+`trace-summary.json`, `homepage-scroll.mp4` and the video contact sheet.
+The local proxy/recording controls and logs are excluded from production.

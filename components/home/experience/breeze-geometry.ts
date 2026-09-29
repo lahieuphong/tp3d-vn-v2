@@ -56,7 +56,7 @@ function drawCloth(
   return { family, outline, folds, threads };
 }
 /** The same cloth goes from Story midground to a camera-close billow, then
- * recedes through the skylight. Coordinates are local to the shared stage. */
+ * passes beyond the camera; it never turns back into the atrium. Coordinates are local to the shared stage. */
 export function bridgeBreezeGeometry(
   width: number,
   height: number,
@@ -71,10 +71,8 @@ export function bridgeBreezeGeometry(
     return t * t * (3 - 2 * t);
   };
   const mix = (a: number, b: number, t: number) => a + (b - a) * t;
-  const approach = ease((p - 0.28) / 0.15);
-  const emerge = ease((p - 0.56) / 0.15);
-  const sweep = ease((p - 0.425) / 0.105);
-  const travel = ease((p - 0.65) / 0.08);
+  const approach = ease((p - 0.26) / 0.16);
+  const sweep = ease((p - 0.41) / 0.13);
   const legacyHeight = openingDistance + height * (mobile ? 1.94 : 2.04);
   const opening = openingDistance + height * 0.84;
   const oldX =
@@ -96,34 +94,18 @@ export function bridgeBreezeGeometry(
     (x) => x + sweep * 1.45 - 0.55,
   );
   const veilY = [-0.48, -0.08, 0.22, 0.53, 0.88, 1.45];
-  const worldX = mobile
-    ? [0.5, 0.67, 0.74, 0.79, 0.86, 0.9]
-    : [0.5, 0.64, 0.65, 0.57, 0.73, 0.87];
-  const worldY = [0.065, 0.17, 0.34, 0.49, 0.66, mobile ? 0.73 : 0.81];
   const spine = oldX.map((x, i) => ({
-    x: mix(
-      mix(x * width, veilX[i] * width, approach),
-      mix(0.5, worldX[i], 0.6 + 0.4 * travel) * width,
-      emerge,
-    ),
-    y: mix(
-      mix(oldY[i] - openingDistance, veilY[i] * height, approach),
-      mix(0.06, worldY[i], 0.68 + 0.32 * travel) * height,
-      emerge,
-    ),
+    x: mix(x * width, veilX[i] * width, approach),
+    y: mix(oldY[i] - openingDistance, veilY[i] * height, approach),
   }));
   const originalBreadth = Math.min(width * (mobile ? 0.25 : 0.18), 330);
   const breadth = mix(
-    mix(originalBreadth, width * (mobile ? 1.1 : 1.16), approach),
-    originalBreadth * (mobile ? 0.6 : 0.7),
-    ease((p - 0.52) / 0.14),
+    originalBreadth,
+    width * (mobile ? 0.95 : 0.86),
+    approach,
   );
   const taper = [1, 1, 1, 1, 1, 1].map((v, i) =>
-    mix(
-      mix(v, [0.8, 1.08, 1.38, 1.36, 1.24, 0.9][i], approach),
-      [0.005, 0.7, 0.8, 0.7, 0.38, 0.005][i],
-      emerge,
-    ),
+    mix(v, [0.7, 0.95, 1.2, 1.18, 1.06, 0.7][i], approach),
   );
   return drawCloth(spine, breadth, family, taper);
 }

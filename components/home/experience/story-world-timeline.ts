@@ -4,6 +4,8 @@ import {
   storyWorldFrame,
   storyWorldTiming,
   worldContentReveal,
+  settleCamera,
+  type CameraPose,
 } from './story-world-frame';
 
 /** One scoped, reversible Story → Worlds timeline on native scroll. Layout is
@@ -45,6 +47,7 @@ export function createStoryWorldTimeline(
         'data-bridge-story-hidden',
         'data-bridge-sky-complete',
         'data-chapter-theme',
+        'data-world-interactive',
       ].map((name) => [name, node.getAttribute(name)] as const),
     }));
   let geometry = {
@@ -61,11 +64,15 @@ export function createStoryWorldTimeline(
     disposed = false,
     needsMeasure = true,
     lastSignature = '';
+  let camera: CameraPose | null = null,
+    lastCameraSignature = '',
+    lastTime = 0;
   const schedule = () => {
     if (!disposed && !document.hidden && !frame)
       frame = requestAnimationFrame(render);
   };
   const measure = () => {
+    camera = null;
     const scroll = window.scrollY;
     const bounds = bridge.getBoundingClientRect();
     const owner = sequence.getBoundingClientRect();
@@ -130,9 +137,50 @@ export function createStoryWorldTimeline(
     const ivory = still
       ? scroll + geometry.header >= geometry.worldTop
       : state.headerIvory;
-    const theme = past || !ivory ? 'light' : 'dark';
+    const theme = past
+      ? 'light'
+      : !still && state.headerSky
+        ? 'sky'
+        : ivory
+          ? 'dark'
+          : 'light';
     breeze?.paint(scroll, still, p);
     root.dataset.bridgeProgress = p.toFixed(5);
+    const now = performance.now();
+    const target = {
+      storyScale: state.storyScale,
+      storyY: state.storyY,
+      scale: state.scale,
+      imageY: state.imageY,
+    };
+    const settledCamera = settleCamera(
+      target,
+      camera,
+      lastTime ? now - lastTime : 16.7,
+      still ? 0 : state.inertia,
+    );
+    camera = settledCamera.pose;
+    camera.imageY = Math.max(
+      (geometry.stage - state.originY) * (1 - camera.scale),
+      Math.min(state.originY * (camera.scale - 1), camera.imageY),
+    );
+    lastTime = now;
+    const cameraSignature = `${still}/${Object.values(camera)
+      .map((n) => n.toFixed(6))
+      .join('/')}`;
+    if (lastCameraSignature !== cameraSignature) {
+      lastCameraSignature = cameraSignature;
+      for (const [key, value] of Object.entries({
+        '--swb-story-scale': camera.storyScale,
+        '--swb-story-y': `${camera.storyY}px`,
+        '--swb-image-scale': camera.scale,
+        '--swb-image-y': `${camera.imageY}px`,
+      })) {
+        if (still) root.style.removeProperty(key);
+        else root.style.setProperty(key, String(value));
+      }
+    }
+    if (settledCamera.moving) schedule();
     // Scroll continues during the final hold, but no visual style keeps moving.
     const signature = `${visualProgress.toFixed(6)}/${still}/${theme}/${geometry.width}/${geometry.stage}`;
     if (lastSignature === signature) return;
@@ -140,26 +188,26 @@ export function createStoryWorldTimeline(
     toggle('data-bridge-ready', !still);
     toggle(
       'data-bridge-active',
-      !still && p > 0.18 && p < storyWorldTiming.breezeOutEnd,
+      !still && p > 0.16 && p < storyWorldTiming.pullbackEnd,
     );
     toggle('data-bridge-story-hidden', !still && !state.storyVisible);
-    toggle('data-bridge-sky-complete', still || p >= 0.53);
+    toggle('data-bridge-sky-complete', still || p >= storyWorldTiming.skyStart);
+    const interactive = still || p >= storyWorldTiming.interactive;
+    toggle('data-world-interactive', interactive);
     const properties = {
-      '--swb-story-scale': state.storyScale,
-      '--swb-story-y': `${state.storyY}px`,
       '--swb-text-opacity': state.textOpacity,
       '--swb-text-y': `${state.textY}px`,
       '--swb-tp-scale': state.tpScale,
       '--swb-tp-y': `${state.tpY}px`,
       '--swb-tp-opacity': state.tpOpacity,
       '--swb-origin-y': `${state.originY}px`,
-      '--swb-image-scale': state.scale,
-      '--swb-image-y': `${state.imageY}px`,
       '--swb-exposure': state.exposure,
+      '--swb-story-light': state.storyLight,
+      '--swb-sky-light': state.skyLight,
       '--swb-header-shade': state.headerShade,
       '--swb-sky-edge': `${state.skyEdge}%`,
       '--swb-sky-visible': state.skyVisible ? 'visible' : 'hidden',
-      '--swb-breeze-depth': p > 0.28 ? 8 : 4,
+      '--swb-breeze-depth': p > 0.26 ? 8 : 4,
     };
     for (const [key, value] of Object.entries(properties)) {
       if (still) root.style.removeProperty(key);
@@ -178,7 +226,10 @@ export function createStoryWorldTimeline(
           );
       node.style.opacity = reveal.toFixed(5);
       node.style.transform = `translate3d(0, ${((1 - reveal) * (geometry.width < 768 ? 8 : 12)).toFixed(2)}px, 0)`;
-      expose(node, reveal >= 0.15);
+      expose(
+        node,
+        node.tagName === 'A' ? interactive && reveal >= 0.9999 : reveal >= 0.15,
+      );
     }
   }
   const resize = () => {
