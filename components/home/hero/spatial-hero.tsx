@@ -26,11 +26,9 @@ export function SpatialHero({
       data-scene="discovery"
       data-motion="scroll"
     >
+      <span className="sh-scroll-range" aria-hidden="true" data-opening-range />
       <div className="sh-stage">
-        <div className="sh-plane sh-plane-background">
-          {architecture}
-          <div className="sh-departure" aria-hidden="true" />
-        </div>
+        <div className="sh-plane sh-plane-background">{architecture}</div>
         <div className="sh-plane sh-plane-objects">{objects}</div>
         <div className="sh-plane sh-plane-content">
           {children}

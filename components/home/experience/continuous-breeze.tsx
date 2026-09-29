@@ -24,7 +24,14 @@ export function ContinuousBreeze() {
             <stop offset=".78" stopColor="#fffdf1" stopOpacity=".66" />
             <stop offset="1" stopColor="#d1ba91" stopOpacity=".16" />
           </linearGradient>
-          <linearGradient id="cb-depth" x1="0" x2="0" y1="0" y2="1">
+          <linearGradient
+            id="cb-depth"
+            data-breeze-depth="front"
+            x1="0"
+            x2="0"
+            y1="0"
+            y2="1"
+          >
             <stop stopColor="white" />
             <stop offset=".14" stopColor="white" />
             <stop offset=".32" stopColor="black" />
@@ -32,7 +39,14 @@ export function ContinuousBreeze() {
             <stop offset=".73" stopColor="white" />
             <stop offset="1" stopColor="white" />
           </linearGradient>
-          <linearGradient id="cb-depth-back" x1="0" x2="0" y1="0" y2="1">
+          <linearGradient
+            id="cb-depth-back"
+            data-breeze-depth="back"
+            x1="0"
+            x2="0"
+            y1="0"
+            y2="1"
+          >
             <stop stopColor="black" />
             <stop offset=".14" stopColor="black" />
             <stop offset=".32" stopColor="white" />
@@ -40,6 +54,21 @@ export function ContinuousBreeze() {
             <stop offset=".73" stopColor="black" />
             <stop offset="1" stopColor="black" />
           </linearGradient>
+          <radialGradient id="cb-canopy-feather">
+            <stop offset=".45" stopColor="black" />
+            <stop offset="1" stopColor="white" />
+          </radialGradient>
+          <mask id="cb-canopy" maskUnits="userSpaceOnUse">
+            <rect width="100%" height="100%" fill="white" />
+            <ellipse
+              data-breeze-canopy
+              cx="0"
+              cy="0"
+              rx="0"
+              ry="0"
+              fill="url(#cb-canopy-feather)"
+            />
+          </mask>
           <mask
             id="cb-front-mask"
             maskUnits="objectBoundingBox"
@@ -94,7 +123,9 @@ export function ContinuousBreeze() {
         data-breeze-svg
       >
         <g mask="url(#cb-front-mask)">
-          <use href="#cb-cloth" data-breeze-pose />
+          <g mask="url(#cb-canopy)">
+            <use href="#cb-cloth" data-breeze-pose />
+          </g>
         </g>
       </svg>
     </div>

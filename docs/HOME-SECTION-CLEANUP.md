@@ -1,5 +1,9 @@
 # Homepage section cleanup
 
+The later [Sky Portal refinement](HOME-SKY-PORTAL.md) supersedes this report's
+Story/Worlds connection, Breeze route and controller details. The two removed
+sections remain removed; the following notes document the preceding cleanup.
+
 Completed locally on 2026-09-28. Production build validated; no deployment made.
 
 ## Result and preserved scope

@@ -237,7 +237,6 @@ for (const compact of [false, true]) {
     entry.scroll(2);
     assert.equal(entry.hero.dataset.progress, '0.0000');
     assert.equal(entry.hero.dataset.scene, 'discovery');
-    assert.equal(entry.hero.style['--sh-exit'], '0.00000');
     assert.equal(entry.header.dataset.opening, 'active');
     assert.equal(entry.hero.querySelector('.sh-story').inert, true);
   }
@@ -253,16 +252,25 @@ for (const compact of [false, true]) {
     '0.7500',
     'native scrolling resumes after entry',
   );
-  entry.scroll(1 + 360 / 990);
-  assert.equal(
-    entry.hero.style['--sh-exit'],
-    '1.00000',
-    'departure resumes normally',
-  );
   controller.destroy();
   assert.equal(entry.resources().frames, 0);
   assert.equal(entry.resources().listeners, 0);
   assert.equal(entry.resources().observers, 0);
+}
+// Extending the sticky owner for the sky portal must not stretch A→B timing.
+{
+  const b = environment();
+  b.hero.children.set('[data-opening-range]', { offsetHeight: 990 });
+  b.hero.getBoundingClientRect = () => ({
+    top: -b.window.scrollY,
+    height: 2610,
+  });
+  const c = b.mountSpatialHero(b.hero);
+  b.flush();
+  b.scroll(0.85);
+  assert.equal(b.hero.dataset.progress, '0.8500');
+  assert.equal(b.hero.dataset.scene, 'story');
+  c.destroy();
 }
 const mounted = f.mountSpatialHero(f.hero);
 f.flush();
@@ -279,27 +287,6 @@ assert.equal(
 );
 f.scroll(1);
 assert.equal(f.hero.dataset.scene, 'story');
-assert.equal(
-  f.hero.style['--sh-exit'],
-  '0.00000',
-  'the reading range is intact',
-);
-f.scroll(1 + 180 / 990);
-assert.equal(
-  f.hero.style['--sh-exit'],
-  '0.50000',
-  'TP departure follows the next 40vh',
-);
-f.scroll(1 + 360 / 990);
-assert.equal(f.hero.style['--sh-exit'], '1.00000');
-f.scroll(1 + 180 / 990);
-assert.equal(
-  f.hero.style['--sh-exit'],
-  '0.50000',
-  'departure reverses without a timer',
-);
-f.scroll(1);
-assert.equal(f.hero.style['--sh-exit'], '0.00000');
 assert.equal(f.hero.querySelector('.sh-portals').inert, true);
 assert.equal(f.hero.querySelector('.sh-story').inert, false);
 f.scroll(0);
@@ -360,11 +347,7 @@ mounted.destroy();
 mounted.destroy();
 assert.deepEqual(f.resources(), { frames: 0, observers: 0, listeners: 0 });
 assert.equal(f.header.dataset.opening, undefined);
-assert.equal(
-  f.hero.style['--sh-exit'],
-  undefined,
-  'departure style is cleaned up',
-);
+
 for (let i = 0; i < 30; i++) {
   const e = environment({ reduced: i % 2 === 0, compact: i % 3 === 0 });
   const c = e.mountSpatialHero(e.hero);

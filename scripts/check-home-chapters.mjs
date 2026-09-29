@@ -14,6 +14,20 @@ const { outputText } = ts.transpileModule(source, {
   },
 });
 
+const mathModule = { exports: {} };
+runInNewContext(
+  ts.transpileModule(
+    readFileSync(
+      new URL(
+        '../components/home/experience/sky-portal-frame.ts',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+    { compilerOptions: { module: ts.ModuleKind.CommonJS } },
+  ).outputText,
+  { module: mathModule, exports: mathModule.exports },
+);
 function browser({ reduced = false, compact = false, missing = false } = {}) {
   const events = [],
     frames = new Map(),
@@ -70,10 +84,29 @@ function browser({ reduced = false, compact = false, missing = false } = {}) {
       return this.getPropertyValue('opacity');
     }
   }
-  class Node {
+  class Node extends Events {
+    attrs = new Map();
+    inert = false;
+    contains() {
+      return false;
+    }
+    getAttribute(n) {
+      return this.attrs.get(n) ?? null;
+    }
+    setAttribute(n, v) {
+      this.attrs.set(n, String(v));
+    }
+    removeAttribute(n) {
+      this.attrs.delete(n);
+      if (n.startsWith('data-'))
+        delete this.dataset[
+          n.slice(5).replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+        ];
+    }
     dataset = {};
     style = new Style();
     constructor(top = 0, height = 900) {
+      super();
       this.top = top;
       this.height = height;
     }
@@ -89,19 +122,28 @@ function browser({ reduced = false, compact = false, missing = false } = {}) {
     }
   }
   const window = Object.assign(new Events(), { scrollY: 0, innerHeight: 900 });
-  const document = Object.assign(new Events(), { hidden: false });
+  const document = Object.assign(new Events(), {
+    hidden: false,
+    documentElement: { hasAttribute: () => false },
+  });
   const header = new Node(0, 80),
-    world = new Node(1746, 900),
-    root = new Node(0, 2646);
-  const reveals = Array.from({ length: 8 }, () => new Node());
-  root.querySelector = (selector) => {
-    assert.equal(selector, '[data-home-chapter="worlds"]');
-    return missing ? null : world;
-  };
-  world.querySelectorAll = (selector) => {
-    assert.equal(selector, '[data-chapter-reveal]');
-    return reveals;
-  };
+    world = new Node(990, 900),
+    root = new Node(0, 2826),
+    track = new Node(990, 1836),
+    marker = new Node(),
+    image = new Node();
+  marker.offsetHeight = 720;
+  const reveals = Array.from({ length: 9 }, (_, i) => {
+    const node = new Node();
+    node.dataset.chapterReveal = String(i < 4 ? 0 : i - 3);
+    return node;
+  });
+  root.querySelector = (s) =>
+    missing ? null : s === '[data-sky-track]' ? track : world;
+  root.querySelectorAll = () => [];
+  track.querySelector = () => marker;
+  world.querySelector = () => image;
+  world.querySelectorAll = () => reveals;
   header.dataset.opening = 'story';
   document.querySelector = () => header;
   const media = new Map([
@@ -131,6 +173,7 @@ function browser({ reduced = false, compact = false, missing = false } = {}) {
   runInNewContext(outputText, {
     module: loaded,
     exports: loaded.exports,
+    require: () => mathModule.exports,
     window,
     document,
     ResizeObserver,
@@ -147,6 +190,7 @@ function browser({ reduced = false, compact = false, missing = false } = {}) {
   const breeze = {
     measure: (...args) => measurements.push(args),
     paint: (...args) => paints.push(args),
+    destroy: () => {},
   };
   const flush = () => {
     const tasks = [...frames.values()];
@@ -184,113 +228,113 @@ function browser({ reduced = false, compact = false, missing = false } = {}) {
     count,
   };
 }
+
 const f = browser();
-const geometry = { top: 1746, height: 900 };
-assert.equal(f.chapterFrame(geometry, 846, 900, 80).entry, 0);
-assert.equal(f.chapterFrame(geometry, 1161, 900, 80).entry, 1);
-assert.equal(f.chapterHeaderTheme(geometry, 1700, 80, 900), null);
-assert.equal(f.chapterHeaderTheme(geometry, 1746, 108, 1440), 'dark');
-assert.equal(f.chapterHeaderTheme(geometry, 2565, 80, 900), 'dark');
-assert.equal(f.chapterHeaderTheme(geometry, 2566, 80, 900), 'light');
-const destroy = f.mountHomeChapters(f.root, f.breeze);
-assert.equal(f.count().frames, 0, 'mount leaves no idle animation');
-assert.equal(
-  f.resizes[0].targets.length,
-  3,
-  'only owner, Worlds and header are observed',
-);
-assert.equal(
-  f.measurements[0][2].top,
-  1746,
-  'Breeze receives the actual Worlds anchor',
-);
+const dispose = f.mountHomeChapters(f.root, f.breeze);
+assert.equal(f.count().frames, 0);
+assert.equal(f.resizes[0].targets.length, 4);
+assert.equal(f.world.inert, true, 'clipped links are not keyboard targets');
+f.scroll(1100);
 f.scroll(1200);
-f.scroll(1250);
-f.scroll(1300);
-assert.equal(f.count().frames, 1, 'native events coalesce');
-const measured = f.measurements.length;
+assert.equal(f.count().frames, 1);
+const reads = f.measurements.length;
 f.flush();
-assert.equal(f.measurements.length, measured, 'scroll reuses cached bounds');
+assert.equal(f.measurements.length, reads);
+f.scroll(1350);
+f.flush();
 assert(
-  f.reveals.every((n) => n.style.opacity === '1.0000'),
-  'all eight atrium reveals settle early',
+  f.reveals.every((n) => Number(n.style.opacity) === 0),
+  'no UI over small aperture',
 );
-f.scroll(1750);
+f.scroll(1710);
 f.flush();
+assert(f.reveals.every((n) => Number(n.style.opacity) === 1));
+assert.equal(f.world.inert, false);
 assert.equal(f.header.dataset.chapterTheme, 'dark');
-f.scroll(2566);
+f.scroll(2826);
 f.flush();
-assert.equal(f.header.dataset.chapterTheme, 'light', 'footer has dark ink');
-f.scroll(0);
-f.flush();
-assert.equal(f.header.dataset.chapterTheme, undefined);
-assert.equal(
-  f.header.dataset.opening,
-  'story',
-  'opening theme state stays owned by opening',
-);
-const positions = [900, 1050, 1200, 1746, 2100, 2646];
+assert.equal(f.header.dataset.chapterTheme, 'light');
+const positions = [0, 990, 1170, 1350, 1530, 1710, 1900, 2826];
 const sample = (y) => {
   f.scroll(y);
   f.flush();
-  return f.reveals.map((n) => [n.style.transform, n.style.opacity]);
+  return [f.root.dataset.skyProgress, ...f.reveals.map((n) => n.style.opacity)];
 };
 assert.deepEqual(
   positions.map(sample),
   positions.toReversed().map(sample).reverse(),
-  'scroll is exactly reversible',
 );
-f.scroll(1746);
-f.flush();
 f.media.get('(prefers-reduced-motion: reduce)').matches = true;
 f.media.get('(prefers-reduced-motion: reduce)').emit('change');
 f.flush();
-assert(f.reveals.every((n) => !n.style.transform && !n.style.opacity));
+assert(f.reveals.every((n) => Number(n.style.opacity) === 1));
+assert.equal(f.world.inert, false);
 f.operations.length = 0;
 f.window.emit('resize');
-f.resizes[0].fn();
 f.flush();
-const write = f.operations.indexOf('write');
+const firstWrite = f.operations.indexOf('write');
 assert(
-  write < 0 || !f.operations.slice(write).includes('read'),
-  'all reads precede style writes',
+  !f.operations.slice(firstWrite).includes('read'),
+  'bounds precede style writes',
 );
 f.document.hidden = true;
 f.document.emit('visibilitychange');
-f.scroll(2000);
-f.window.emit('resize');
-assert.equal(f.count().frames, 0, 'hidden document does not animate');
+f.scroll(1300);
+assert.equal(f.count().frames, 0);
 f.document.hidden = false;
 f.document.emit('visibilitychange');
 f.flush();
-f.scroll(1900);
-destroy();
-destroy();
+dispose();
+dispose();
 assert.deepEqual(f.count(), { frames: 0, listeners: 0, observers: 0 });
-assert.equal(f.header.dataset.chapterTheme, undefined);
-for (let cycle = 0; cycle < 30; cycle++) {
-  const b = browser({ reduced: cycle % 2 === 0, compact: cycle % 3 === 0 });
-  b.reveals[0].style.setProperty('opacity', '.91', 'important');
-  const dispose = b.mountHomeChapters(b.root, b.breeze);
-  for (const y of [0, 950, 1300, 1746, 2200, 2646, 3000, 1746, 0]) {
+for (let i = 0; i < 30; i++) {
+  const b = browser({ reduced: i % 2 === 0 });
+  const destroy = b.mountHomeChapters(b.root, b.breeze);
+  for (const y of positions) {
     b.scroll(y);
     b.flush();
   }
   b.window.emit('resize');
-  dispose();
-  assert.deepEqual(
-    b.count(),
-    { frames: 0, listeners: 0, observers: 0 },
-    `navigation cycle ${cycle}`,
-  );
-  assert.equal(b.reveals[0].style.opacity, '.91');
-  assert.equal(b.reveals[0].style.getPropertyPriority('opacity'), 'important');
-  assert.equal(b.world.dataset.phase, undefined);
-  assert.equal(b.world.dataset.progress, undefined);
+  destroy();
+  assert.deepEqual(b.count(), { frames: 0, listeners: 0, observers: 0 });
 }
 const missing = browser({ missing: true });
 missing.mountHomeChapters(missing.root)();
 assert.deepEqual(missing.count(), { frames: 0, listeners: 0, observers: 0 });
+const { skyPortalFrame, skyContentReveal } = mathModule.exports;
+for (const [w, h] of [
+  [375, 812],
+  [390, 844],
+  [430, 932],
+  [768, 1024],
+  [820, 1180],
+  [1024, 768],
+  [1280, 800],
+  [1366, 768],
+  [1440, 900],
+  [1728, 1117],
+  [1920, 1080],
+  [2560, 1440],
+]) {
+  for (let i = 0; i <= 100; i++) {
+    const frame = skyPortalFrame(i / 100, w, h);
+    for (const value of Object.values(frame))
+      if (typeof value === 'number') assert(Number.isFinite(value));
+    assert(
+      frame.imageY - (frame.scale - 1) * h * 0.115 <=
+        Math.max(0, frame.centerY - frame.ry) + 0.001,
+      'image covers aperture top',
+    );
+  }
+  assert.equal(skyPortalFrame(0.3, w, h).departure, 0);
+  assert.equal(skyPortalFrame(0.6, w, h).departure, 1);
+  assert.equal(skyPortalFrame(1, w, h).scale, 1);
+  assert.equal(skyPortalFrame(1, w, h).imageY, 0);
+  for (let order = 0; order <= 5; order++) {
+    assert.equal(skyContentReveal(0.7, order), 0);
+    assert.equal(skyContentReveal(1, order), 1);
+  }
+}
 console.log(
-  'Home Worlds passed: one scene, no removed targets/IntersectionObserver, early reveals, footer theme, reverse scroll, resize, reduced motion, hidden-tab inactivity and 30 navigation cleanup cycles. No browser metrics claimed.',
+  'Sky Portal passed: finite responsive masks, photo coverage, late UI, native/reverse scroll, focus gating, reduced motion, read/write ordering and 30 cleanup cycles. No browser FPS claims.',
 );

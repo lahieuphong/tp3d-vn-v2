@@ -103,7 +103,6 @@ export function mountSpatialHero(element: HTMLElement): SpatialHeroController {
   let ready = false;
   let secondaryStarted = false;
   let lastProgress = -1;
-  let lastExit = -1;
   let lastReduced: boolean | null = null;
   let lastCompact: boolean | null = null;
   let lastReady: boolean | null = null;
@@ -125,7 +124,13 @@ export function mountSpatialHero(element: HTMLElement): SpatialHeroController {
       const bounds = element.getBoundingClientRect();
       top = bounds.top + window.scrollY;
       stageHeight = stage.offsetHeight;
-      distance = Math.max(1, bounds.height - stageHeight);
+      // The portal extends the sticky owner without extending the approved
+      // Discovery → Story scrub. This marker contains only that original range.
+      distance = Math.max(
+        1,
+        element.querySelector<HTMLElement>('[data-opening-range]')
+          ?.offsetHeight ?? bounds.height - stageHeight,
+      );
       measureNeeded = false;
     }
     // The entry overlay owns the first view until its panels are gone, even
@@ -134,12 +139,6 @@ export function mountSpatialHero(element: HTMLElement): SpatialHeroController {
       document.documentElement.getAttribute('data-home-intro') !== null;
     const p = held ? 0 : clampProgress((window.scrollY - top) / distance);
     const still = reduced.matches;
-    const exit =
-      still || held
-        ? 0
-        : clampProgress(
-            (window.scrollY - top - distance) / (stageHeight * 0.4),
-          );
     const overOpening =
       held ||
       window.scrollY <
@@ -151,15 +150,12 @@ export function mountSpatialHero(element: HTMLElement): SpatialHeroController {
     expose(story, still || p >= 0.65);
     if (
       p === lastProgress &&
-      exit === lastExit &&
       still === lastReduced &&
       compact.matches === lastCompact &&
       ready === lastReady
     )
       return;
     lastProgress = p;
-    lastExit = exit;
-    element.style.setProperty('--sh-exit', exit.toFixed(5));
     lastReduced = still;
     lastCompact = compact.matches;
     lastReady = ready;
@@ -189,12 +185,6 @@ export function mountSpatialHero(element: HTMLElement): SpatialHeroController {
     const held =
       document.documentElement.getAttribute('data-home-intro') !== null;
     const p = held ? 0 : clampProgress((window.scrollY - top) / distance);
-    const exit =
-      reduced.matches || held
-        ? 0
-        : clampProgress(
-            (window.scrollY - top - distance) / (stageHeight * 0.4),
-          );
     const past =
       !held &&
       window.scrollY >=
@@ -203,7 +193,6 @@ export function mountSpatialHero(element: HTMLElement): SpatialHeroController {
     if (
       !measureNeeded &&
       p === lastProgress &&
-      exit === lastExit &&
       (p === 0 || p === 1) &&
       header?.dataset.opening === (past ? 'past' : 'active')
     )
@@ -296,7 +285,6 @@ export function mountSpatialHero(element: HTMLElement): SpatialHeroController {
       compact.removeEventListener('change', resize);
       secondary?.removeEventListener('load', imageSettled);
       secondary?.removeEventListener('error', imageSettled);
-      element.style.removeProperty('--sh-exit');
       if (header) delete header.dataset.opening;
     },
   };

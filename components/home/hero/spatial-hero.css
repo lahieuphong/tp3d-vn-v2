@@ -75,10 +75,18 @@
   --sh-monogram-story-scale: 0.92;
   position: relative;
   --sh-stage-height: max(660px, 100svh);
-  height: calc(var(--sh-stage-height) + 110svh);
+  --sh-scroll-distance: 110svh;
+  height: calc(var(--sh-stage-height) + var(--sh-scroll-distance));
   background: #e9ddc8;
   color: var(--sh-ink);
   font-family: var(--sh-serif);
+}
+.sh-scroll-range {
+  position: absolute;
+  width: 0;
+  height: var(--sh-scroll-distance);
+  pointer-events: none;
+  visibility: hidden;
 }
 .sh-stage {
   position: relative;
@@ -636,7 +644,7 @@
 @media (max-width: 767px) {
   .spatial-hero {
     --sh-stage-height: max(760px, 100svh);
-    height: calc(var(--sh-stage-height) + 90svh);
+    --sh-scroll-distance: 90svh;
     --sh-monogram-story-x: -21vw;
     --sh-monogram-story-y: 19svh;
     --sh-monogram-story-scale: 0.9;
@@ -1069,39 +1077,6 @@
   }
   .sh-portals {
     top: calc(var(--sh-stage-height) * 0.51);
-  }
-}
-
-/* After the original A→B range has completed, identity recedes into the next
-   architectural chapter. These transforms do not alter the opening scrub. */
-.sh-departure {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  background: linear-gradient(to bottom, #4b3b270d, #4b3b2766 55%, #473b2d);
-  opacity: var(--sh-exit, 0);
-}
-.sh-monogram > [data-hero-surface] {
-  transform: translate3d(0, calc(var(--sh-exit, 0) * 45px), 0)
-    scale(calc(1 - var(--sh-exit, 0) * 0.08));
-  opacity: calc(1 - var(--sh-exit, 0));
-}
-.sh-story-column {
-  transform: translateY(calc(var(--sh-exit, 0) * -12px));
-  opacity: calc(1 - var(--sh-exit, 0) * 0.3);
-}
-.sh-colophon {
-  opacity: calc(1 - var(--sh-exit, 0));
-}
-@media (prefers-reduced-motion: reduce) {
-  .sh-departure {
-    display: none;
-  }
-  .sh-monogram > [data-hero-surface],
-  .sh-story-column {
-    transform: none;
-    opacity: 1;
   }
 }
 

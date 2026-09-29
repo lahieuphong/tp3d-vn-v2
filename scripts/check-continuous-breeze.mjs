@@ -219,3 +219,42 @@ for (const width of [375, 390, 430, 768, 1024, 1280, 1440, 1920]) {
 console.log(
   'Continuous Breeze passed: opening anchors, connected single cloth, bounded thickness, actual Worlds endpoint, footer fade, reverse scroll, reduced motion and responsive/orientation geometry. No browser performance measurements claimed.',
 );
+
+const { portalBreezeGeometry } = loaded.exports;
+for (const [width, stage] of sizes) {
+  const top = stage * 1.1,
+    span = stage * (width < 768 ? 0.7 : 0.8),
+    height = top + span + stage * 1.24;
+  const positions = [0, 0.25, 0.4, 0.5, 0.6, 0.75, 1];
+  const snapshots = positions.map((p) =>
+    portalBreezeGeometry(width, height, top, stage, span, p),
+  );
+  assert.deepEqual(
+    snapshots,
+    positions
+      .toReversed()
+      .map((p) => portalBreezeGeometry(width, height, top, stage, span, p))
+      .reverse(),
+  );
+  for (const g of snapshots) {
+    for (const path of g.threads) strand(path);
+    assert(!g.outline.includes('NaN'));
+  }
+  const final = strand(snapshots.at(-1).threads[18]);
+  assert(
+    Math.abs(final[0][0] - width * 0.5) < 5,
+    'origin is the oculus centre',
+  );
+  assert(
+    final.at(-1)[6] > width * 0.9 && final.at(-1)[6] < width * 0.99,
+    'tail leads to the CTA side',
+  );
+  assert(
+    final.at(-1)[7] > top + span + stage * 0.8 &&
+      final.at(-1)[7] < top + span + stage * 0.9,
+    'tail settles above the footer',
+  );
+}
+console.log(
+  'Portal cloth: connected A/B/C spline, reversible interpolation, skylight origin and tapered CTA endpoint verified.',
+);

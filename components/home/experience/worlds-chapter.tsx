@@ -12,18 +12,21 @@ export function WorldsChapter() {
       id="home-worlds"
     >
       <div className="hc-atrium-backdrop" aria-hidden="true">
-        <ChapterImage asset="worlds-atrium" />
+        <ChapterImage
+          asset="worlds-atrium"
+          sizes="(max-aspect-ratio: 1672/941) 178svh, 100vw"
+        />
       </div>
       <div className="hc-atrium-copy">
-        <p className="hc-eyebrow" data-chapter-reveal>
+        <p className="hc-eyebrow" data-chapter-reveal="1">
           3D WORLDS
         </p>
-        <h2 id="home-worlds-title" data-chapter-reveal>
+        <h2 id="home-worlds-title" data-chapter-reveal="2">
           Enter
           <br />
           <em>the worlds.</em>
         </h2>
-        <div data-chapter-reveal>
+        <div data-chapter-reveal="3">
           <p className="hc-body">
             Step inside our interiors and explore them in 3D. Move freely,
             discover details, and experience spaces as if you were really there.
@@ -41,7 +44,7 @@ export function WorldsChapter() {
               href={room.href}
               prefetch={false}
               className="hc-atrium-room-link"
-              data-chapter-reveal
+              data-chapter-reveal="0"
             >
               <small>{String(index + 1).padStart(2, '0')}</small>
               <span>{room.title}</span>
@@ -53,7 +56,7 @@ export function WorldsChapter() {
         href="/worlds"
         prefetch={false}
         className="hc-atrium-cta"
-        data-chapter-reveal
+        data-chapter-reveal="4"
       >
         <span className="hc-atrium-preview" aria-hidden="true">
           <ChapterImage
@@ -65,7 +68,11 @@ export function WorldsChapter() {
           EXPLORE 3D WORLDS <span aria-hidden="true">⟶</span>
         </span>
       </Link>
-      <div className="hc-atrium-baseline" aria-hidden="true">
+      <div
+        className="hc-atrium-baseline"
+        aria-hidden="true"
+        data-chapter-reveal="5"
+      >
         <span>SCROLL TO DISCOVER</span>
         <span>SPACES SHAPED BY A NEW BREEZE</span>
       </div>
