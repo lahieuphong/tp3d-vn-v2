@@ -1,5 +1,5 @@
 import { bridgeBreezeGeometry } from './breeze-geometry';
-import { range, storyWorldFrame } from './story-world-frame';
+import { range, storyWorldFrame, storyWorldTiming } from './story-world-frame';
 export type BreezeDriver = {
   measure: (
     width: number,
@@ -83,10 +83,9 @@ export function createBreezeRenderer(root: HTMLElement): BreezeDriver {
     },
     paint(scroll, reduced, progress) {
       if (reduced) return;
-      const p = progress;
+      const p = Math.min(progress, storyWorldTiming.breezeOutEnd);
       const state = storyWorldFrame(p, width, height);
-      const geometryKey =
-        p <= 0.28 ? 'story' : p >= 0.92 ? 'settled' : p.toFixed(5);
+      const geometryKey = p <= 0.28 ? 'story' : p.toFixed(5);
       if (geometryKey !== lastGeometry) {
         lastGeometry = geometryKey;
         const geometry = bridgeBreezeGeometry(width, height, opening, p);
@@ -128,7 +127,11 @@ export function createBreezeRenderer(root: HTMLElement): BreezeDriver {
       const x = state.dissolve * width * 0.025;
       const y = arrival + state.dissolve * height * 0.025;
       const transform = `translate(${x.toFixed(2)} ${y.toFixed(2)}) translate(${width * 0.55} ${height * 0.5}) rotate(${(-2 * approach).toFixed(3)}) scale(${sx.toFixed(5)} ${sy.toFixed(5)}) translate(${-width * 0.55} ${-height * 0.5})`;
-      const opacity = (1 - state.dissolve).toFixed(5);
+      // Finish the camera veil in the sky. The skylight / atrium stays clear;
+      // the cloth must not reappear over the architecture during pull-back.
+      const opacity = (
+        1 - range(p, 0.53, storyWorldTiming.pullbackStart)
+      ).toFixed(5);
       const signature = `${transform}/${opacity}/${p}`;
       if (signature === lastPose) return;
       lastPose = signature;
@@ -138,7 +141,7 @@ export function createBreezeRenderer(root: HTMLElement): BreezeDriver {
       });
       // A feathered tree silhouette partitions the same cloth: the lower tail
       // reappears over the reflected floor. No extra tree image is mounted.
-      const canopyAmount = range(p, 0.69, 0.8);
+      const canopyAmount = range(p, 0.64, 0.71);
       canopy?.setAttribute('cx', String(width * 0.505));
       canopy?.setAttribute('cy', String(height * 0.45));
       canopy?.setAttribute('rx', String(width * 0.11 * canopyAmount));
@@ -162,7 +165,7 @@ export function createBreezeRenderer(root: HTMLElement): BreezeDriver {
         );
         rim.setAttribute(
           'opacity',
-          String(range(p, 0.66, 0.71) * (1 - range(p, 0.77, 0.84))),
+          String(range(p, 0.62, 0.65) * (1 - range(p, 0.69, 0.72))),
         );
       }
     },

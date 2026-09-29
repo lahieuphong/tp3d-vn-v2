@@ -24,17 +24,23 @@ scroll snap, forced scroll position, pointer camera or animation dependency.
 
 ## Choreography
 
-| Progress | Result                                                                                                                                                      |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0–18%    | Approved Story reading composition held.                                                                                                                    |
-| 18–36%   | Architecture pushes 1 → 1.055, text recedes 10px / opacity .65, TP shrinks to .94 and moves down 16px.                                                      |
-| 28–60%   | One cloth approaches, billows across the lens and recedes. A soft full-frame diagonal reveal follows underneath it over 42.5–53%.                           |
-| 53–60%   | Actual atrium sky dominates the viewport; no Worlds UI.                                                                                                     |
-| 58–82%   | Same atrium image pulls back from sky to oculus, ceiling, tree and floor; lands at exact scale 1 / translation 0.                                           |
-| 72–91.5% | Rooms, eyebrow, Enter, the worlds., body, signoff and CTA appear at 72/76/79/81/83/86/88%, each over 3.5% progress.                                         |
-| 74–92%   | Cloth follows a restrained S through the skylight, behind the skylight rim, around a feathered canopy mask, toward the lower-right reflection near the CTA. |
-| 90–98.5% | Tail stretches 12% horizontally, narrows vertically and dissolves before the stage releases.                                                                |
-| 100%     | Sticky releases directly into Footer, without additional filler or a ribbon restart.                                                                        |
+| Progress | Result                                                                                                                            |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| 0–18%    | Approved Story reading composition held.                                                                                          |
+| 18–36%   | Architecture pushes 1 → 1.055, text recedes 10px / opacity .65, TP shrinks to .94 and moves down 16px.                            |
+| 28–53%   | One cloth approaches, billows across the lens and recedes. A soft full-frame diagonal reveal follows underneath it over 42.5–53%. |
+| 53–58%   | Actual atrium sky holds across the viewport; cloth fades out by 58%, no Worlds UI.                                                |
+| 58–72%   | The same image pulls back through the skylight into the atrium, ending at exact scale 1 / translation 0.                          |
+| 72–78%   | Camera is stopped; atrium remains clear before the unchanged UI reveal.                                                           |
+| 78–86%   | Rooms, eyebrow, Enter, the worlds., body, signoff and CTA appear at 78/78.5/79/80/81/82/83%, each over 3% progress.               |
+| 86–100%  | Completely still composition: no camera, exposure, type or cloth changes; no repeated visual style writes.                        |
+| 100%     | Sticky releases directly into Footer in normal flow.                                                                              |
+
+This implements the clarified sequence: **Scene 2 → Breeze passes camera → sky →
+Breeze fades out → skylight / camera pull-back → Enter the Worlds → stillness →
+Footer**. The final still interval spans 21svh desktop, 18.2svh tablet and 15.4svh
+mobile within the existing bridge length. Scroll remains native and reversible.
+Temporary image/cloth promotion ends at 78%, before UI arrival.
 
 The oculus occupies only about 20% of the existing 1672×941 plate height. A
 1.25× zoom cannot yield full-frame sky. The brief sky crop therefore uses a
@@ -59,7 +65,41 @@ Reload and browser history preserve native scroll. A short pre-paint restoration
 gate prevents the default opening frame flashing before restored geometry is
 sampled. The existing intro still runs on a fresh navigation or `?intro=1`.
 
-## Verification
+## Atrium cloth removal
+
+The user requested removing the ribbon over the skylight / atrium while keeping
+all other behavior. The renderer now fades the lens veil over 53–58% and leaves
+its opacity at zero throughout the pull-back and final scene. Camera, content,
+layout, scroll length and footer timing are unchanged. Lint, TypeScript, Home
+checks and production build pass. Earlier performance observations below predate
+this opacity-only adjustment.
+
+## Verification of the stillness revision
+
+- Lint, TypeScript, production build, Home/cloth, Hero and Intro checks pass.
+- Controller regression checks enforce camera rest at 72%, Breeze fully gone
+  before UI at 78%, complete UI at 86%, and zero visual style writes during hold.
+- Chrome checked at 320×568, 390×844, 768×1024, 1024×768, 1440×900, 1920×1080
+  and 2560×1440. Final links fit, no horizontal overflow and no gap before Footer.
+- MutationObserver checks across the final hold found no visual changes. The
+  first 86% samples at some dimensions rounded just below the boundary because
+  native scroll positions are quantized; the follow-up sampled 87/90/95/100%.
+- Mobile forward/reverse traversal produced the same image, cloth and UI samples.
+- Reload at scrollY 1867.5 restored progress .65 exactly.
+- Reduced-motion mobile QA confirmed a relative, normal-flow stage, hidden cloth,
+  all UI opacity 1 and all links available. Native wheel scrolling released the
+  final still frame into Footer with no gap or Breeze restart.
+- New screenshots at 0/15/30/45/55/65/75/85/100% and reports are in ignored
+  `work/story-world-stillness/`. Production contains no QA controls.
+- A new 20-cycle production QA run kept DOM at 520 elements, one full-size Worlds
+  image, one cloth definition, two projections, one header, zero Canvas elements
+  and zero WebGL context requests. Observed JS heap: 48,054,015–53,107,889 bytes.
+- The same run measured 819 RAF intervals over 14,192ms: median 16.7ms, p95 18ms,
+  26 intervals above 33ms and one 55ms long task. These include QA and browser
+  overhead; they are not isolated animation FPS or physical-trackpad measurements.
+  Total Chrome process RAM and VRAM were not measured. The cycle harness observed no runtime errors. The separate clean preview logged “Language detection is not supported for this page”; its source was not identified, and no matching message was found in the inspected app/runtime sources.
+
+## Original bridge verification (before the timing revision)
 
 - Lint, TypeScript, Vercel production build, Home/cloth, Hero and Intro checks.
 - Controller checks cover viewport image coverage, late focus activation, native
@@ -81,7 +121,7 @@ JSON, reverse/restoration and performance observations). The QA proxy and contro
 are excluded from the production bundle. Performance observations are appended
 below; DOM/heap samples are not process RAM or VRAM measurements.
 
-## Performance observations
+## Original bridge Performance trace (before the timing revision)
 
 A real Chrome Performance recording with Screenshots + Memory enabled was saved
 as `work/story-world-bridge/chrome-performance.json.gz`. The trace includes 20
@@ -112,4 +152,4 @@ at the final hold. Chrome did not expose GPU memory counters in this trace, so n
 VRAM number is claimed. The large image sky crop still incurs raster/compositor
 cost and is limited by the existing image's resolution.
 
-The saved DevTools trace precedes the final cloth-only rim occlusion mask refinement; the camera transform, reveal timing and image count are unchanged. Final lint, TypeScript, controller checks and production build passed after that refinement.
+The saved DevTools trace precedes the cloth-only rim mask refinement and this stillness timing revision. It documents the earlier baseline, not the current timings. Current revision measurements appear above.

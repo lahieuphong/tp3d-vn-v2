@@ -7,6 +7,17 @@ export const range = (p: number, a: number, b: number) =>
   smooth((p - a) / (b - a));
 export const mix = (a: number, b: number, t: number) => a + (b - a) * t;
 
+/** Resolve the camera, then the cloth, then the UI. The remaining scroll
+ * belongs to a completely still composition before native sticky release. */
+export const storyWorldTiming = {
+  pullbackStart: 0.58,
+  pullbackEnd: 0.72,
+  breezeOutStart: 0.72,
+  breezeOutEnd: 0.78,
+  uiStart: 0.78,
+  settled: 0.86,
+} as const;
+
 /** Pure native-scroll samples. The only sky is the top of the atrium plate.
  * Its oculus is 20% of image height: the sky crop necessarily exceeds 1.25×.
  * Resolve that crop first, then complete the restrained 1.24× camera pull-back.
@@ -25,8 +36,16 @@ export function storyWorldFrame(
     5.8,
     Math.max(4.8, (height * 0.9) / (coveredHeight * 0.18)),
   );
-  const cropReturn = range(p, 0.58, portrait ? 0.73 : 0.76);
-  const pullback = range(p, 0.58, 0.82);
+  const cropReturn = range(
+    p,
+    storyWorldTiming.pullbackStart,
+    portrait ? 0.68 : 0.69,
+  );
+  const pullback = range(
+    p,
+    storyWorldTiming.pullbackStart,
+    storyWorldTiming.pullbackEnd,
+  );
   const cameraScale = mobile
     ? 1.08
     : portrait
@@ -35,7 +54,7 @@ export function storyWorldFrame(
         ? 1.18
         : 1.24;
   const scale =
-    p >= 0.82
+    p >= storyWorldTiming.pullbackEnd
       ? 1
       : mix(cropScale, cameraScale, cropReturn) *
         mix(1, 1 / cameraScale, pullback);
@@ -59,19 +78,24 @@ export function storyWorldFrame(
     scale,
     originY,
     imageY: (height * 0.5 - originY) * (1 - cropReturn),
-    exposure: range(p, 0.64, 0.82),
+    exposure: range(p, 0.64, storyWorldTiming.pullbackEnd),
     headerIvory: p >= 0.64,
-    headerShade: range(p, 0.6, 0.64) * (1 - range(p, 0.72, 0.82)),
+    headerShade:
+      range(p, 0.6, 0.64) * (1 - range(p, 0.66, storyWorldTiming.pullbackEnd)),
     occlusion,
-    emerge: range(p, 0.56, 0.82),
-    dissolve: range(p, 0.9, 0.985),
+    emerge: range(p, 0.56, 0.71),
+    dissolve: range(
+      p,
+      storyWorldTiming.breezeOutStart,
+      storyWorldTiming.breezeOutEnd,
+    ),
   };
 }
 
 export const worldRevealStarts = [
-  0.72, 0.76, 0.79, 0.81, 0.83, 0.86, 0.88,
+  0.78, 0.785, 0.79, 0.8, 0.81, 0.82, 0.83,
 ] as const;
 export function worldContentReveal(p: number, order: number) {
-  const start = worldRevealStarts[order] ?? 0.88;
-  return range(p, start, start + 0.035);
+  const start = worldRevealStarts[order] ?? 0.83;
+  return range(p, start, start + 0.03);
 }

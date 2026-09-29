@@ -2,6 +2,7 @@ import type { BreezeDriver } from './breeze-renderer';
 import {
   clamp,
   storyWorldFrame,
+  storyWorldTiming,
   worldContentReveal,
 } from './story-world-frame';
 
@@ -107,7 +108,12 @@ export function createStoryWorldTimeline(
       : window.scrollY;
     const still = reduced.matches;
     const p = clamp((scroll - geometry.top) / geometry.span);
-    const state = storyWorldFrame(p, geometry.width, geometry.stage);
+    const visualProgress = Math.min(p, storyWorldTiming.settled);
+    const state = storyWorldFrame(
+      visualProgress,
+      geometry.width,
+      geometry.stage,
+    );
     // Native restoration runs during document load. Reveal the already sampled
     // frame after load, never flash the default Story/Discovery composition.
     if (
@@ -126,14 +132,18 @@ export function createStoryWorldTimeline(
       : state.headerIvory;
     const theme = past || !ivory ? 'light' : 'dark';
     breeze?.paint(scroll, still, p);
-    const signature = `${p.toFixed(6)}/${still}/${theme}/${geometry.width}/${geometry.stage}`;
+    root.dataset.bridgeProgress = p.toFixed(5);
+    // Scroll continues during the final hold, but no visual style keeps moving.
+    const signature = `${visualProgress.toFixed(6)}/${still}/${theme}/${geometry.width}/${geometry.stage}`;
     if (lastSignature === signature) return;
     lastSignature = signature;
     toggle('data-bridge-ready', !still);
-    toggle('data-bridge-active', !still && p > 0.18 && p < 0.985);
+    toggle(
+      'data-bridge-active',
+      !still && p > 0.18 && p < storyWorldTiming.breezeOutEnd,
+    );
     toggle('data-bridge-story-hidden', !still && !state.storyVisible);
     toggle('data-bridge-sky-complete', still || p >= 0.53);
-    root.dataset.bridgeProgress = p.toFixed(5);
     const properties = {
       '--swb-story-scale': state.storyScale,
       '--swb-story-y': `${state.storyY}px`,
@@ -158,11 +168,14 @@ export function createStoryWorldTimeline(
     if (header && header.dataset.chapterTheme !== theme)
       header.dataset.chapterTheme = theme;
     expose(story!, still || p < 0.47);
-    expose(worlds!, still || p >= 0.728);
+    expose(worlds!, still || p > storyWorldTiming.uiStart);
     for (const node of reveals) {
       const reveal = still
         ? 1
-        : worldContentReveal(p, Number(node.dataset.chapterReveal));
+        : worldContentReveal(
+            visualProgress,
+            Number(node.dataset.chapterReveal),
+          );
       node.style.opacity = reveal.toFixed(5);
       node.style.transform = `translate3d(0, ${((1 - reveal) * (geometry.width < 768 ? 8 : 12)).toFixed(2)}px, 0)`;
       expose(node, reveal >= 0.15);

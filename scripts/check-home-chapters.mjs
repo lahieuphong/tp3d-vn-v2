@@ -275,6 +275,20 @@ f.scroll(2340);
 f.flush();
 assert(f.reveals.every((n) => Number(n.style.opacity) === 1 && !n.inert));
 assert.equal(f.header.dataset.chapterTheme, 'dark');
+// Stillness is a real scroll interval, with no repeated visual style writes.
+f.scroll(990 + 1350 * 0.86);
+f.flush();
+f.operations.length = 0;
+for (const progress of [0.87, 0.9, 0.95, 1]) {
+  f.scroll(990 + 1350 * progress);
+  f.flush();
+}
+assert.equal(
+  f.operations.length,
+  0,
+  'final hold performs no visual writes or layout reads',
+);
+assert.equal(f.root.hasAttribute('data-bridge-active'), false);
 f.scroll(3240);
 f.flush();
 assert.equal(f.header.dataset.chapterTheme, 'light');
@@ -374,16 +388,25 @@ for (const [w, h] of [
   );
   assert.equal(storyWorldFrame(0.55, w, h).textOpacity, 0);
   assert.equal(storyWorldFrame(0.55, w, h).skyVisible, true);
-  assert.equal(storyWorldFrame(0.82, w, h).scale, 1);
-  assert.equal(storyWorldFrame(0.82, w, h).imageY, 0);
+  assert.equal(storyWorldFrame(0.72, w, h).scale, 1);
+  assert.equal(storyWorldFrame(0.72, w, h).imageY, 0);
   assert.equal(
-    storyWorldFrame(0.985, w, h).dissolve,
+    storyWorldFrame(0.78, w, h).dissolve,
     1,
-    'Breeze finishes before release',
+    'Breeze finishes before UI appears',
   );
   for (let order = 0; order < 7; order++) {
-    assert.equal(worldContentReveal(0.7, order), 0);
-    assert.equal(worldContentReveal(0.92, order), 1);
+    assert.equal(worldContentReveal(0.78, order), 0);
+    assert.equal(worldContentReveal(0.86, order), 1);
+  }
+  const { progress: _ignored, ...settled } = storyWorldFrame(0.86, w, h);
+  for (const p of [0.88, 0.9, 0.95, 1]) {
+    const { progress: _ignored, ...held } = storyWorldFrame(p, w, h);
+    assert.deepEqual(
+      held,
+      settled,
+      'camera, exposure and cloth remain completely still',
+    );
   }
 }
 assert.doesNotMatch(

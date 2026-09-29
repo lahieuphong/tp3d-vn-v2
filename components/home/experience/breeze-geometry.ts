@@ -72,9 +72,9 @@ export function bridgeBreezeGeometry(
   };
   const mix = (a: number, b: number, t: number) => a + (b - a) * t;
   const approach = ease((p - 0.28) / 0.15);
-  const emerge = ease((p - 0.55) / 0.24);
+  const emerge = ease((p - 0.56) / 0.15);
   const sweep = ease((p - 0.425) / 0.105);
-  const travel = ease((p - 0.74) / 0.18);
+  const travel = ease((p - 0.65) / 0.08);
   const legacyHeight = openingDistance + height * (mobile ? 1.94 : 2.04);
   const opening = openingDistance + height * 0.84;
   const oldX =
