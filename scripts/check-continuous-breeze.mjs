@@ -16,7 +16,28 @@ const { outputText } = ts.transpileModule(source, {
   },
 });
 const loaded = { exports: {} };
-runInNewContext(outputText, { module: loaded, exports: loaded.exports });
+const frame = { exports: {} };
+runInNewContext(
+  ts.transpileModule(
+    readFileSync(
+      new URL(
+        '../components/home/experience/home-story-frame.ts',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+    { compilerOptions: { module: ts.ModuleKind.CommonJS } },
+  ).outputText,
+  { module: frame, exports: frame.exports },
+);
+runInNewContext(outputText, {
+  module: loaded,
+  exports: loaded.exports,
+  require(path) {
+    assert.equal(path, './home-story-frame');
+    return frame.exports;
+  },
+});
 const sizes = [
   [320, 568],
   [360, 800],
@@ -55,24 +76,33 @@ function strand(d) {
     return curve;
   });
 }
-const { bridgeBreezeGeometry } = loaded.exports;
+const { storyBreezeGeometry } = loaded.exports;
 for (const [width, height] of sizes) {
-  const opening = height * (width < 768 ? 0.9 : 1.1);
-  const positions = [0, 0.18, 0.3, 0.45, 0.55, 0.65, 0.75, 0.85, 1];
-  const samples = positions.map((p) =>
-    bridgeBreezeGeometry(width, height, opening, p),
-  );
+  const positions = [
+    0, 0.18, 0.3, 0.45, 0.495, 0.55, 0.575, 0.61, 0.67, 0.75, 0.85, 1,
+  ];
+  const samples = positions.map((p) => storyBreezeGeometry(width, height, p));
   assert.deepEqual(
     samples,
     positions
       .toReversed()
-      .map((p) => bridgeBreezeGeometry(width, height, opening, p))
+      .map((p) => storyBreezeGeometry(width, height, p))
       .reverse(),
   );
   for (const g of samples) {
     for (const path of g.threads) strand(path);
     assert(!/NaN|Infinity/.test(g.outline));
   }
+  assert.deepEqual(
+    storyBreezeGeometry(width, height, 0.34),
+    storyBreezeGeometry(width, height, 0.48),
+    'reading hold retains the same fabric shape',
+  );
+  assert.notEqual(
+    storyBreezeGeometry(width, height, 0.48).outline,
+    storyBreezeGeometry(width, height, 0.575).outline,
+    'near-camera approach changes curvature rather than only opacity',
+  );
   const final = strand(samples.at(-1).threads[18]);
   assert(
     final.every((segment) => segment[0] > width && segment[6] > width),

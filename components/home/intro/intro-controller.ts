@@ -15,7 +15,7 @@ export const INTRO_TIMING = {
 } as const;
 
 /** Owns only the entry gate, resource observation and temporary interaction
- * locks. The existing Scene 1–5 scroll controllers are not modified. */
+ * locks. The HomeStory master owns scroll motion after this gate. */
 export function mountHomeIntro(
   decision: HomeIntroDecision,
   callbacks: {

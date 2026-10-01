@@ -1,5 +1,5 @@
-import { bridgeBreezeGeometry } from './breeze-geometry';
-const initial = bridgeBreezeGeometry(1440, 900, 990, 0);
+import { storyBreezeGeometry } from './breeze-geometry';
+const initial = storyBreezeGeometry(1440, 900, 0);
 /** Two depth projections of ONE shared definition. Complementary masks partition
  * the same cloth, without overlapping image segments or section-local assets. */
 export function ContinuousBreeze() {

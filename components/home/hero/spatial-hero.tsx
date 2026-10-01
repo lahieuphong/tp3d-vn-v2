@@ -1,6 +1,4 @@
-'use client';
-import { useLayoutEffect, useRef, type ReactNode } from 'react';
-import { mountSpatialHero } from './hero-timeline';
+import type { ReactNode } from 'react';
 import './spatial-hero.css';
 
 export function SpatialHero({
@@ -12,21 +10,13 @@ export function SpatialHero({
   architecture: ReactNode;
   objects: ReactNode;
 }) {
-  const root = useRef<HTMLElement>(null);
-  useLayoutEffect(() => {
-    if (!root.current) return;
-    const controller = mountSpatialHero(root.current);
-    return () => controller.destroy();
-  }, []);
   return (
     <section
-      ref={root}
       className="spatial-hero"
       aria-labelledby="spatial-hero-title"
       data-scene="discovery"
       data-motion="scroll"
     >
-      <span className="sh-scroll-range" aria-hidden="true" data-opening-range />
       <div className="sh-stage">
         <div className="sh-plane sh-plane-background">{architecture}</div>
         <div className="sh-plane sh-plane-objects">{objects}</div>

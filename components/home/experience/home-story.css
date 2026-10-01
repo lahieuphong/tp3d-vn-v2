@@ -1,0 +1,345 @@
+/* One scroll range; no secondary section pin or independent opening distance. */
+.home-story {
+  position: relative;
+  height: 360svh;
+}
+.home-story-stage {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: clip;
+  isolation: isolate;
+}
+.home-story-stage .spatial-hero {
+  --sh-stage-height: 100svh;
+  position: absolute;
+  inset: 0;
+  height: 100%;
+}
+.home-story-stage .sh-stage {
+  height: 100%;
+}
+.home-story-stage .sh-plane {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+}
+.home-story-stage .hc-chapter.hc-worlds {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  pointer-events: none;
+}
+.home-story-stage .hc-chapter.hc-worlds a {
+  pointer-events: none;
+}
+[data-world-interactive]
+  .home-story-stage
+  .hc-chapter.hc-worlds
+  a:not([inert]) {
+  pointer-events: auto;
+}
+.home-story-stage .hc-atrium-backdrop {
+  z-index: 6;
+  visibility: hidden;
+}
+.home-story-stage
+  .hc-chapter.hc-worlds
+  :is(.hc-atrium-copy, .hc-atrium-rooms, .hc-atrium-cta, .hc-atrium-baseline) {
+  z-index: 10;
+}
+.hc-atrium-copy h2 > [data-chapter-reveal] {
+  display: inline-block;
+}
+.home-story-stage [data-chapter-reveal] {
+  opacity: 0;
+}
+.home-story-stage .hc-atrium-backdrop img {
+  transform-origin: 50% var(--swb-origin-y, 11.6%);
+  transform: translate3d(0, var(--swb-image-y, 0px), 0)
+    scale(var(--swb-image-scale, 1));
+}
+.home-story-stage .hc-atrium-backdrop::after {
+  opacity: var(--swb-exposure, 0);
+}
+[data-story-ready] .hc-atrium-backdrop {
+  visibility: var(--swb-sky-visible, hidden);
+  mask-image: linear-gradient(
+    110deg,
+    #000 calc(var(--swb-sky-edge, -35%) - 2.5%),
+    transparent calc(var(--swb-sky-edge, -35%) + 2.5%)
+  );
+}
+[data-story-sky-complete] .hc-atrium-backdrop {
+  mask-image: none;
+}
+[data-story-ready] .sh-plane-background {
+  transform: translate3d(0, var(--swb-story-y, 0px), 0)
+    scale(var(--swb-story-scale, 1));
+}
+[data-story-ready] .sh-monogram > [data-hero-surface] {
+  transform: translate3d(0, var(--swb-tp-y, 0px), 0)
+    scale(var(--swb-tp-scale, 1));
+  opacity: var(--swb-tp-opacity, 1);
+}
+[data-story-ready] .sh-story-column {
+  transform: translate3d(0, var(--swb-text-y, 0px), 0);
+  opacity: var(--swb-text-opacity, 1);
+}
+[data-story-ready]
+  :is(
+    .sh-center-copy > *,
+    .sh-colophon,
+    .sh-leaves > [data-hero-surface],
+    .sh-read-story
+  ) {
+  opacity: var(--swb-text-opacity, 1);
+}
+[data-story-hero-hidden] .spatial-hero {
+  visibility: hidden;
+}
+[data-story-active] .sh-plane-background,
+[data-bridge-active] .hc-atrium-backdrop img,
+[data-bridge-active] .cb-front {
+  will-change: transform;
+}
+.home-story-stage .cb-front {
+  z-index: var(--swb-breeze-depth, 4);
+}
+/* Decode/error fallback uses the existing HTML, never an undecoded plate. */
+[data-bridge-image='loading'] .hc-atrium-backdrop img,
+[data-bridge-image='failed'] .hc-atrium-backdrop img {
+  visibility: hidden;
+}
+[data-bridge-image='failed'] .hc-atrium-backdrop {
+  background: #352d23;
+}
+
+@media (max-width: 1199px) {
+  .home-story {
+    height: 340svh;
+  }
+}
+@media (max-width: 767px) {
+  .home-story {
+    height: 300svh;
+  }
+  /* One painted cloth projection on mobile. */
+  .home-story-stage .cb-back > g {
+    display: none;
+  }
+  .home-story-stage .cb-front > g {
+    mask: none;
+  }
+  .home-story-stage .hc-chapter.hc-worlds {
+    padding-top: 0;
+    padding-bottom: max(52px, 6svh);
+    gap: clamp(10px, 2.1svh, 18px);
+  }
+}
+@media (max-width: 767px) and (max-height: 740px) {
+  .home-story-stage .hc-atrium-copy h2 {
+    font-size: clamp(54px, 14vw, 70px);
+    margin-bottom: 12px;
+  }
+  .home-story-stage .hc-atrium-copy .hc-body {
+    font-size: 16px;
+  }
+  .home-story-stage .hc-atrium-copy .hc-signoff {
+    margin-top: 10px;
+  }
+  .home-story-stage .hc-atrium-room-link > span {
+    font-size: 25px;
+  }
+  .home-story-stage .hc-atrium-rooms {
+    gap: 0 18px;
+  }
+}
+/* Reduced motion keeps HTML in normal flow with a short static sky detail. */
+.story-still-sky {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .story-still-sky {
+    display: block;
+    position: relative;
+    height: clamp(180px, 28svh, 300px);
+    overflow: clip;
+    pointer-events: none;
+    background: #ede8dc;
+  }
+  .story-still-sky img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 470%;
+    max-width: none;
+    object-fit: cover;
+    object-position: 50% 0;
+    opacity: 1;
+    transition: opacity 180ms ease;
+  }
+  [data-bridge-image='loading'] .story-still-sky img,
+  [data-bridge-image='failed'] .story-still-sky img {
+    opacity: 0;
+  }
+  .home-story {
+    height: auto;
+  }
+  .home-story-stage {
+    position: relative;
+    height: auto;
+    overflow: visible;
+  }
+  .home-story-stage .spatial-hero {
+    position: relative;
+    height: auto;
+    visibility: visible;
+  }
+  .home-story-stage .sh-stage {
+    height: auto;
+  }
+  .home-story-stage .sh-plane {
+    inset: 0 0 auto;
+    height: var(--sh-stage-height);
+  }
+  .home-story-stage .sh-plane-content {
+    position: relative;
+    height: auto;
+  }
+  .home-story-stage .hc-chapter.hc-worlds {
+    position: relative;
+    inset: auto;
+    height: 100svh;
+    min-height: 680px;
+  }
+  .home-story-stage .hc-atrium-backdrop {
+    visibility: visible;
+    mask-image: none;
+  }
+  .home-story-stage .hc-atrium-backdrop img {
+    transform: none;
+  }
+  .home-story-stage .hc-atrium-backdrop::after {
+    opacity: 1;
+  }
+  .home-story-stage [data-chapter-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+  .home-story-stage .continuous-breeze {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) and (max-width: 767px) {
+  .home-story-stage .hc-chapter.hc-worlds {
+    height: auto;
+    min-height: 760px;
+    padding-top: 300px;
+  }
+}
+/* Temporary top exposure lets the single header turn ivory while the sky is
+   still bright; this contribution is gone at the approved final composition. */
+.home-story-stage .hc-atrium-backdrop::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 18%;
+  z-index: 1;
+  background: linear-gradient(#241a147a, transparent);
+  opacity: var(--swb-header-shade, 0);
+  pointer-events: none;
+}
+
+/* A single existing plate and local gradients: no sliced photographic planes. */
+.swb-sky-light {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 10%, #fff8df, transparent 68%);
+  opacity: var(--swb-sky-light, 0);
+}
+.home-story-stage .sh-plane-background::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 65% 24%, #fff4d5, transparent 70%);
+  opacity: var(--swb-story-light, 0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-story-stage .hc-chapter.hc-worlds a {
+    pointer-events: auto;
+  }
+  .swb-sky-light,
+  .home-story-stage .sh-plane-background::after {
+    display: none;
+  }
+}
+
+/* Supplemental chapter rail: never a navigation target or a mobile overlay. */
+.story-rail {
+  position: absolute;
+  z-index: 12;
+  right: 1.1%;
+  top: 46%;
+  display: grid;
+  gap: 23px;
+  padding-right: 12px;
+  color: #574b38;
+  font:
+    500 7px/1.4 'Manrope Spatial',
+    sans-serif;
+  letter-spacing: 0.13em;
+  text-align: right;
+  pointer-events: none;
+  opacity: var(--story-rail-opacity, 1);
+  transition: color 350ms ease;
+}
+.story-rail > [data-story-chapter-label] {
+  opacity: 0.3;
+}
+.story-rail b {
+  display: block;
+  font-weight: 400;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+[data-story-chapter='arrival'] [data-story-chapter-label='arrival'],
+[data-story-chapter='perspective'] [data-story-chapter-label='perspective'],
+[data-story-chapter='worlds'] [data-story-chapter-label='worlds'] {
+  opacity: 1;
+}
+[data-story-chapter='worlds'] .story-rail {
+  color: #f3e9d6;
+}
+.story-rail-track {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+}
+.story-rail-track i {
+  display: block;
+  height: 100%;
+  background: currentColor;
+  opacity: 0.5;
+  transform-origin: top;
+  transform: scaleY(var(--story-rail-progress, 0));
+}
+@media (max-width: 1199px), (prefers-reduced-motion: reduce) {
+  .story-rail {
+    display: none;
+  }
+}
+
+.hc-scene-picture,
+.sh-architecture picture {
+  display: contents;
+}

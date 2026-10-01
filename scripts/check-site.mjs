@@ -193,16 +193,15 @@ while (pending.length) {
     assert.equal(
       (main.match(/<section\b/g) ?? []).length,
       3,
-      'Home: the bridge wrapper must contain only the opening and Worlds sections',
+      'Home: the HomeStory wrapper must contain only the opening and Worlds sections',
     );
     assert.equal(
-      (main.match(/<section\b[^>]*\bdata-story-world-bridge(?:=|\s|>)/g) ?? [])
-        .length,
+      (main.match(/<section\b[^>]*\bdata-home-story(?:=|\s|>)/g) ?? []).length,
       1,
-      'Home: exactly one Story-to-Worlds bridge must render',
+      'Home: exactly one master HomeStory must render',
     );
     assert.equal(
-      (main.match(/\bdata-story-world-stage(?:=|\s|>)/g) ?? []).length,
+      (main.match(/\bdata-home-story-stage(?:=|\s|>)/g) ?? []).length,
       1,
       'Home: Story and Worlds share one sticky stage',
     );
@@ -384,7 +383,7 @@ while (pending.length) {
     }
     assert.match(
       chapterBodies.worlds,
-      /<em\b[^>]*data-chapter-reveal="3"[^>]*>the worlds\.<\/em>/,
+      /<em\b[^>]*data-chapter-reveal="6"[^>]*>the worlds\.<\/em>/,
     );
     assert.doesNotMatch(
       chapterBodies.worlds,

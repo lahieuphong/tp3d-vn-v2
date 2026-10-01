@@ -72,21 +72,13 @@
   --sh-sans: 'Manrope Spatial', Manrope, Arial, sans-serif;
   --sh-ink: #3c352a;
   --sh-monogram-story-y: 13svh;
-  --sh-monogram-story-scale: 0.92;
+  --sh-monogram-story-scale: 0.86;
   position: relative;
   --sh-stage-height: max(660px, 100svh);
-  --sh-scroll-distance: 110svh;
-  height: calc(var(--sh-stage-height) + var(--sh-scroll-distance));
+  height: var(--sh-stage-height);
   background: #e9ddc8;
   color: var(--sh-ink);
   font-family: var(--sh-serif);
-}
-.sh-scroll-range {
-  position: absolute;
-  width: 0;
-  height: var(--sh-scroll-distance);
-  pointer-events: none;
-  visibility: hidden;
 }
 .sh-stage {
   position: relative;
@@ -94,10 +86,10 @@
   align-items: start;
   height: 100%;
 }
-/* Separate sticky planes share the HomeExperience stacking context. */
+/* These planes live inside the single HomeStory sticky viewport. */
 .sh-plane {
-  position: sticky;
-  top: 0;
+  position: absolute;
+  inset: 0;
   height: var(--sh-stage-height);
   grid-area: 1 / 1;
   pointer-events: none;
@@ -544,7 +536,7 @@
 @media (min-width: 768px) and (max-width: 1199px) {
   .spatial-hero {
     --sh-monogram-story-y: 8svh;
-    --sh-monogram-story-scale: 0.92;
+    --sh-monogram-story-scale: 0.86;
   }
   .site-header.spatial-home:is(.over-hero, [data-opening='active']) {
     padding-inline: 5.5%;
@@ -644,10 +636,9 @@
 @media (max-width: 767px) {
   .spatial-hero {
     --sh-stage-height: max(760px, 100svh);
-    --sh-scroll-distance: 90svh;
     --sh-monogram-story-x: -21vw;
     --sh-monogram-story-y: 19svh;
-    --sh-monogram-story-scale: 0.9;
+    --sh-monogram-story-scale: 0.88;
   }
   .site-header.spatial-home:is(.over-hero, [data-opening='active']) {
     height: 76px;

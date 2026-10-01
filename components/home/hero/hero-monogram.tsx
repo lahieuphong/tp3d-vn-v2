@@ -5,9 +5,9 @@ const tee =
 const pee =
   'M126 192H225C306 192 340 227 340 285C340 350 292 389 213 389H191V404C191 425 207 434 231 436V444H110V436C140 433 151 425 151 402V231C151 210 144 202 126 200ZM191 206V375H211C265 375 292 345 292 287C292 230 267 206 220 206Z';
 
-export function HeroMonogram() {
+export function SharedTP() {
   return (
-    <div className="sh-monogram" aria-hidden="true">
+    <div className="sh-monogram" aria-hidden="true" data-shared-tp>
       <div data-hero-surface>
         <div className="hi-monogram-surface">
           <svg

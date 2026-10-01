@@ -72,13 +72,13 @@ Metadata above was read directly with the existing Sharp dependency. Architectur
 
 `HeroArchitecture` selects one architecture size per scene through `srcset`/`sizes="100vw"`. Scene A is eager/high priority. Scene B initially has `data-src` and `data-srcset`, and the controller assigns real source attributes after the initial paint at low priority; it is not a second high-priority hero preload. Reduced-motion initialization does not request Scene B. The four portal images share the same atlas URL, which allows the browser to reuse the resource. The square `.sh-portal-photo` plane keeps each atlas quadrant proportional inside its arch crop.
 
-`BreezeRibbon` now uses one responsive alpha WebP image in the shared decorative wrapper, with eager/low-priority loading and async decoding. Its `sizes` is `200vw` below 640px, matching the deliberately wider mobile cloth surface, and `100vw` otherwise. The CSS applies 0.7 image opacity and a −3% horizontal offset, reduced to 0.65 opacity on mobile; native scroll progress samples the outer ribbon surface without an elapsed-time clock. No duplicate full-size ribbon images or continuous rasterisation loop are introduced.
+The raster ribbon remains available, but the unified HomeStory renderer audited on 2026-10-01 uses `ContinuousBreeze`, `breeze-geometry.ts` and `breeze-renderer.ts`. One SVG cloth definition contains its silhouette, folds and threads. Two complementary projections place parts of that same cloth behind and in front of the shared TP; mobile paints only the front projection. Geometry and pose derive from the master native-scroll progress, with no independent animation clock or per-frame DOM creation. These projections are not separately authored front/rear fabric assets. The earlier `BreezeRibbon` raster component is no longer the live renderer.
 
 ## Authored identity and decorative vectors
 
 - `components/home/hero/hero-monogram.tsx` contains the hand-authored overlapping T/P SVG outlines, shallow extruded edges, static mineral lighting gradients and highlight paths. Its internal 360 × 550 coordinate system is independent of a font glyph.
 - The monogram reuses `/images/stone-720.webp` as a mineral-face texture. That existing photograph is credited to Marina Leonova in [ASSET-SOURCES.md](./ASSET-SOURCES.md), with its original Pexels source retained there. Its mineral type is not inferred from the photograph.
-- `components/home/hero/breeze-ribbon.tsx` renders the generated transparent cloth image for the main ribbon. The earlier SVG filament representation was replaced. The broad transition veil and four small leaf outlines remain authored SVG; their fixed geometry does not require a render loop.
+- `components/home/experience/continuous-breeze.tsx` renders the shared SVG cloth described above. The four small `HeroLeaves` outlines are also authored SVG; they are decorative leaves, not a separated layer of the Atrium's central tree.
 - Gradients here represent material shading in bounded decorative SVG surfaces. No animated filter, turbulence shader, canvas, WebGL renderer or particle system is used by these authored assets.
 - Decorative layers have `aria-hidden="true"` and do not replace textual brand identity, headings or navigation.
 
@@ -91,3 +91,60 @@ The opening reuses Cormorant Garamond and Manrope, with four missing-language/st
 Keep the live text and links in the components. Replace a PNG source with a clean architectural/material plate, regenerate its WebP widths through the existing Sharp tooling, and update source dimensions, `srcset` descriptors and `data/image-dimensions.json` together. Do not rename a raster screenshot to a background asset if it still contains the reference's text or complete UI. Do not add all breakpoint variants as simultaneous full-resolution DOM layers.
 
 Runtime visual, browser, performance and production-build results belong in the QA record and remain separate from this provenance inventory.
+
+## Scene 2 → Scene 3 layer audit — 2026-10-01
+
+The approved Scene 3 is **one opaque photographic plate**, not a layered scene.
+`WorldsChapter` renders `ChapterImage asset="worlds-atrium"`; the sky, foliage,
+oculus, ceiling, tree, architecture, room openings, floor and reflections are all
+baked into that image. The archived `worlds-architecture` corridor is a different
+composition and cannot serve as a depth layer for the approved Atrium.
+
+| Requested layer                  | Available source                                                                                                  |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Scene 2 background               | Opaque `assets/spatial-hero/architecture-b.png`, 1586 × 992; 720/1280/native WebP exports                         |
+| Transparent TP                   | Existing `SharedTP` inline SVG, 360 × 550 viewBox, with transparent surrounding area and the reused stone texture |
+| Breeze rear/front                | Complementary projections of one live SVG cloth; no separately authored front/rear assets                         |
+| Photographic fabric alternatives | Alpha `assets/spatial-hero/breeze-ribbon.png`, 1448 × 1086, and `assets/home-intro/intro-breeze.png`, 1536 × 1024 |
+| Atrium background                | Opaque `assets/home-chapters/worlds-atrium.png`, 1672 × 941                                                       |
+| Separate sky/foliage             | Unavailable                                                                                                       |
+| Separate oculus/rim              | Unavailable                                                                                                       |
+| Separate central tree            | Unavailable                                                                                                       |
+| Separate floor/reflection        | Unavailable                                                                                                       |
+| Depth map                        | Unavailable                                                                                                       |
+
+Direct Sharp metadata inspection confirmed genuine alpha on both fabric sources
+and their WebP exports. Architecture and Atrium plates are opaque. The intro
+fabric exports are 1280 × 853 (115,622 bytes) and 720 × 480 (39,308 bytes); see
+[intro fabric provenance](HOME-INTRO-BREEZE-ASSET.md). No new artwork or image
+enlargement was produced for this audit.
+
+The Atrium's existing optimized exports are:
+
+| File under `public/images/home-chapters/` | Dimensions |   Bytes |
+| ----------------------------------------- | ---------- | ------: |
+| `worlds-atrium.webp`                      | 1672 × 941 | 252,504 |
+| `worlds-atrium-1280.webp`                 | 1280 × 720 | 168,876 |
+| `worlds-atrium-720.webp`                  | 720 × 405  |  67,048 |
+| `worlds-atrium-preview.webp`              | 320 × 320  |  25,964 |
+| `worlds-atrium-preview-160.webp`          | 160 × 160  |   8,008 |
+
+### Close-up resolution limit
+
+The sky opening contains only about 200 native vertical pixels. The audit
+baseline's approximately 5× camera pose samples about 301 × 188 source pixels
+for a 1440 × 900 viewport, or 335 × 188 for a 1920 × 1080 viewport. That is
+approximately 4.78× or 5.74× enlargement before device pixel ratio. The mobile
+720px export contains proportionally less sky detail. These are calculations
+from the source dimensions and framing, not browser performance measurements.
+
+Even the final full-width Atrium plate enlarges about 1.53× at 2560px viewport
+width. A crop or a larger output file cannot restore missing source detail.
+Use a restrained single-plate 2.5D fallback and disclose this limitation; do not
+claim independent tree, foliage or reflection parallax. A matching high-resolution
+sky/foliage plate and authored oculus/architecture separation would improve the
+camera passage. A matching higher-resolution Atrium would also improve the
+final large-desktop frame.
+
+Asset dimensions and compressed byte counts above do not establish actual
+browser RAM, GPU memory or frame performance. Those require runtime profiling.

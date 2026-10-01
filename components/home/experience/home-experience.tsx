@@ -1,6 +1,6 @@
 'use client';
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
-import { createStoryWorldTimeline } from './story-world-timeline';
+import { createHomeStoryTimeline } from './home-story-timeline';
 import { createBreezeRenderer } from './breeze-renderer';
 import './home-experience.css';
 export function HomeExperience({ children }: { children: ReactNode }) {
@@ -8,7 +8,7 @@ export function HomeExperience({ children }: { children: ReactNode }) {
   useLayoutEffect(
     () =>
       root.current
-        ? createStoryWorldTimeline(
+        ? createHomeStoryTimeline(
             root.current,
             createBreezeRenderer(root.current),
           )

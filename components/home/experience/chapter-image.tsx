@@ -6,14 +6,16 @@ export function ChapterImage({
   alt = '',
   className = '',
   sizes = '100vw',
+  scenePlate = false,
 }: {
   asset: keyof typeof assets;
   alt?: string;
   className?: string;
   sizes?: string;
+  scenePlate?: boolean;
 }) {
   const metadata = assets[asset];
-  return (
+  const image = (
     <img
       className={className}
       src={`/images/home-chapters/${asset}.webp`}
@@ -26,5 +28,20 @@ export function ChapterImage({
       decoding="async"
       fetchPriority="low"
     />
+  );
+  return scenePlate ? (
+    <picture className="hc-scene-picture">
+      <source
+        media="(max-width: 767px)"
+        srcSet={`/images/home-chapters/${asset}-720.webp`}
+      />
+      <source
+        media="(max-width: 1199px)"
+        srcSet={`/images/home-chapters/${asset}-1280.webp`}
+      />
+      {image}
+    </picture>
+  ) : (
+    image
   );
 }

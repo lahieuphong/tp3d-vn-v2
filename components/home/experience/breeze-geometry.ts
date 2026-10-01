@@ -1,3 +1,4 @@
+import { homeStoryTiming, range } from './home-story-frame';
 /** One cloth in shared-stage coordinates. Width is measured across the curve's
  * normal, never obtained by stretching a landscape image over a tall page. */
 export type BreezeFamily = 'mobile' | 'tablet' | 'desktop';
@@ -57,51 +58,51 @@ function drawCloth(
 }
 /** The same cloth goes from Story midground to a camera-close billow, then
  * passes beyond the camera; it never turns back into the atrium. Coordinates are local to the shared stage. */
-export function bridgeBreezeGeometry(
+export function storyBreezeGeometry(
   width: number,
   height: number,
-  openingDistance: number,
   progress: number,
 ) {
   const p = clamp(progress);
   const family = breezeFamily(width);
   const mobile = family === 'mobile';
-  const ease = (n: number) => {
-    const t = clamp(n);
-    return t * t * (3 - 2 * t);
-  };
+  const openingDistance = height * (mobile ? 0.9 : 1.1);
   const mix = (a: number, b: number, t: number) => a + (b - a) * t;
-  const approach = ease((p - 0.26) / 0.16);
-  const sweep = ease((p - 0.41) / 0.13);
-  const legacyHeight = openingDistance + height * (mobile ? 1.94 : 2.04);
+  const approach = range(
+    p,
+    homeStoryTiming.breezeApproach,
+    homeStoryTiming.breezeNear,
+  );
+  const sweep = range(p, 0.55, 0.635);
+  const identityHeight = openingDistance + height * (mobile ? 1.94 : 2.04);
   const opening = openingDistance + height * 0.84;
-  const oldX =
+  const identityX =
     family === 'desktop'
       ? [-0.15, 0.75, 0.52, 0.89, 0.27, 1.14]
       : family === 'tablet'
         ? [-0.12, 0.85, 0.6, 0.8, 0.27, 1.14]
         : [1.12, 0.78, 0.84, 0.26, 0.8, 1.14];
-  const oldY = [
+  const identityY = [
     -0.039 * opening,
     0.168 * opening,
     0.466 * opening,
     0.776 * opening,
     1.14 * opening,
-    legacyHeight + (legacyHeight - opening) * 0.06,
+    identityHeight + (identityHeight - opening) * 0.06,
   ];
   // A diagonal, folded sheet passes across the camera, not an opaque panel.
   const veilX = [0.39, 0.32, 0.49, 0.57, 0.67, 0.82].map(
     (x) => x + sweep * 1.45 - 0.55,
   );
   const veilY = [-0.48, -0.08, 0.22, 0.53, 0.88, 1.45];
-  const spine = oldX.map((x, i) => ({
+  const spine = identityX.map((x, i) => ({
     x: mix(x * width, veilX[i] * width, approach),
-    y: mix(oldY[i] - openingDistance, veilY[i] * height, approach),
+    y: mix(identityY[i] - openingDistance, veilY[i] * height, approach),
   }));
   const originalBreadth = Math.min(width * (mobile ? 0.25 : 0.18), 330);
   const breadth = mix(
     originalBreadth,
-    width * (mobile ? 0.95 : 0.86),
+    width * (mobile ? 1.02 : 0.99),
     approach,
   );
   const taper = [1, 1, 1, 1, 1, 1].map((v, i) =>

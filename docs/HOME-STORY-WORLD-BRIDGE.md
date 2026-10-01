@@ -1,143 +1,248 @@
-# Homepage cinematic smoothness pass
+# Homepage atmospheric camera pass
 
-Implemented locally on 2026-09-30. Supersedes the earlier bridge timing pass.
-Approved scene compositions, navigation and Footer layout are preserved.
+Implementation record for the 2026-10-01 Scene 2 → Scene 3 upgrade. This replaces
+previous timing and performance claims in this document. Approved Arrival,
+Philosophy, Enter the worlds, navigation and Footer compositions remain the basis
+of the page. Verification of this pass is recorded separately below.
 
-## Timeline
+The UNESCO reference recording was not available in the supplied attachment.
+The implementation follows the motion principles described in the brief; it does
+not claim a frame-by-frame study of that recording or reproduce its artwork.
 
-One native-scroll progress value drives the existing Story and one atrium image.
-The sticky stage remains 100svh. The bridge is 260svh desktop, 230svh tablet,
-220svh mobile; the preceding Discovery approach remains 110/110/90svh.
+## Selected implementation and ownership
 
-| Bridge progress | Choreography                                                                                                                                      |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0–16%           | Stable Story reading zone.                                                                                                                        |
-| 16–52%          | Architecture continues accelerating forward; text recedes from 16%, leaves/text depart completely by 46%.                                         |
-| 26–54%          | Cloth grows toward the lens, crosses the camera and travels beyond the right edge. Architecture reveals behind its directional weave over 41–52%. |
-| 52–64%          | Full-frame sky hold: 12% of the bridge, with no Story or Worlds copy. Cloth dissolves while exiting and is completely gone at 64%.                |
-| 64–84%          | A single camera pull-back opens the skylight into the atrium; mobile reaches rest at 83%.                                                         |
-| 74–88%          | Rooms and original Worlds copy reveal in a restrained stagger.                                                                                    |
-| 86% onward      | Room links become interactive only after their reveal is complete; CTA waits until its reveal finishes at 88%.                                    |
-| 88–100%         | Fully still reading composition: no camera, cloth, light or UI changes.                                                                           |
-| 100%            | Sticky releases into the normal-flow Footer.                                                                                                      |
+**Mode A: native-scroll DOM/SVG 2.5D.** The audited project has no installed GSAP,
+ScrollTrigger, smooth-scroll, Three.js, React Three Fiber or OGL dependency. No
+library was installed. The existing scene assets are flat plates, so a canvas
+would add resource and lifecycle costs without supplying missing scene geometry.
+Main typography, navigation and interactions remain HTML.
 
-After camera rest there is 25.6svh desktop, 20.8svh tablet and 20.4svh mobile
-of scroll before Footer begins entering. The completely still, fully revealed
-UI holds for the last 12%: 19.2/15.6/14.4svh respectively. There is no blank spacer.
+`HomeStory` owns one 100svh sticky viewport. Its document height remains 360svh on
+desktop, 340svh on tablet and 300svh on mobile; Footer follows in normal flow.
+`createHomeStoryTimeline` samples one normalized native-scroll progress, `p`, for
+Arrival, shared TP, Philosophy, fabric, camera, light, Worlds content and rail.
+The Scene 2 → Scene 3 bridge begins at `p = .34`; its local progress is
+`clamp((p - .34) / .66)`. The timeline below uses **master progress**, unless
+explicitly marked as bridge-local.
 
-## Camera and cloth
+There is one scroll listener and an on-demand RAF, no React state update per
+frame, wheel interception or smoothing of browser scroll. Geometry is cached
+between layout changes. Unchanged styles are skipped; rail progress properties
+are written on the rail rather than inherited throughout the stage. The former
+independent Hero and StoryWorldBridge controllers remain removed. Hidden tabs
+cancel scheduled work, and unmount removes listeners, observers, pending work
+and retained callbacks.
 
-Story entry uses a power-2.6 acceleration. The atrium uses one logarithmic scale
-trajectory with asymmetric arrival `1 - (1 - t)^4 * (1 + 4t)`: velocity is zero
-at either end, peaks at 25% of the move, then decelerates over a longer tail.
-There is no separate near-final zoom stage or scale snap.
+## Audited assets and limits
 
-The real oculus is about 20% of the 1672×941 photograph's height. Full-frame sky
-therefore needs a bounded ~4.8–5× crop on this same image; 1.24× cannot fill the
-viewport with its sky. The camera crosses the restrained 1.24× close-up during
-its arrival and ends at exact scale 1 / translation 0. The optical origin follows
-the photographed skylight at 11.6% of covered image height; proportional vertical
-translation maintains image coverage across aspect ratios. Source resolution
-limits close-up sharpness. No alternate sky or second full-size plate is loaded.
+See the [asset audit](SPATIAL-HERO-ASSETS.md#scene-2--scene-3-layer-audit--2026-10-01)
+for source provenance and exact export sizes.
 
-Only architecture may trail scroll by a bounded 2px / .25% scale (less on narrow
-viewports). The tiny residual decays over roughly 180–200ms; native scroll, text
-and hit targets never use this filtered pose. There is no GSAP, Lenis, wheel
-interception or permanent RAF loop. Layout is cached on mount/resize; restoration
-resamples synchronously. Reverse scroll uses the same reversible functions.
+| Layer                                                          | Actual available resource                                                                            |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Scene 2 background                                             | Opaque `architecture-b.png`, 1586 × 992; responsive 720/1280/native WebP exports                     |
+| Shared TP                                                      | Existing transparent inline SVG, 360 × 550 coordinate system, reused stone texture                   |
+| Rear/front Breeze                                              | Two complementary projections of one existing SVG cloth definition; one painted projection on mobile |
+| Scene 3                                                        | One opaque `worlds-atrium.png`, 1672 × 941; 720 × 405, 1280 × 720 and native WebP exports            |
+| Sky, foliage, oculus/rim, architecture, tree, floor/reflection | Baked into the same Atrium plate; no separately authored layers                                      |
+| Depth map                                                      | Not available                                                                                        |
+| Alternative photographic fabric                                | Existing alpha ribbon 1448 × 1086 and intro cloth 1536 × 1024; not new transition layers             |
 
-The cloth uses one definition and a connected directional spline. Its near-camera
-breadth is narrower, its weave retains texture, and translucent fill is reduced.
-The old return curve and unused canopy/rim masks are removed. A 2.5% feathered
-architecture reveal follows behind the cloth rather than a white full-screen
-veil. Cloth continues translating while dissolving; it is absent throughout the
-atrium pull-back and final scene.
+No new scene artwork, upscaled replacement files, separated depth planes or
+textures were generated. Runtime camera framing still enlarges the existing
+plate: its sky opening contains only about 200 native vertical pixels. A full
+sky viewport therefore requires approximately 4.8–5× framing rather than a
+1.16–1.24× crop. The former audit framing sampled about 301 × 188 source pixels
+at 1440 × 900 and 335 × 188 at 1920 × 1080. The present small sky advance does not
+restore that missing detail. At 2560px width, even the final 1672px full plate is
+enlarged approximately 1.53×.
 
-## Light, interactions and device complexity
+This is an explicitly resolution-limited single-plate fallback. A matching
+high-resolution sky/foliage plate, authored oculus/architecture separation and a
+higher-resolution final Atrium would improve fidelity. Independent sky, foliage,
+tree or reflection parallax is not claimed. Mobile and tablet sources stay
+bounded to 720px and 1280px respectively; desktop uses the existing responsive
+source set.
 
-- Small local radial gradients suggest warm Story light (up to .03 opacity) and
-  sky light (up to .055); they fade into the existing photographic exposure
-  treatment before arrival. No animated full-image brightness/filter or blur.
-- Header stays spatially fixed: charcoal → softer charcoal at the sky → warm
-  ivory, with 350ms color interpolation. A temporary top shade fades by 84%.
-- Settled desktop room hover/focus translates only the title 3px, keeps its number
-  still, expands the underline 60→100%, and dims other room labels to .65.
-  One small gradient emphasizes the selected opening at .045 opacity.
-- The CTA preview crossfades to the selected room over 220ms. Four 192×192 WebP
-  thumbnails are generated from existing assets by `scripts/build-room-previews.mjs`.
-  They are small preview images, not duplicate background layers.
-- CTA hover/focus scales the thumbnail to 1.04, moves the arrow 5px and rotates a
-  partial circular line 6°. No looping animation.
-- Tablet reduces Story depth and micro inertia by 30%; mobile by 50%. Mobile
-  paints one cloth projection, uses the shorter bridge, and does not request room
-  hover images. Room/CTA hit targets remain at least 44px tall.
-- Reduced motion removes the sticky zoom, inertia, cloth and light motion; all
-  content flows normally and links remain available. No hover parallax.
-- Invisible/moving links are inert and excluded from keyboard interaction. Reverse
-  scrolling disables interactions again before camera movement resumes.
+## Camera choreography
 
-The source is one flat photograph, so no fabricated depth cutouts or duplicated
-floor were added. Optional reflection lag was skipped; camera, light and cloth
-supply the depth without a second full-size image, Canvas, WebGL or video effect.
+| Master progress          | Behavior                                                                                            |
+| ------------------------ | --------------------------------------------------------------------------------------------------- |
+| 0–.16                    | Quiet Arrival hold                                                                                  |
+| .16–.34                  | Headlines and portals leave with stagger; the same TP settles into Philosophy                       |
+| .27–.34                  | Manifesto enters as the approved Scene 2 architecture settles                                       |
+| .34–.48                  | Composed Philosophy reading hold; bridge-local progress 0–.212                                      |
+| .48–.61                  | Architecture advances gently, text recedes, and TP moves deeper                                     |
+| .495–.575                | Breeze broadens and approaches the camera; rear contribution transfers to the front projection      |
+| .565–.61                 | Directional sky reveal crosses behind the near-camera cloth; Scene 2 is hidden by .61               |
+| .61–.705 desktop/tablet  | Sky void, with no manifesto, main title, room labels, CTA or final Atrium composition               |
+| .61–.69 mobile           | Shorter sky void                                                                                    |
+| .61–.67                  | Cloth travels out and dissolves; it is gone before the architectural pull-back                      |
+| .705–.895 desktop/tablet | Oculus and Atrium reveal through one camera framing trajectory, ending at scale 1 and translation 0 |
+| .69–.885 mobile          | Earlier camera reveal/rest with reduced depth                                                       |
+| .825–.92                 | Living → Bedroom → Bathroom → Kitchen, then eyebrow, title, body, signoff and CTA                   |
+| .92–1                    | Final 8% remains still and clean; native scrolling subsequently releases into Footer                |
 
-## Verification
+The sky void is 9.5% of master progress on desktop/tablet, or approximately
+14.4% of the Scene 2 → Scene 3 bridge. Mobile uses 8% of master progress,
+approximately 12.1% of the bridge. The end of the cloth passage occupies the early
+part of that void; no Worlds UI is introduced there.
 
-Passed: lint, TypeScript, Home/cloth controller checks, Hero checks, Intro checks,
-production Vercel build and `git diff --check`.
+The final full-content hold spans 20.8svh desktop, 19.2svh tablet and 16svh mobile.
+Room links become available after `.905` and their individual reveals complete;
+the CTA completes at `.92`. Hidden or moving links remain inert. Reverse scroll
+samples the same functions and restores their eligibility from progress.
 
-Regression checks cover bounded/finite inertia and its 200ms settle, image
-coverage, exact final camera pose, cloth exit, interaction locking, reverse
-sampling, reduced motion, hidden-tab inactivity, restoration and cleanup.
+### Shared camera and TP
 
-Chrome production QA at 320×568, 390×844, 768×1024, 1024×768, 1440×900,
-1920×1080 and 2560×1440 found no horizontal overflow, no Footer gap, and all final
-room/CTA links within the viewport. MutationObserver audits over 89/92/96/100%
-plus an idle pause found zero visual style/path changes at every tested size.
-Mobile forward/reverse samples matched after the bounded settling interval.
+The Scene 2 forward push uses a perspective-like reciprocal scale with depth
+factors 1/.7/.5 for desktop/tablet/mobile. SharedTP recedes through the inverse
+relationship, while its disappearance derives from the same crossing value as
+the sky reveal. It does not use a separately scheduled opacity clock. Main copy
+loses emphasis before the occluded architecture change.
 
-Reload at scrollY 1774 restored progress .64996 exactly, without a restoration
-gate remaining. Desktop and mobile reduced-motion QA confirmed a relative stage,
-no image transform, hidden cloth/light, all link opacity 1 and no inert links.
-Keyboard CTA focus verified scale 1.04, arrow 5px and rotation 6°.
+The actual Scene 3 sky has a very slow scroll-bound advance: up to 1.8% framing
+change and .6% viewport-height translation, reduced by device depth. Sky and
+foliage move together because they share one source plate. The optical origin is
+at 11.6% of the covered image height. Image translation is clamped to retain
+coverage.
 
-A 31-second, 1680×800 MP4 records the actual Chrome tab through Opening,
-Discovery, Story, Breeze, sky, atrium and Footer. QA drives native scroll at a
-controlled slow rate with reading pauses; it is not a physical trackpad recording.
-The recording is only a local QA artifact, never a website asset. Visual review
-also used full-size intermediate screenshots. Refinement reduced the cloth fill
-and reveal feather and corrected the departing leaf selector.
+Oculus geometry enters from the viewport edges as the existing photograph pulls
+back. No circle grows from zero, floating image card or ellipse portal is added.
+Camera depth is interpolated logarithmically, with the asymmetric arrival curve
+`1 - (1 - t)^4 * (1 + 4t)`. It covers about 97% of its depth progression in the
+first 70% of the interval, leaving a slow final tail. The trajectory passes
+through the requested restrained 1.16–1.24× framing near arrival; the larger
+opening sky crop remains the source-resolution compromise described above.
 
-## Performance observations and limits
+Only desktop architecture may settle by at most 2px/.25% scale for roughly
+180–200ms. Tablet and mobile have **zero camera inertia**. Text, header, links and
+native scroll never inherit this delay. The final pose and all bridge exposure
+contributions stop changing before the final hold.
 
-Real Chrome DevTools Performance recording used Screenshots + Memory, without
-CPU/network throttling, covering slow/fast/reverse scroll and mid-scene pauses.
-Local QA controls and installed browser extensions were present.
+### Breeze, light and refinement
 
-| Observation                                | Result                                                                                                        |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| Slow/fast/reverse/pause RAF cadence        | 1,118 intervals; median 16.7ms, p95 17.6ms; 6 above 33ms.                                                     |
-| Long tasks during that controlled sequence | None observed by PerformanceObserver.                                                                         |
-| Separate 20-cycle stress cadence           | 819 intervals; median 16.7ms, p95 31.3ms; 30 above 33ms; five long tasks of 54–134ms.                         |
-| Stress DOM                                 | 537 elements before and after; one full-size Worlds image, one header, one cloth definition, two projections. |
-| Stress JS heap samples                     | 49,314,002–62,242,192 bytes; no runtime errors observed.                                                      |
-| DevTools renderer JS heap                  | 32,932,020–34,933,780 bytes; final 33,018,068 bytes.                                                          |
-| DevTools document/nodes/listeners          | One document; nodes 1084–1085 ending at 1084; listeners 1184 initially, 1173 finally.                         |
-| Maximum Layout / Paint / UpdateLayoutTree  | 8.133ms / 8.796ms / 7.612ms in the saved trace.                                                               |
-| Canvas / WebGL requests                    | Zero / zero.                                                                                                  |
+The existing cloth silhouette, twelve folds and thirty-seven threads share one
+geometry definition. Its width is calculated across the spine's normal. As it
+approaches, the cloth broadens, changes curvature, rotates slightly and moves
+into the front projection. Local opacity increases within the fabric, retaining
+translucent edges and visible weave; no full-screen white panel or animated blur
+is introduced.
 
-The full trace includes one 172.885ms main-thread task outside the controlled
-sequence. Its 166.369ms FunctionCall belongs to the browser extension's
-`content-scripts/codex.js`, not the application. These observations include QA
-and browser overhead; they are not a universal 60fps or mid-range-device claim.
-The stress run still has dropped-frame intervals.
+A directional reveal of the actual sky occurs behind that cloth, rather than
+crossfading two fully readable room compositions. Exit combines a continuing
+geometric sweep, translation of up to 40% viewport width and a final dissolve.
+The rear projection is gone by `.575`; all cloth is gone by `.67`, before the
+Atrium pull-back begins. The final Enter the worlds frame contains no Breeze or
+transition atmosphere.
 
-Compositor layer activation/update and GPU tasks are present. Temporary
-`will-change` declarations are removed at camera rest. GPU memory counters were
-not exposed, so VRAM is not measured. JS heap is not total Chrome process RAM;
-total process RAM was not measured either. The enlarged sky crop still carries
-raster/compositor cost despite using one source image.
+The candidate recording prompted a motion refinement: softer cloth-edge opacity,
+more visible thread contrast and greater exit translation. The refined renderer
+attenuates thread detail by 24% at peak approach, keeping 76% rather than washing
+out the weave. Near-lens edge gradient stops are .14/.13 while interior stops
+reach .70/.74. This is a bounded SVG material adjustment, not a blur/filter pass.
 
-Evidence is in ignored `work/cinematic-pass/`: screenshots, per-viewport stillness
-reports, reverse/stress/motion reports, `chrome-performance.json.gz`,
-`trace-summary.json`, `homepage-scroll.mp4` and the video contact sheet.
-The local proxy/recording controls and logs are excluded from production.
+Local warm light peaks at .035 in Scene 2 and .06 around the sky threshold, then
+settles with the interior arrival. Temporary header shading also disappears;
+the approved final photographic readability treatment remains. These are
+lightweight gradients. No full-image animated brightness, post-processing or
+continuous final-scene animation is added.
+
+## Preparation, fallbacks and access
+
+`prepareBridgeImage` observes the HomeStory owner with a `120% 0px` root margin.
+It promotes the existing responsive Atrium image to eager/auto priority before
+the bridge is reached, then awaits decoding. It does not create another Image
+object or duplicate texture. The helper handles cached completion, image errors,
+responsive-source races, unavailable IntersectionObserver and cleanup. An absent
+IntersectionObserver starts preparation immediately.
+
+If native scrolling outruns decoding, only visual progress is held at `.48`,
+preserving the complete Philosophy composition while browser scroll remains
+native. Once decoded, the next frame samples the native position. A failed image
+is hidden and the Worlds HTML remains available over the static fallback color;
+the page is not trapped behind a loader. Delayed decoding and image failure were verified in the browser as described below.
+
+Reduced motion uses normal document flow and fully available content. Between
+Philosophy and Worlds, a short static sky strip uses a crop of the **same existing
+Atrium plate**, followed by the static Atrium. It is not a separately authored sky
+layer. Conditional picture sources request that plate only for reduced motion;
+normal mode has no extra scene-image request from this strip. Its readiness
+opacity transition is 180ms; there is no large camera travel, cloth, rail or
+inertia. The sky crop carries the same resolution limit as the primary plate.
+
+The chapter rail remains decorative and desktop-only (at least 1200px), fades
+through the void and stops progressing at final stillness. Approved room and CTA
+hover/focus treatments are retained: a small room-label shift and underline,
+220ms thumbnail crossfade, CTA image scale 1.035 and arrow movement 4px. Touch
+layouts do not gain hover or pointer parallax. Main content stays semantic HTML.
+
+## Current-pass verification and measurements
+
+Verified on the production build in Chrome on 2026-10-01. The recorder/film tab
+was closed during cadence, stress and navigation measurements. QA controls and
+installed extensions were present. Evidence is in ignored
+[work/atmosphere-pass](../work/atmosphere-pass/); its
+[harness README](../work/atmosphere-pass/README.md) documents scope.
+
+All twelve requested viewports completed the entire forward/reverse story:
+375×812, 390×844, 430×932, 768×1024, 820×1180, 1024×768, 1280×800,
+1366×768, 1440×900, 1728×1117, 1920×1080 and 2560×1440. Reports found matching
+forward/reverse samples, zero final-hold visual mutations, no horizontal overflow,
+zero Footer gap and no runtime errors. Pure geometry tests independently check
+image coverage and finite poses for all sizes.
+
+An 8-second delayed Atrium request kept camera progress at `.48` while native
+progress advanced through `.58`, `.63`, `.705`, `.84` and `.95`. After decode,
+visual progress resumed at `.95`. A failed request hid the unavailable image and
+left all five final links usable. These fault tests ran after the Intro had exited.
+Desktop and 390×844 reduced-motion checks confirmed relative document flow,
+static sky with the correct responsive source, no image transform, hidden cloth,
+no overflow and available links. Reload at scrollY 1591 restored `.67991` exactly,
+with no Intro/restoration gate remaining. Keyboard focus retained `.95`; native
+large scroll gestures moved `.95 → .37308 → .95` normally. Temporary will-change
+was `auto` on architecture, Atrium and cloth after arrival.
+
+| Current measured observation        | Result                                                                                                                                                                                   |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Slow/fast/reverse/pause RAF cadence | 1,522 intervals; median 16.7ms, p95 18.6ms, maximum 18.8ms; none above 33ms.                                                                                                             |
+| Long tasks in that sequence         | None observed by PerformanceObserver.                                                                                                                                                    |
+| Separate 20-cycle stress            | 800 measured intervals; median 16.7ms, p95 18.6ms; none above 33ms and no observed long tasks.                                                                                           |
+| Stress JS heap samples              | 54,041,277–55,858,969 bytes, fluctuating rather than monotonically rising.                                                                                                               |
+| Stress structure                    | 561 QA-page elements before/after; one owner, stage, TP, header and full-size Worlds image.                                                                                              |
+| Ten Home → Worlds → Home cycles     | Real client-side link navigation in the same document; one Home stage/TP after every return and none on Worlds.                                                                          |
+| Navigation JS heap samples          | 51,006,222–65,138,455 bytes; final 59,794,096. Natural drops are visible; no forced GC or claim of zero retained allocation.                                                             |
+| Navigation resources                | After first route warm-up, 567 QA-page elements and 168 scoped window/document listeners remain constant. One active ResizeObserver on Home, zero on Worlds; zero pending RAF on Worlds. |
+| Final scene / Footer idle           | Zero non-QA RAF callbacks during each 500ms idle sample; no continuous HomeStory render loop.                                                                                            |
+| Canvas / WebGL                      | Zero canvas elements, context calls and WebGL contexts observed.                                                                                                                         |
+| Chrome main-process RSS             | 158,880 KiB before the sequence of checks; 231,056 KiB in the later sample.                                                                                                              |
+| Shared Chrome GPU-process RSS       | 44,432 KiB before; 80,512 KiB later. These are process RAM snapshots, not VRAM or per-page allocations.                                                                                  |
+
+The navigation heap follows a sawtooth pattern with natural collection; stable
+DOM/listener/observer counts give no evidence of accumulating HomeStory instances
+in these ten cycles. This is a bounded local test, not a proof against all leaks.
+The harness itself stores reports and framework routing warms caches.
+
+RAF cadence is not a hardware display-FPS guarantee. The fast/flick cases are
+controlled scroll inputs plus native browser scroll gestures, not a measured
+physical trackpad or weaker-device benchmark. No universal 60fps claim is made.
+Browser-wide process RSS includes other tabs, extensions and compositor caches;
+it increased during these checks and cannot be attributed solely to this page.
+Total Chrome process-tree RAM, GPU utilization, compositor texture count and VRAM
+were not measured. The lack of WebGL does not remove DOM raster/compositor costs,
+especially for the enlarged sky crop.
+
+Lint, TypeScript, HomeStory/cloth/decode lifecycle checks, Hero checks, Intro
+checks, the complete internal-route/image crawl and production Vercel build all
+passed. Checks include missing/late image resources, reverse/restoration,
+responsive coverage, desktop-only inertia, focus preservation, and repeated
+mount/unmount cleanup. No production dependency was added.
+
+A candidate Loader→Footer recording was played at normal speed and reviewed with
+intermediate screenshots. Its overly dense cloth edge prompted the material and
+exit refinement documented above. The final recording is
+[homepage-scroll.mp4](../work/atmosphere-pass/homepage-scroll.mp4); a 39.367-second 1440×662 export (9,057,164 bytes), played back at 1× and
+reviewed with its final contact sheet. It includes Loader, Arrival, Philosophy,
+cloth passage, the sky void, skylight reveal, settled Worlds and Footer. This is a real Chrome
+tab recording driven by controlled native document scroll, not a website video
+transition. All QA scripts, instrumentation and recordings stay outside production.
