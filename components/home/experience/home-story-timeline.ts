@@ -1,18 +1,35 @@
 import type { BreezeDriver } from './breeze-renderer';
-import { prepareBridgeImage } from './bridge-image';
+import {
+  MOTION,
+  cameraImpulse,
+  motionProfile,
+  settleVisual,
+  type VisualPose,
+} from './home-motion';
+import { prepareSceneImage } from './scene-image';
+import { HOME_PRODUCTION } from './home-production';
+import { createRoomDiscovery } from './room-discovery';
+import {
+  bridgeTiming,
+  bridgeFrame,
+  measureAtrium,
+  atriumPose,
+  worldReveal,
+  storyTextDeparture,
+  departureRole,
+} from './atmospheric-bridge-frame';
 import {
   clamp,
   homeStoryFrame,
-  homeStoryTiming,
-  worldContentReveal,
-  settleCamera,
   arrivalFrame,
-  portalDeparture,
-  type CameraPose,
+  arrivalTiming,
+  tpTiming,
+  tpPose,
+  type TPGeometry,
 } from './home-story-frame';
 
-/** One owner, one scroll listener and one RAF for Arrival → Perspective → Worlds.
- * Layout is measured on mount/resize only; every visual samples the same p. */
+/** The only scroll owner. All scene layers sample native progress; no camera
+ * clock, scroll correction, per-frame React state or independent scene trigger. */
 export function createHomeStoryTimeline(
   root: HTMLElement,
   breeze?: BreezeDriver,
@@ -25,18 +42,24 @@ export function createHomeStoryTimeline(
     breeze?.destroy();
     return () => {};
   }
+  const sharedTP = stage.querySelector<HTMLElement>('[data-shared-tp]');
+  const camera = worlds.querySelector<HTMLElement>('[data-scene3-camera]');
+  const worldReveals = [
+    ...worlds.querySelectorAll<HTMLElement>('[data-chapter-reveal]'),
+  ];
+  const roomLabels = worlds.querySelector<HTMLElement>('.hc-atrium-rooms');
+  const architecture = story.querySelector<HTMLElement>('.sh-plane-background');
+  const centerCopy = story.querySelector<HTMLElement>('.sh-center-copy');
+  const colophon = story.querySelector<HTMLElement>('.sh-colophon');
+  const readStory = story.querySelector<HTMLElement>('.sh-read-story');
   const header = document.querySelector<HTMLElement>('.site-header');
   const rail = root.querySelector<HTMLElement>('.story-rail');
   const image = worlds.querySelector<HTMLImageElement>(
     '.hc-atrium-backdrop img',
   );
-  const reveals = [
-    ...worlds.querySelectorAll<HTMLElement>('[data-chapter-reveal]'),
-  ];
   const discovery = story.querySelector<HTMLElement>('.sh-discovery');
   const manifesto = story.querySelector<HTMLElement>('.sh-story');
-  const portalGroup = story.querySelector<HTMLElement>('.sh-portals');
-  const portals = [...story.querySelectorAll<HTMLElement>('.sh-portal')];
+  const portals = story.querySelector<HTMLElement>('.sh-portals');
   const secondary = story.querySelector<HTMLImageElement>(
     'img[data-hero-deferred]',
   );
@@ -45,90 +68,125 @@ export function createHomeStoryTimeline(
       'source[data-hero-deferred-source]',
     ),
   ];
-  const openingLayers = Object.keys(arrivalFrame(0, 1440, false)).map(
-    (selector) => ({
-      selector,
-      node: story.querySelector<HTMLElement>(selector),
-    }),
+  const openingLayers = Object.keys(arrivalFrame(0, 1440, false)).flatMap(
+    (selector) =>
+      [...root.querySelectorAll<HTMLElement>(selector)].map((node) => ({
+        selector,
+        node,
+      })),
   );
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   const saved = [
-    root,
-    story,
-    worlds,
-    header,
-    rail,
-    discovery,
-    manifesto,
-    portalGroup,
-    ...portals,
-    ...reveals,
-    ...openingLayers.map((layer) => layer.node),
+    ...new Set([
+      root,
+      sharedTP,
+      camera,
+      roomLabels,
+      architecture,
+      centerCopy,
+      colophon,
+      ...worldReveals,
+      readStory,
+      story,
+      worlds,
+      header,
+      rail,
+      discovery,
+      manifesto,
+      portals,
+      ...openingLayers.map((layer) => layer.node),
+    ]),
   ]
-    .filter((n): n is HTMLElement => !!n)
+    .filter((node): node is HTMLElement => !!node)
     .map((node) => ({
       node,
-      attributes: [
-        'style',
-        'inert',
-        'aria-hidden',
-        'data-story-ready',
-        'data-scene',
-        'data-motion',
-        'data-story-image',
-        'data-opening',
-        'data-story-chapter',
-        'data-story-active',
-        'data-story-progress',
-        'data-camera-progress',
-        'data-bridge-image',
-        'data-bridge-active',
-        'data-story-hero-hidden',
-        'data-story-sky-complete',
-        'data-chapter-theme',
-        'data-world-interactive',
-      ].map((name) => [name, node.getAttribute(name)] as const),
+      // The persistent header's interaction gate belongs to the Intro, which
+      // may release it after this timeline mounts. Restore only our theme data.
+      attributes: (node === header
+        ? ['data-opening', 'data-chapter-theme']
+        : [
+            'style',
+            'inert',
+            'aria-hidden',
+            'data-scene',
+            'data-motion',
+            'data-story-image',
+            'data-opening',
+            'data-story-chapter',
+            'data-story-progress',
+            'data-scene-image',
+            'data-chapter-theme',
+            'data-tp-state',
+            'data-bridge-phase',
+            'data-world-interactive',
+          ]
+      ).map((name) => [name, node.getAttribute(name)] as const),
     }));
   let geometry = {
     top: 0,
     span: 1,
-    stage: 1,
     width: 1,
+    height: 1,
     bottom: 0,
     worldTop: 0,
     header: 0,
   };
+  let tpGeometry: TPGeometry = {
+    x: 0,
+    y: 0,
+    scale: 1,
+    width: 0,
+    height: 0,
+    opacity: 1,
+  };
+  let atriumGeometry = measureAtrium(1440, 900);
+  const headerMix = header?.style.getPropertyValue('--home-header-ivory') ?? '';
+  const headerMixPriority =
+    header?.style.getPropertyPriority('--home-header-ivory') ?? '';
+  const debug =
+    import.meta.env.DEV &&
+    new URLSearchParams(window.location.search).get('storyDebug') === '1'
+      ? document.createElement('output')
+      : null;
+  if (debug) {
+    debug.className = 'home-story-debug';
+    debug.setAttribute('aria-hidden', 'true');
+    stage.appendChild(debug);
+  }
   let frame = 0,
     disposed = false,
-    needsMeasure = true,
-    lastSignature = '';
-  let camera: CameraPose | null = null,
-    lastCameraSignature = '',
-    lastTime = 0;
-  let lastScroll = window.scrollY;
-  let focusScroll: number | null = null;
-  let bridgeReady = false;
-  let bridgeFailed = !image;
+    needsMeasure = true;
   let ready = false,
     secondaryStarted = false,
-    initialPaints = 2,
-    lastArrivalSignature = '';
+    initialPaints = 2;
+  let sceneImage: 'loading' | 'ready' | 'failed' = image ? 'loading' : 'failed';
+  let lastSignature = '';
+  let cameraMass: VisualPose | null = null;
+  let architectureMass: VisualPose | null = null;
+  let lastFrameTime = 0;
+  const discoveryInteraction = createRoomDiscovery(worlds);
+  const schedule = () => {
+    if (!disposed && !document.hidden && !frame)
+      frame = requestAnimationFrame(render);
+  };
   const imageSettled = async () => {
     if (!secondary || disposed) return;
+    let decoded = false;
     if (secondary.naturalWidth) {
       try {
         await secondary.decode();
+        decoded = true;
       } catch {
-        /* Preserve Scene A if decoding fails. */
+        /* Keep architecture A as fallback. */
       }
     }
     if (disposed) return;
-    ready = secondary.complete && secondary.naturalWidth > 0;
+    ready = decoded && secondary.complete && secondary.naturalWidth > 0;
     story.dataset.storyImage = ready ? 'ready' : 'fallback';
     schedule();
   };
   const startSecondary = () => {
-    if (!secondary || secondaryStarted || reduced.matches) return;
+    if (!secondary || secondaryStarted) return;
     secondaryStarted = true;
     secondary.addEventListener('load', imageSettled);
     secondary.addEventListener('error', imageSettled);
@@ -139,78 +197,353 @@ export function createHomeStoryTimeline(
     secondary.src = secondary.dataset.src ?? '';
     if (secondary.complete) void imageSettled();
   };
-  const schedule = () => {
-    if (!disposed && !document.hidden && !frame)
-      frame = requestAnimationFrame(render);
-  };
   const measure = () => {
-    camera = null;
+    cameraMass = architectureMass = null;
+    lastFrameTime = 0;
     const scroll = window.scrollY;
     const owner = sequence.getBoundingClientRect();
-    const stageBounds = stage.getBoundingClientRect();
+    const bounds = stage.getBoundingClientRect();
     const worldBounds = worlds.getBoundingClientRect();
     geometry = {
       top: owner.top + scroll,
-      span: Math.max(1, owner.height - stageBounds.height),
-      stage: stageBounds.height,
-      width: stageBounds.width,
+      span: Math.max(1, owner.height - bounds.height),
+      width: bounds.width,
+      height: bounds.height,
       bottom: owner.bottom + scroll,
       worldTop: worldBounds.top + scroll,
       header: header?.getBoundingClientRect().height ?? 0,
     };
-    breeze?.measure(stageBounds.width, stageBounds.height);
+    if (sharedTP) {
+      const style = getComputedStyle(sharedTP);
+      const distance = (value: string) => {
+        const amount = Number.parseFloat(value) || 0;
+        if (value.trim().endsWith('vw')) return (amount * bounds.width) / 100;
+        if (value.trim().endsWith('vh')) return (amount * bounds.height) / 100;
+        return amount;
+      };
+      tpGeometry = {
+        x: distance(style.getPropertyValue('--sh-monogram-story-x')),
+        y: distance(style.getPropertyValue('--sh-monogram-story-y')),
+        scale:
+          Number.parseFloat(
+            style.getPropertyValue('--sh-monogram-story-scale'),
+          ) || 1,
+        width: Number.parseFloat(style.width),
+        height: Number.parseFloat(style.height),
+        opacity:
+          Number.parseFloat(style.getPropertyValue('--tp-base-opacity')) || 1,
+      };
+    }
+    breeze?.measure(bounds.width, bounds.height);
+    atriumGeometry = measureAtrium(bounds.width, bounds.height);
     needsMeasure = false;
   };
-  const toggle = (name: string, enabled: boolean) => {
-    if (root.hasAttribute(name) !== enabled)
-      root.toggleAttribute(name, enabled);
+  const expose = (node: HTMLElement | null, visible: boolean) => {
+    if (!node) return;
+    if (node.inert !== !visible) node.inert = !visible;
+    if (node.getAttribute('aria-hidden') !== String(!visible))
+      node.setAttribute('aria-hidden', String(!visible));
   };
-  const expose = (node: HTMLElement, visible: boolean) => {
-    const hidden = !visible;
-    if (node.inert !== hidden) node.inert = hidden;
-    if (node.getAttribute('aria-hidden') !== String(hidden))
-      node.setAttribute('aria-hidden', String(hidden));
-  };
-  // Inline-style reads do not force layout. Quiet phases only update the tiny
-  // rail, instead of invalidating inherited custom properties across the stage.
   const property = (node: HTMLElement, name: string, value: string) => {
     if (node.style.getPropertyValue(name) !== value)
       node.style.setProperty(name, value);
   };
-  function render() {
+  function render(now = performance.now()) {
     frame = 0;
     if (disposed || document.hidden) return;
     if (needsMeasure) measure();
-    if (focusScroll !== null) {
-      // Chrome may scroll to an absolute child's unpinned position on focus.
-      // Preserve the visible, settled stage for this focus event only. This
-      // cancels that automatic scroll without changing wheel/touch behavior.
-      if (!reduced.matches)
-        window.scrollTo({ top: focusScroll, behavior: 'instant' });
-      focusScroll = null;
-    }
     const scroll = document.documentElement.hasAttribute('data-home-intro')
       ? 0
       : window.scrollY;
-    lastScroll = scroll;
+    const p = clamp((scroll - geometry.top) / geometry.span);
+    if (p >= HOME_PRODUCTION.scenePreload) preparedImage?.start();
+    const state = homeStoryFrame(p);
     const still = reduced.matches;
-    const nativeProgress = clamp((scroll - geometry.top) / geometry.span);
-    // Scroll stays native. If a fast flick beats decoding, retain the complete
-    // Philosophy composition until the existing responsive plate is ready.
-    const p =
-      !still && !bridgeReady && !bridgeFailed
-        ? Math.min(nativeProgress, homeStoryTiming.perspectiveEnd)
-        : nativeProgress;
-    const visualProgress = Math.min(p, homeStoryTiming.settled);
-    const state = homeStoryFrame(
-      visualProgress,
+    // A failed plate never exposes an empty sky or interactive labels over the
+    // wrong room. Retain the readable manifesto until the one image decodes.
+    const bridgeProgress =
+      sceneImage === 'ready' ? p : Math.min(p, bridgeTiming.exitStart);
+    const bridge = bridgeFrame(bridgeProgress, geometry.width, still);
+    const visualChapter = homeStoryFrame(bridgeProgress).chapter;
+    const worldPose = atriumPose(bridgeProgress, atriumGeometry, still);
+    const elapsed = lastFrameTime ? now - lastFrameTime : 0;
+    lastFrameTime = now;
+    const motion = cameraImpulse(bridgeProgress, geometry.width);
+    const profile = motionProfile(geometry.width);
+    const massEnabled = !still && bridgeProgress < bridgeTiming.settled;
+    const cameraResponse = settleVisual(
+      cameraMass,
+      worldPose,
+      elapsed,
       geometry.width,
-      geometry.stage,
+      geometry.height,
+      massEnabled &&
+        bridge.scene3Visible &&
+        bridgeProgress >= profile.cameraStart,
     );
-    // Native restoration runs during document load. Reveal the already sampled
-    // frame after load, never flash the default Story/Discovery composition.
+    const architectureResponse = settleVisual(
+      architectureMass,
+      { x: 0, y: bridge.architectureY, scale: bridge.architectureScale },
+      elapsed,
+      geometry.width,
+      geometry.height,
+      massEnabled &&
+        bridge.scene2Visible &&
+        bridgeProgress > MOTION.departure.architecture[0],
+    );
+    cameraMass = cameraResponse.pose;
+    architectureMass = architectureResponse.pose;
+    if (cameraResponse.active || architectureResponse.active) schedule();
+    const labelDeparture = storyTextDeparture(
+      bridgeProgress,
+      'labels',
+      geometry.width,
+      still,
+    );
+    const past = scroll + geometry.header >= geometry.bottom;
+    discoveryInteraction.update({
+      progress: bridgeProgress,
+      width: geometry.width,
+      reduced: still,
+      visible:
+        sceneImage === 'ready' && scroll <= geometry.top + geometry.span + 1,
+    });
+    const ivory = past ? 0 : bridge.headerIvory;
+    const theme = ivory === 1 ? 'dark' : ivory > 0 ? 'bridge' : 'light';
+    if (initialPaints > 0) {
+      initialPaints--;
+      schedule();
+    } else startSecondary();
+    breeze?.paint(bridgeProgress, still);
+    const progress = p.toFixed(5);
+    if (root.dataset.storyProgress !== progress)
+      root.dataset.storyProgress = progress;
+    // Native progress is never corrected. A missing plate retains the readable
+    // previous room rather than showing a blank crop or labels over that room.
+    if (root.dataset.sceneImage !== sceneImage)
+      root.dataset.sceneImage = sceneImage;
+    const pose = tpPose(p, tpGeometry, still);
+    const visualProgress =
+      p <= tpTiming.settle
+        ? p
+        : p <= bridgeTiming.exitStart
+          ? tpTiming.settle
+          : Math.min(p, bridgeTiming.settled);
+    const signature = `${visualProgress}/${state.chapter}/${still}/${ready}/${sceneImage}/${theme}/${geometry.width}/${geometry.height}`;
+    if (camera) {
+      property(
+        camera,
+        'transform-origin',
+        `${worldPose.originX.toFixed(3)}px ${worldPose.originY.toFixed(3)}px`,
+      );
+      property(
+        camera,
+        'transform',
+        cameraMass.x === 0 && cameraMass.y === 0 && cameraMass.scale === 1
+          ? 'none'
+          : `translate3d(${cameraMass.x.toFixed(3)}px, ${cameraMass.y.toFixed(3)}px, 0) scale(${cameraMass.scale.toFixed(7)})`,
+      );
+      property(
+        camera,
+        'will-change',
+        cameraResponse.active ? 'transform' : 'auto',
+      );
+    }
+    if (architecture) {
+      property(
+        architecture,
+        'transform',
+        `translate3d(0, ${architectureMass.y.toFixed(3)}px, 0) scale(${architectureMass.scale.toFixed(6)})`,
+      );
+      property(
+        architecture,
+        'will-change',
+        architectureResponse.active ? 'transform' : 'auto',
+      );
+    }
+    if (lastSignature !== signature) {
+      lastSignature = signature;
+      story!.dataset.motion = still ? 'reduced' : 'scroll';
+      story!.dataset.scene =
+        p <= (still ? tpTiming.reducedStart : tpTiming.hold)
+          ? 'discovery'
+          : p >= (still ? tpTiming.reducedEnd + 0.01 : tpTiming.settle)
+            ? 'story'
+            : 'transition';
+      root.dataset.storyChapter = visualChapter;
+      root.dataset.bridgePhase = bridge.phase;
+      property(
+        story!,
+        'visibility',
+        bridge.scene2Visible ? 'visible' : 'hidden',
+      );
+      property(
+        worlds!,
+        'visibility',
+        bridge.scene3Visible ? 'visible' : 'hidden',
+      );
+      property(worlds!, 'opacity', bridge.worldOpacity.toFixed(5));
+      if (roomLabels) {
+        property(
+          roomLabels,
+          'transform-origin',
+          `50% ${worldPose.originY.toFixed(3)}px`,
+        );
+        property(
+          roomLabels,
+          'transform',
+          geometry.width >= 1200
+            ? worldPose.scale === 1 && worldPose.x === 0 && worldPose.y === 0
+              ? 'translateX(-50%)'
+              : `translateX(-50%) translate3d(${worldPose.x.toFixed(3)}px, ${worldPose.y.toFixed(3)}px, 0) scale(${worldPose.scale.toFixed(7)})`
+            : 'none',
+        );
+      }
+      property(worlds!, '--world-exposure', bridge.exposure.toFixed(5));
+      if (sharedTP) {
+        property(
+          sharedTP,
+          'transform',
+          `translate3d(${pose.x.toFixed(4)}px, ${(pose.y + bridge.tpY).toFixed(4)}px, 0) scale(${(pose.scale * bridge.tpScale).toFixed(7)})`,
+        );
+        property(
+          sharedTP,
+          'opacity',
+          (pose.opacity * bridge.tpOpacity).toFixed(5),
+        );
+        property(
+          sharedTP,
+          'visibility',
+          bridge.scene2Visible ? 'visible' : 'hidden',
+        );
+        property(
+          sharedTP,
+          'will-change',
+          !still &&
+            (pose.phase === 'travel' ||
+              (bridgeProgress > bridgeTiming.exitStart && !bridge.swapped))
+            ? 'transform'
+            : 'auto',
+        );
+        if (sharedTP.dataset.tpState !== pose.phase)
+          sharedTP.dataset.tpState = pose.phase;
+      }
+      const values = arrivalFrame(p, geometry.width, ready, still);
+      for (const { node, selector } of openingLayers) {
+        if (!node) continue;
+        for (const [key, value] of Object.entries(
+          values[selector as keyof typeof values],
+        )) {
+          property(node, key, value);
+        }
+        const role = departureRole(selector);
+        if (role && bridgeProgress > bridgeTiming.exitStart) {
+          const exit = storyTextDeparture(
+            bridgeProgress,
+            role,
+            geometry.width,
+            still,
+          );
+          property(node, 'opacity', exit.opacity.toFixed(5));
+          property(
+            node,
+            'transform',
+            `translate3d(0, ${exit.y.toFixed(3)}px, 0)`,
+          );
+        }
+      }
+      if (manifesto) {
+        property(manifesto, 'opacity', bridge.swapped ? '0.00000' : '1.00000');
+        property(manifesto, 'transform', 'translate3d(0, 0, 0)');
+      }
+      if (centerCopy && bridgeProgress >= bridgeTiming.exitStart) {
+        property(centerCopy, 'opacity', labelDeparture.opacity.toFixed(5));
+        property(
+          centerCopy,
+          'transform',
+          `translate3d(0, ${labelDeparture.y.toFixed(3)}px, 0)`,
+        );
+      }
+      if (colophon)
+        property(colophon, 'opacity', labelDeparture.opacity.toFixed(5));
+      if (architecture)
+        property(architecture, 'opacity', bridge.scene2Opacity.toFixed(5));
+      for (const node of worldReveals) {
+        const reveal = worldReveal(
+          bridgeProgress,
+          Number(node.dataset.chapterReveal),
+          still,
+        );
+        property(node, 'opacity', reveal.opacity.toFixed(5));
+        property(
+          node,
+          'transform',
+          reveal.y === 0
+            ? 'none'
+            : `translate3d(0, ${reveal.y.toFixed(3)}px, 0)`,
+        );
+        property(node, '--room-reveal', reveal.opacity.toFixed(5));
+        if (node.tagName === 'A') expose(node, reveal.interactive);
+      }
+      expose(story!, bridge.scene2Visible);
+      expose(discovery, state.chapter === 'arrival');
+      expose(
+        portals,
+        state.chapter === 'arrival' &&
+          Number(values['.sh-portals'].opacity) > 0.01,
+      );
+      expose(
+        manifesto,
+        bridge.scene2Visible && p >= 0.3 && bridge.textOpacity > 0.05,
+      );
+      expose(
+        readStory,
+        bridge.scene2Visible &&
+          labelDeparture.opacity > 0.8 &&
+          visualChapter === 'perspective' &&
+          (still ? state.perspective === 1 : p >= arrivalTiming.labels[1]),
+      );
+      expose(worlds!, bridge.interactive);
+      if (rail) {
+        // Preserve the approved midpoint/end rail positions; no motion in holds.
+        const midpoint = 0.47 / 0.92;
+        property(
+          rail,
+          '--story-rail-progress',
+          String(
+            state.perspective * midpoint +
+              Math.max(
+                0,
+                Math.min(
+                  1,
+                  (bridgeProgress - bridgeTiming.exitStart) /
+                    (bridgeTiming.settled - bridgeTiming.exitStart),
+                ),
+              ) *
+                (1 - midpoint),
+          ),
+        );
+        property(
+          rail,
+          'opacity',
+          bridgeProgress > 0.6 && bridgeProgress < 0.82 ? '0' : '1',
+        );
+      }
+      if (header) {
+        property(header, '--home-header-ivory', `${(ivory * 100).toFixed(3)}%`);
+        if (header.dataset.chapterTheme !== theme)
+          header.dataset.chapterTheme = theme;
+        const opening = state.chapter === 'arrival' ? 'active' : 'past';
+        if (header.dataset.opening !== opening)
+          header.dataset.opening = opening;
+      }
+    }
+    if (debug)
+      debug.textContent = `${progress} · ${bridge.phase} · ${motion.phase} · TP ${pose.phase} · Breeze ${motion.approach.toFixed(3)}/${motion.through.toFixed(3)} · Scene3 ${worldPose.scale.toFixed(4)} · camera ${cameraMass.scale.toFixed(4)} · mass ${cameraResponse.active || architectureResponse.active ? 'settling' : 'rest'}`;
+    // Reveal the sampled restored frame, never the default scene first.
     if (
       document.readyState === 'complete' &&
+      (sceneImage !== 'loading' || p < bridgeTiming.exitStart) &&
       document.documentElement.hasAttribute('data-home-restoring')
     ) {
       if (window.__tpHomeIntroRuntime?.restoreWatchdog !== undefined) {
@@ -219,206 +552,21 @@ export function createHomeStoryTimeline(
       }
       document.documentElement.removeAttribute('data-home-restoring');
     }
-    const past = scroll + geometry.header >= geometry.bottom;
-    const ivory = still
-      ? scroll + geometry.header >= geometry.worldTop
-      : state.headerIvory;
-    const theme = past
-      ? 'light'
-      : !still && state.headerSky
-        ? 'sky'
-        : ivory
-          ? 'dark'
-          : 'light';
-    if (initialPaints > 0) {
-      initialPaints--;
-      schedule();
-    } else startSecondary();
-    breeze?.paint(p, still);
-    const arrivalSignature = `${Math.min(p, 0.34).toFixed(6)}/${still}/${geometry.width}/${ready}`;
-    if (lastArrivalSignature !== arrivalSignature) {
-      lastArrivalSignature = arrivalSignature;
-      story!.dataset.motion = still ? 'reduced' : 'scroll';
-      story!.dataset.scene =
-        still || p <= 0.195 ? 'discovery' : p >= 0.34 ? 'story' : 'transition';
-      const values = arrivalFrame(p, geometry.width, ready);
-      for (const { node, selector } of openingLayers) {
-        if (!node) continue;
-        for (const [property, value] of Object.entries(
-          values[selector as keyof typeof values],
-        )) {
-          if (still) node.style.removeProperty(property);
-          else if (node.style[property as 'opacity' | 'transform'] !== value)
-            Object.assign(node.style, { [property]: value });
-        }
-      }
-      portals.forEach((node, index) => {
-        const pose = portalDeparture(p, index, geometry.width);
-        if (still) {
-          node.style.removeProperty('opacity');
-          node.style.removeProperty('transform');
-        } else {
-          property(node, 'opacity', pose.opacity.toFixed(5));
-          property(
-            node,
-            'transform',
-            `translate3d(0, ${pose.y.toFixed(3)}px, 0) scale(${pose.scale.toFixed(5)})`,
-          );
-        }
-        expose(node, still || pose.opacity >= 0.9999);
-      });
-      if (discovery) expose(discovery, still || p < 0.278);
-      if (portalGroup) expose(portalGroup, still || p < 0.312);
-      if (manifesto) expose(manifesto, still || p >= 0.3);
-    }
-    const nativeValue = nativeProgress.toFixed(5);
-    if (root.dataset.storyProgress !== nativeValue)
-      root.dataset.storyProgress = nativeValue;
-    const cameraValue = p.toFixed(5);
-    if (root.dataset.cameraProgress !== cameraValue)
-      root.dataset.cameraProgress = cameraValue;
-    const imageStatus = bridgeFailed
-      ? 'failed'
-      : bridgeReady
-        ? 'ready'
-        : 'loading';
-    if (root.dataset.bridgeImage !== imageStatus)
-      root.dataset.bridgeImage = imageStatus;
-    const now = performance.now();
-    const target = {
-      storyScale: state.storyScale,
-      storyY: state.storyY,
-      scale: state.scale,
-      imageY: state.imageY,
-    };
-    const settledCamera = settleCamera(
-      target,
-      camera,
-      lastTime ? now - lastTime : 16.7,
-      still ? 0 : state.inertia,
-    );
-    camera = settledCamera.pose;
-    camera.imageY = Math.max(
-      (geometry.stage - state.originY) * (1 - camera.scale),
-      Math.min(state.originY * (camera.scale - 1), camera.imageY),
-    );
-    lastTime = now;
-    const cameraSignature = `${still}/${Object.values(camera)
-      .map((n) => n.toFixed(6))
-      .join('/')}`;
-    if (lastCameraSignature !== cameraSignature) {
-      lastCameraSignature = cameraSignature;
-      for (const [key, value] of Object.entries({
-        '--swb-story-scale': camera.storyScale,
-        '--swb-story-y': `${camera.storyY}px`,
-        '--swb-image-scale': camera.scale,
-        '--swb-image-y': `${camera.imageY}px`,
-      })) {
-        if (still) root.style.removeProperty(key);
-        else property(root, key, String(value));
-      }
-    }
-    if (settledCamera.moving) schedule();
-    // Scroll continues during the final hold, but no visual style keeps moving.
-    const signature = `${visualProgress.toFixed(6)}/${still}/${theme}/${geometry.width}/${geometry.stage}`;
-    if (lastSignature === signature) return;
-    lastSignature = signature;
-    toggle('data-story-ready', !still);
-    toggle(
-      'data-story-active',
-      !still &&
-        ((p > 0.16 && p < 0.34) || (p > 0.48 && p < homeStoryTiming.skyStart)),
-    );
-    toggle(
-      'data-bridge-active',
-      !still &&
-        p > homeStoryTiming.breezeApproach &&
-        p < homeStoryTiming.pullbackEnd,
-    );
-    toggle('data-story-hero-hidden', !still && !state.storyVisible);
-    toggle('data-story-sky-complete', still || p >= homeStoryTiming.skyStart);
-    const interactive = still || p >= homeStoryTiming.interactive;
-    toggle('data-world-interactive', interactive);
-    const properties = {
-      '--swb-text-opacity': state.textOpacity,
-      '--swb-text-y': `${state.textY}px`,
-      '--swb-tp-scale': state.tpScale,
-      '--swb-tp-y': `${state.tpY}px`,
-      '--swb-tp-opacity': state.tpOpacity,
-      '--swb-origin-y': `${state.originY}px`,
-      '--swb-exposure': state.exposure,
-      '--swb-story-light': state.storyLight,
-      '--swb-sky-light': state.skyLight,
-      '--swb-header-shade': state.headerShade,
-      '--swb-sky-edge': `${state.skyEdge}%`,
-      '--swb-sky-visible': state.skyVisible ? 'visible' : 'hidden',
-      '--swb-breeze-depth': p > homeStoryTiming.breezeApproach ? 8 : 4,
-    };
-    for (const [key, value] of Object.entries(properties)) {
-      if (still) root.style.removeProperty(key);
-      else property(root, key, String(value));
-    }
-    if (rail) {
-      property(rail, '--story-rail-opacity', String(state.railOpacity));
-      property(rail, '--story-rail-progress', String(state.railProgress));
-    }
-    if (header && header.dataset.chapterTheme !== theme)
-      header.dataset.chapterTheme = theme;
-    const opening = p < 0.34 ? 'active' : 'past';
-    if (header && header.dataset.opening !== opening)
-      header.dataset.opening = opening;
-    if (root.dataset.storyChapter !== state.chapter)
-      root.dataset.storyChapter = state.chapter;
-    expose(story!, still || p < 0.56);
-    expose(worlds!, still || p > homeStoryTiming.uiStart);
-    for (const node of reveals) {
-      const reveal = still
-        ? 1
-        : worldContentReveal(
-            visualProgress,
-            Number(node.dataset.chapterReveal),
-          );
-      property(node, 'opacity', reveal.toFixed(5));
-      if (node.classList.contains('hc-atrium-room-link'))
-        property(node, '--room-reveal', String(reveal));
-      property(
-        node,
-        'transform',
-        `translate3d(0, ${((1 - reveal) * 8).toFixed(2)}px, 0)`,
-      );
-      expose(
-        node,
-        node.tagName === 'A' ? interactive && reveal >= 0.9999 : reveal >= 0.15,
-      );
-    }
   }
   const resize = () => {
     needsMeasure = true;
     lastSignature = '';
     schedule();
   };
-  const preserveWorldFocus = (event: FocusEvent) => {
-    const target = event.target as HTMLElement | null;
-    if (
-      !reduced.matches &&
-      target?.tagName === 'A' &&
-      !target.inert &&
-      reveals.includes(target) &&
-      lastScroll >=
-        geometry.top + geometry.span * homeStoryTiming.interactive &&
-      lastScroll <= geometry.top + geometry.span
-    ) {
-      focusScroll = lastScroll;
-      schedule();
-    }
-  };
   const visibility = () => {
     if (document.hidden) {
       cancelAnimationFrame(frame);
       frame = 0;
+      discoveryInteraction.suspend();
+      for (const node of [camera, architecture, sharedTP])
+        if (node) property(node, 'will-change', 'auto');
     } else resize();
   };
-  // bfcache restoration is sampled synchronously, before the next paint.
   const restore = () => {
     cancelAnimationFrame(frame);
     needsMeasure = true;
@@ -433,29 +581,24 @@ export function createHomeStoryTimeline(
   window.addEventListener('pageshow', restore);
   document.addEventListener('visibilitychange', visibility);
   reduced.addEventListener('change', resize);
-  worlds.addEventListener('focusin', preserveWorldFocus);
-  image?.addEventListener('load', resize);
-  render();
-  const disposeBridge = image
-    ? prepareBridgeImage(sequence, image, {
+  const preparedImage = image
+    ? prepareSceneImage(image, {
         ready: () => {
-          bridgeReady = true;
-          bridgeFailed = false;
-          lastSignature = '';
+          sceneImage = 'ready';
           schedule();
         },
         failed: () => {
-          bridgeReady = false;
-          bridgeFailed = true;
-          lastSignature = '';
+          sceneImage = 'failed';
           schedule();
         },
       })
-    : () => {};
+    : null;
+  render();
   return () => {
     if (disposed) return;
     disposed = true;
-    disposeBridge();
+    preparedImage?.destroy();
+    discoveryInteraction.destroy();
     cancelAnimationFrame(frame);
     observer.disconnect();
     window.removeEventListener('scroll', schedule);
@@ -463,10 +606,18 @@ export function createHomeStoryTimeline(
     window.removeEventListener('pageshow', restore);
     document.removeEventListener('visibilitychange', visibility);
     reduced.removeEventListener('change', resize);
-    worlds.removeEventListener('focusin', preserveWorldFocus);
-    image?.removeEventListener('load', resize);
     secondary?.removeEventListener('load', imageSettled);
     secondary?.removeEventListener('error', imageSettled);
+    debug?.remove();
+    if (header) {
+      if (headerMix)
+        header.style.setProperty(
+          '--home-header-ivory',
+          headerMix,
+          headerMixPriority,
+        );
+      else header.style.removeProperty('--home-header-ivory');
+    }
     for (const { node, attributes } of saved)
       for (const [name, value] of attributes) {
         if (value === null) node.removeAttribute(name);

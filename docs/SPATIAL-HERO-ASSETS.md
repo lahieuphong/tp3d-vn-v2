@@ -76,7 +76,7 @@ The raster ribbon remains available, but the unified HomeStory renderer audited 
 
 ## Authored identity and decorative vectors
 
-- `components/home/hero/hero-monogram.tsx` contains the hand-authored overlapping T/P SVG outlines, shallow extruded edges, static mineral lighting gradients and highlight paths. Its internal 360 × 550 coordinate system is independent of a font glyph.
+- `components/home/experience/shared-tp.tsx` contains the hand-authored overlapping T/P SVG outlines, shallow extruded edges, static mineral lighting gradients and highlight paths. Its internal 360 × 550 coordinate system is independent of a font glyph. PASS 2 moved this existing component from `hero/hero-monogram.tsx` to the shared HomeStory stage; the SVG material and paths are preserved.
 - The monogram reuses `/images/stone-720.webp` as a mineral-face texture. That existing photograph is credited to Marina Leonova in [ASSET-SOURCES.md](./ASSET-SOURCES.md), with its original Pexels source retained there. Its mineral type is not inferred from the photograph.
 - `components/home/experience/continuous-breeze.tsx` renders the shared SVG cloth described above. The four small `HeroLeaves` outlines are also authored SVG; they are decorative leaves, not a separated layer of the Atrium's central tree.
 - Gradients here represent material shading in bounded decorative SVG surfaces. No animated filter, turbulence shader, canvas, WebGL renderer or particle system is used by these authored assets.
@@ -130,6 +130,9 @@ The Atrium's existing optimized exports are:
 | `worlds-atrium-preview-160.webp`          | 160 × 160  |   8,008 |
 
 ### Close-up resolution limit
+
+Historical camera audit for future motion work: PASS 1 removes all camera
+cropping and sky transitions; the following is not active runtime behavior.
 
 The sky opening contains only about 200 native vertical pixels. The audit
 baseline's approximately 5× camera pose samples about 301 × 188 source pixels

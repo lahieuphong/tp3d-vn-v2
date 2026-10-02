@@ -99,7 +99,7 @@ function environment({
     },
   };
 }
-// Fresh navigation plays the intro; reload and history preserve native scroll.
+// Fresh navigation and reload play the intro; history preserves native scroll.
 for (let reload = 0; reload < 20; reload++)
   for (const legacy of [false, true]) {
     const e = environment({
@@ -109,16 +109,14 @@ for (let reload = 0; reload < 20; reload++)
       hash: reload ? '#home-worlds' : '',
     });
     e.boot();
-    assert.equal(
-      e.attributes.get('data-home-intro'),
-      reload ? undefined : 'waiting',
-    );
-    assert.equal(e.window.scrollY, reload ? 850 : 0);
-    assert.equal(e.history.scrollRestoration, reload ? 'auto' : 'manual');
+    assert.equal(e.attributes.get('data-home-intro'), 'waiting');
+    assert.equal(e.attributes.has('data-home-restoring'), false);
+    assert.equal(e.window.scrollY, 0);
+    assert.equal(e.history.scrollRestoration, 'manual');
     const first = e.claimHomeIntro();
-    assert.equal(first.play, !reload);
-    assert.equal(first.scrollRestoration, reload ? undefined : 'auto');
-    assert.equal(e.timers.size, reload ? 1 : 0);
+    assert.equal(first.play, true);
+    assert.equal(first.scrollRestoration, 'auto');
+    assert.equal(e.timers.size, 0);
     e.markHomeIntroPlayed();
     assert.equal(e.window.__tpHomeIntroRuntime.played, true);
     for (let nav = 0; nav < 10; nav++) {
@@ -150,13 +148,20 @@ for (const type of ['navigate', 'reload', 'back_forward']) {
   );
 }
 for (const legacy of [false, true]) {
-  const e = environment({ type: 'back_forward', legacy });
+  const e = environment({ type: 'back_forward', legacy, scroll: 850 });
   e.boot();
+  assert.equal(e.attributes.has('data-home-restoring'), true);
+  assert.equal(e.attributes.has('data-home-intro'), false);
+  assert.equal(e.window.scrollY, 850);
+  assert.equal(e.history.scrollRestoration, 'auto');
   assert.equal(
     e.claimHomeIntro().play,
     false,
     'history restoration is preserved',
   );
+  e.expire();
+  assert.equal(e.attributes.has('data-home-restoring'), false);
+  assert.equal(e.window.scrollY, 850);
 }
 {
   const e = environment();
@@ -184,5 +189,5 @@ for (const legacy of [false, true]) {
   assert.equal(e.claimHomeIntro().play, true, 'explicit visual QA override');
 }
 console.log(
-  'PASS: 20 new/reload documents, 10 SPA returns per document, no persistent state, restored-scroll preservation, history/back, force override and pre-hydration watchdog.',
+  'PASS: loader on 20 new/reload documents, 10 direct SPA returns per document, native history scroll preservation, no persistent state, force override and pre-hydration watchdog.',
 );

@@ -71,8 +71,6 @@
   --sh-serif: 'Cormorant Spatial', Cormorant, Georgia, serif;
   --sh-sans: 'Manrope Spatial', Manrope, Arial, sans-serif;
   --sh-ink: #3c352a;
-  --sh-monogram-story-y: 13svh;
-  --sh-monogram-story-scale: 0.86;
   position: relative;
   --sh-stage-height: max(660px, 100svh);
   height: var(--sh-stage-height);
@@ -164,23 +162,6 @@
   [data-hero-layer='architecture-b'] {
   visibility: hidden;
 }
-.sh-monogram {
-  position: absolute;
-  left: 38.1%;
-  top: 6.7%;
-  width: 25.8%;
-  height: 49%;
-  z-index: 2;
-  pointer-events: none;
-  transform-origin: center;
-}
-.sh-monogram svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  transform: scaleX(1.16);
-}
 .sh-leaves {
   position: absolute;
   inset: 0;
@@ -203,7 +184,7 @@
   pointer-events: auto;
 }
 /* Invisible scenes should not retain full-frame raster surfaces during the
-   long resting phases. All layers are available again before the veil moves. */
+   resting phases. Basic crossfades make both backgrounds available together. */
 .spatial-hero[data-scene='discovery'] .sh-story,
 .spatial-hero[data-scene='discovery'] .sh-center-copy,
 .spatial-hero[data-scene='discovery'] [data-hero-layer='architecture-b'],
@@ -512,6 +493,10 @@
   }
 }
 @media (min-width: 1200px) and (max-height: 820px) {
+  .sh-story-axis-top i:first-child {
+    height: 1.8svh;
+    margin-bottom: 8px;
+  }
   .sh-story-column {
     top: 17%;
   }
@@ -534,10 +519,6 @@
   }
 }
 @media (min-width: 768px) and (max-width: 1199px) {
-  .spatial-hero {
-    --sh-monogram-story-y: 8svh;
-    --sh-monogram-story-scale: 0.86;
-  }
   .site-header.spatial-home:is(.over-hero, [data-opening='active']) {
     padding-inline: 5.5%;
   }
@@ -556,12 +537,6 @@
   }
   .sh-welcome-title {
     font-size: clamp(28px, 3.8vw, 39px);
-  }
-  .sh-monogram {
-    top: 8%;
-    left: 38%;
-    width: 30%;
-    height: 37%;
   }
   .sh-signature {
     font-size: 8px;
@@ -636,9 +611,6 @@
 @media (max-width: 767px) {
   .spatial-hero {
     --sh-stage-height: max(760px, 100svh);
-    --sh-monogram-story-x: -21vw;
-    --sh-monogram-story-y: 19svh;
-    --sh-monogram-story-scale: 0.88;
   }
   .site-header.spatial-home:is(.over-hero, [data-opening='active']) {
     height: 76px;
@@ -707,13 +679,6 @@
   }
   .sh-welcome-vi .sh-signature > span {
     display: none;
-  }
-  .sh-monogram {
-    left: 57%;
-    top: 23%;
-    width: 38%;
-    height: 18%;
-    opacity: 0.75;
   }
   .sh-leaves {
     display: none;
@@ -896,12 +861,9 @@
 }
 
 @media (min-width: 768px) and (max-width: 1199px) and (orientation: portrait) {
-  .spatial-hero {
-    --sh-monogram-story-y: 24svh;
-    --sh-monogram-story-scale: 0.8;
-  }
-  .sh-monogram {
-    height: 30%;
+  .sh-welcome-vi {
+    left: 60.5%;
+    width: 34.5%;
   }
   .sh-story-column {
     left: 13%;
@@ -918,6 +880,9 @@
   .sh-story-body {
     font-size: 20px;
     max-width: 560px;
+  }
+  .sh-story-en .sh-rule {
+    margin-block: 12px 10px;
   }
   .sh-story-full,
   .sh-story-signoff,
@@ -951,126 +916,19 @@
     object-position: 48% center;
   }
 }
-/* Reduced motion keeps both existing content nodes in normal document flow.
-   No second monogram/header/ribbon and no sticky or hidden story content. */
-@media (prefers-reduced-motion: reduce) {
-  .spatial-hero {
-    height: auto;
-  }
-  .sh-stage {
-    position: relative;
-    height: auto;
-    display: block;
-    overflow: visible;
-  }
-  .sh-plane {
-    position: absolute;
-    inset: 0 0 auto;
-    margin: 0;
-  }
-  .sh-plane-content {
-    position: relative;
-    height: auto;
-    padding-top: var(--sh-stage-height);
-  }
-  .sh-discovery {
-    height: var(--sh-stage-height);
-  }
-  .sh-architecture[data-hero-layer='architecture-a'],
-  .sh-leaves {
-    height: var(--sh-stage-height);
-  }
-  .sh-monogram {
-    top: calc(var(--sh-stage-height) * 0.067);
-    height: calc(var(--sh-stage-height) * 0.49);
-  }
-  .sh-welcome-en {
-    top: calc(var(--sh-stage-height) * 0.19);
-  }
-  .sh-welcome-vi {
-    top: calc(var(--sh-stage-height) * 0.27);
-  }
-  .sh-portals {
-    top: calc(var(--sh-stage-height) * 0.58);
-  }
-  .spatial-hero[data-scene] .sh-story {
-    position: relative;
-    inset: auto;
-    visibility: visible;
-    opacity: 1;
-    pointer-events: auto;
-    transform: none;
-    padding: 96px 12%;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 9%;
-  }
-  .sh-story-column {
-    position: static;
-    width: auto;
-  }
-  .sh-story-full,
-  .sh-story-signoff {
-    display: block;
-  }
-  .sh-story-short {
-    display: none;
-  }
-  .sh-story h2 {
-    font-size: clamp(36px, 3.4vw, 65px);
-  }
-  .sh-story-body {
-    font-size: clamp(18px, 1.3vw, 24px);
-  }
-  .sh-center-copy,
-  .sh-scroll-indicator,
-  .sh-colophon,
-  [data-hero-layer='architecture-b'] {
-    display: none;
-  }
-  .sh-read-story {
-    display: inline-flex;
-    position: static;
-    align-items: center;
-    min-height: 44px;
-  }
-}
-@media (prefers-reduced-motion: reduce) and (max-width: 1199px) {
-  .sh-portals {
-    top: calc(var(--sh-stage-height) * 0.5);
-  }
-  .sh-monogram {
-    top: calc(var(--sh-stage-height) * 0.08);
-    height: calc(var(--sh-stage-height) * 0.37);
-  }
-  .sh-welcome-en {
-    top: calc(var(--sh-stage-height) * 0.15);
-  }
-  .sh-welcome-vi {
-    top: calc(var(--sh-stage-height) * 0.3);
-  }
-  .spatial-hero[data-scene] .sh-story {
-    grid-template-columns: 1fr;
-    gap: 72px;
-    padding: 80px 8%;
-  }
-}
-@media (prefers-reduced-motion: reduce) and (max-width: 767px) {
-  .sh-monogram {
-    top: calc(var(--sh-stage-height) * 0.23);
-    height: calc(var(--sh-stage-height) * 0.18);
-  }
-  .sh-welcome-en {
-    top: calc(var(--sh-stage-height) * 0.12);
-  }
-  .sh-welcome-vi {
-    top: calc(var(--sh-stage-height) * 0.35);
-  }
-  .sh-portals {
-    top: calc(var(--sh-stage-height) * 0.51);
-  }
-}
 
+@media (min-width: 768px) and (max-width: 1199px) and (orientation: landscape) {
+  .sh-story-vi {
+    left: 63%;
+    width: 31%;
+  }
+  .sh-story-axis-top {
+    line-height: 1.5;
+  }
+  .sh-story-axis-top i {
+    display: none;
+  }
+}
 .sh-leaves svg {
   width: 100%;
   height: 100%;

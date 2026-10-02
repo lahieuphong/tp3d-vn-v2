@@ -1,0 +1,57 @@
+/* Both approved TP poses use this one shared-stage coordinate space. The master
+   timeline reads these endpoint values only when the viewport is measured. */
+.sh-monogram {
+  --sh-monogram-story-x: 0px;
+  --sh-monogram-story-y: 13svh;
+  --sh-monogram-story-scale: 0.86;
+  --tp-base-opacity: 1;
+  position: absolute;
+  left: 38.1%;
+  top: 6.7%;
+  width: 25.8%;
+  height: 49%;
+  z-index: 3;
+  opacity: var(--tp-base-opacity);
+  pointer-events: none;
+  transform-origin: 52% 46%;
+}
+.sh-monogram > [data-hero-surface],
+.sh-monogram .hi-monogram-surface {
+  width: 100%;
+  height: 100%;
+}
+.sh-monogram svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform: scaleX(1.16);
+}
+@media (min-width: 768px) and (max-width: 1199px) {
+  .sh-monogram {
+    --sh-monogram-story-y: 8svh;
+    top: 8%;
+    left: 38%;
+    width: 30%;
+    height: 37%;
+  }
+}
+@media (max-width: 767px) {
+  .sh-monogram {
+    --sh-monogram-story-x: -21vw;
+    --sh-monogram-story-y: 19svh;
+    --sh-monogram-story-scale: 0.88;
+    --tp-base-opacity: 0.75;
+    left: 57%;
+    top: 23%;
+    width: 38%;
+    height: 18%;
+  }
+}
+@media (min-width: 768px) and (max-width: 1199px) and (orientation: portrait) {
+  .sh-monogram {
+    --sh-monogram-story-y: 24svh;
+    --sh-monogram-story-scale: 0.8;
+    height: 30%;
+  }
+}

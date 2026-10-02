@@ -1,11 +1,20 @@
-/* One scroll range; no secondary section pin or independent opening distance. */
+/* Native history restoration must land on its saved scene immediately.
+   This overrides global anchor smoothing only while HomeStory is mounted;
+   wheel/touch scrolling remains entirely browser-owned. */
+html:has([data-home-story]) {
+  scroll-behavior: auto;
+}
+/* PASS 1 scroll distances and breakpoints live here. Native document flow
+   releases the one sticky viewport directly into the existing Footer. */
 .home-story {
+  --story-height: 360svh;
   position: relative;
-  height: 360svh;
+  height: var(--story-height);
 }
 .home-story-stage {
   position: sticky;
   top: 0;
+  width: 100%;
   height: 100svh;
   overflow: clip;
   isolation: isolate;
@@ -27,23 +36,40 @@
 .home-story-stage .hc-chapter.hc-worlds {
   position: absolute;
   inset: 0;
+  z-index: 6;
   height: 100%;
   min-height: 0;
   margin: 0;
+  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
 }
-.home-story-stage .hc-chapter.hc-worlds a {
-  pointer-events: none;
-}
-[data-world-interactive]
-  .home-story-stage
-  .hc-chapter.hc-worlds
-  a:not([inert]) {
+.home-story-stage .hc-worlds:not([inert]) a:not([inert]) {
   pointer-events: auto;
 }
+.home-story-stage [inert],
+.home-story-stage [inert] :is(a, button) {
+  pointer-events: none;
+}
 .home-story-stage .hc-atrium-backdrop {
-  z-index: 6;
-  visibility: hidden;
+  z-index: 0;
+}
+.hc-atrium-camera {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.home-story-stage .hc-atrium-backdrop::after {
+  opacity: var(--world-exposure, 1);
+}
+.home-story-stage .hc-worlds [data-chapter-reveal] {
+  opacity: 0;
+}
+.home-story-stage
+  .hc-worlds:not([data-world-interactive])
+  .hc-atrium-room-link
+  > span::after {
+  transition: none;
 }
 .home-story-stage
   .hc-chapter.hc-worlds
@@ -53,78 +79,23 @@
 .hc-atrium-copy h2 > [data-chapter-reveal] {
   display: inline-block;
 }
-.home-story-stage [data-chapter-reveal] {
-  opacity: 0;
-}
-.home-story-stage .hc-atrium-backdrop img {
-  transform-origin: 50% var(--swb-origin-y, 11.6%);
-  transform: translate3d(0, var(--swb-image-y, 0px), 0)
-    scale(var(--swb-image-scale, 1));
-}
-.home-story-stage .hc-atrium-backdrop::after {
-  opacity: var(--swb-exposure, 0);
-}
-[data-story-ready] .hc-atrium-backdrop {
-  visibility: var(--swb-sky-visible, hidden);
-  mask-image: linear-gradient(
-    110deg,
-    #000 calc(var(--swb-sky-edge, -35%) - 2.5%),
-    transparent calc(var(--swb-sky-edge, -35%) + 2.5%)
-  );
-}
-[data-story-sky-complete] .hc-atrium-backdrop {
-  mask-image: none;
-}
-[data-story-ready] .sh-plane-background {
-  transform: translate3d(0, var(--swb-story-y, 0px), 0)
-    scale(var(--swb-story-scale, 1));
-}
-[data-story-ready] .sh-monogram > [data-hero-surface] {
-  transform: translate3d(0, var(--swb-tp-y, 0px), 0)
-    scale(var(--swb-tp-scale, 1));
-  opacity: var(--swb-tp-opacity, 1);
-}
-[data-story-ready] .sh-story-column {
-  transform: translate3d(0, var(--swb-text-y, 0px), 0);
-  opacity: var(--swb-text-opacity, 1);
-}
-[data-story-ready]
-  :is(
-    .sh-center-copy > *,
-    .sh-colophon,
-    .sh-leaves > [data-hero-surface],
-    .sh-read-story
-  ) {
-  opacity: var(--swb-text-opacity, 1);
-}
-[data-story-hero-hidden] .spatial-hero {
+/* This is an image loading fallback, never a second scene/progress timeline. */
+[data-scene-image='loading'] .hc-atrium-backdrop img,
+[data-scene-image='failed'] .hc-atrium-backdrop img {
   visibility: hidden;
 }
-[data-story-active] .sh-plane-background,
-[data-bridge-active] .hc-atrium-backdrop img,
-[data-bridge-active] .cb-front {
-  will-change: transform;
-}
-.home-story-stage .cb-front {
-  z-index: var(--swb-breeze-depth, 4);
-}
-/* Decode/error fallback uses the existing HTML, never an undecoded plate. */
-[data-bridge-image='loading'] .hc-atrium-backdrop img,
-[data-bridge-image='failed'] .hc-atrium-backdrop img {
-  visibility: hidden;
-}
-[data-bridge-image='failed'] .hc-atrium-backdrop {
+[data-scene-image='loading'] .hc-atrium-backdrop,
+[data-scene-image='failed'] .hc-atrium-backdrop {
   background: #352d23;
 }
-
 @media (max-width: 1199px) {
   .home-story {
-    height: 340svh;
+    --story-height: 320svh;
   }
 }
 @media (max-width: 767px) {
   .home-story {
-    height: 300svh;
+    --story-height: 280svh;
   }
   /* One painted cloth projection on mobile. */
   .home-story-stage .cb-back > g {
@@ -157,129 +128,13 @@
     gap: 0 18px;
   }
 }
-/* Reduced motion keeps HTML in normal flow with a short static sky detail. */
-.story-still-sky {
-  display: none;
-}
+/* Reduced motion keeps the one TP in the same persistent stage. The master
+   uses a short pose interpolation with no background parallax or stagger. */
 @media (prefers-reduced-motion: reduce) {
-  .story-still-sky {
-    display: block;
-    position: relative;
-    height: clamp(180px, 28svh, 300px);
-    overflow: clip;
-    pointer-events: none;
-    background: #ede8dc;
-  }
-  .story-still-sky img {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 470%;
-    max-width: none;
-    object-fit: cover;
-    object-position: 50% 0;
-    opacity: 1;
-    transition: opacity 180ms ease;
-  }
-  [data-bridge-image='loading'] .story-still-sky img,
-  [data-bridge-image='failed'] .story-still-sky img {
-    opacity: 0;
-  }
-  .home-story {
-    height: auto;
-  }
-  .home-story-stage {
-    position: relative;
-    height: auto;
-    overflow: visible;
-  }
-  .home-story-stage .spatial-hero {
-    position: relative;
-    height: auto;
-    visibility: visible;
-  }
-  .home-story-stage .sh-stage {
-    height: auto;
-  }
-  .home-story-stage .sh-plane {
-    inset: 0 0 auto;
-    height: var(--sh-stage-height);
-  }
-  .home-story-stage .sh-plane-content {
-    position: relative;
-    height: auto;
-  }
-  .home-story-stage .hc-chapter.hc-worlds {
-    position: relative;
-    inset: auto;
-    height: 100svh;
-    min-height: 680px;
-  }
-  .home-story-stage .hc-atrium-backdrop {
-    visibility: visible;
-    mask-image: none;
-  }
-  .home-story-stage .hc-atrium-backdrop img {
-    transform: none;
-  }
-  .home-story-stage .hc-atrium-backdrop::after {
-    opacity: 1;
-  }
-  .home-story-stage [data-chapter-reveal] {
-    opacity: 1;
-    transform: none;
-  }
   .home-story-stage .continuous-breeze {
     display: none;
   }
 }
-@media (prefers-reduced-motion: reduce) and (max-width: 767px) {
-  .home-story-stage .hc-chapter.hc-worlds {
-    height: auto;
-    min-height: 760px;
-    padding-top: 300px;
-  }
-}
-/* Temporary top exposure lets the single header turn ivory while the sky is
-   still bright; this contribution is gone at the approved final composition. */
-.home-story-stage .hc-atrium-backdrop::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 18%;
-  z-index: 1;
-  background: linear-gradient(#241a147a, transparent);
-  opacity: var(--swb-header-shade, 0);
-  pointer-events: none;
-}
-
-/* A single existing plate and local gradients: no sliced photographic planes. */
-.swb-sky-light {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(ellipse at 50% 10%, #fff8df, transparent 68%);
-  opacity: var(--swb-sky-light, 0);
-}
-.home-story-stage .sh-plane-background::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(ellipse at 65% 24%, #fff4d5, transparent 70%);
-  opacity: var(--swb-story-light, 0);
-}
-@media (prefers-reduced-motion: reduce) {
-  .home-story-stage .hc-chapter.hc-worlds a {
-    pointer-events: auto;
-  }
-  .swb-sky-light,
-  .home-story-stage .sh-plane-background::after {
-    display: none;
-  }
-}
-
 /* Supplemental chapter rail: never a navigation target or a mobile overlay. */
 .story-rail {
   position: absolute;
@@ -296,7 +151,6 @@
   letter-spacing: 0.13em;
   text-align: right;
   pointer-events: none;
-  opacity: var(--story-rail-opacity, 1);
   transition: color 350ms ease;
 }
 .story-rail > [data-story-chapter-label] {
@@ -342,4 +196,26 @@
 .hc-scene-picture,
 .sh-architecture picture {
   display: contents;
+}
+
+/* The single persistent Header samples the same progress; no delayed theme
+   playback when the user reverses or stops in the sky. */
+body .site-header.spatial-home[data-chapter-theme] {
+  color: color-mix(
+    in srgb,
+    #332b22 calc(100% - var(--home-header-ivory, 0%)),
+    #f3e9d6 var(--home-header-ivory, 0%)
+  );
+  transition: none;
+}
+.home-story-debug {
+  position: absolute;
+  z-index: 50;
+  left: 12px;
+  bottom: 12px;
+  padding: 8px 12px;
+  color: #fff8e8;
+  background: #2b261ddd;
+  font: 11px/1.5 monospace;
+  pointer-events: none;
 }

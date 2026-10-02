@@ -1,5 +1,5 @@
-/** Document lifetime only. A refresh preserves native scroll restoration;
- * client navigation reuses this record. No persistent storage participates. */
+/** Document lifetime only. Fresh/reloaded Home documents play the loader;
+ * history restores native scroll. No persistent storage participates. */
 export type HomeIntroDecision = {
   play: boolean;
   force: boolean;
@@ -28,10 +28,10 @@ export const HOME_INTRO_BOOTSTRAP = `(() => {
   const navigation = performance.getEntriesByType('navigation')[0];
   const type = navigation ? navigation.type : performance.navigation?.type === 2 ? 'back_forward' : performance.navigation?.type === 1 ? 'reload' : 'navigate';
   const force = new URLSearchParams(location.search).get('intro') === '1';
-  const play = location.pathname === '/' && (force || type === 'navigate');
+  const play = location.pathname === '/' && (force || type === 'navigate' || type === 'reload');
   const runtime = window.__tpHomeIntroRuntime = {play, claimed: false, played: false, expired: false};
   if (!play) {
-    if (location.pathname === '/' && (type === 'reload' || type === 'back_forward')) {
+    if (location.pathname === '/' && type === 'back_forward') {
       document.documentElement.setAttribute('data-home-restoring', '');
       runtime.restoreWatchdog = window.setTimeout(() => {
         document.documentElement.removeAttribute('data-home-restoring');

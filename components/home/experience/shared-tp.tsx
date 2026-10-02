@@ -1,5 +1,7 @@
-/** An overlapping T and P drawn as an architectural object. The face and its
- * shallow extrusion share the same outline; no live text or font is rasterised. */
+import './shared-tp.css';
+
+/** One narrative TP, owned by the persistent HomeStory stage. Its vector face,
+ * shallow extrusion and mineral texture stay unchanged between compositions. */
 const tee =
   'M35 12H272C302 12 313 23 313 52L311 156H304C297 89 278 53 239 53H208V449C208 490 193 523 151 539L145 533C160 511 164 489 164 448V53H117C71 53 50 73 36 116H28L30 28C30 17 31 12 35 12Z';
 const pee =

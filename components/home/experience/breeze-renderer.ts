@@ -1,134 +1,125 @@
 import { storyBreezeGeometry } from './breeze-geometry';
-import { range, homeStoryFrame, homeStoryTiming } from './home-story-frame';
+import { homeStoryFrame } from './home-story-frame';
+import { bridgeTiming } from './atmospheric-bridge-frame';
+import {
+  bridgeBreezePose,
+  type BreezeBridgeGeometry,
+} from './breeze-bridge-pose';
+
 export type BreezeDriver = {
   measure: (width: number, height: number) => void;
   paint: (progress: number, reduced: boolean) => void;
   destroy: () => void;
 };
 
-/** Two depth projections of one cloth definition. No independent clock and no
- * DOM creation on scroll. Mobile paints only the front projection. */
+/** One static cloth definition travels from its approved reading pose toward
+ * the camera. The master supplies all progress; this renderer owns no clock.
+ * Responsive geometry changes only on measurement, never on scroll. */
 export function createBreezeRenderer(root: HTMLElement): BreezeDriver {
   const svgs = [...root.querySelectorAll<SVGSVGElement>('[data-breeze-svg]')];
   const poses = [...root.querySelectorAll<SVGUseElement>('[data-breeze-pose]')];
   const outline = root.querySelector<SVGPathElement>('[data-breeze-outline]');
+  const luminous = root.querySelector<SVGPathElement>('[data-breeze-luminous]');
+  const transfer = root.querySelector<SVGGElement>('[data-breeze-transfer]');
   const folds = [
     ...root.querySelectorAll<SVGPathElement>('[data-breeze-fold]'),
   ];
   const threads = [
     ...root.querySelectorAll<SVGPathElement>('[data-breeze-thread]'),
   ];
-  const silk = [...root.querySelectorAll<SVGStopElement>('#cb-silk stop')];
-  const front = [
-    ...root.querySelectorAll<SVGStopElement>(
-      '[data-breeze-depth="front"] stop',
-    ),
-  ];
-  const back = [
-    ...root.querySelectorAll<SVGStopElement>('[data-breeze-depth="back"] stop'),
-  ];
   const nodes = [
     ...svgs,
     ...poses,
     ...folds,
     ...threads,
-    ...silk,
-    ...front,
-    ...back,
     ...(outline ? [outline] : []),
+    ...(luminous ? [luminous] : []),
+    ...(transfer ? [transfer] : []),
   ];
   const saved = nodes.map((node) => ({
     node,
-    attributes: [
-      'd',
-      'transform',
-      'opacity',
-      'viewBox',
-      'stop-opacity',
-      'stop-color',
-      'cx',
-      'cy',
-      'rx',
-      'ry',
-    ].map((name) => [name, node.getAttribute(name)] as const),
+    attributes: ['d', 'transform', 'opacity', 'viewBox'].map(
+      (name) => [name, node.getAttribute(name)] as const,
+    ),
   }));
-  const originalSilk = silk.map((stop) =>
-    Number(stop.getAttribute('stop-opacity') ?? 1),
-  );
-  let width = 1,
-    height = 1,
-    lastGeometry = '',
-    lastPose = '';
+  const originalFamily = root.getAttribute('data-breeze-family');
+  const originalForeground = root.getAttribute('data-breeze-foreground');
+  const originalActive = root.getAttribute('data-breeze-active');
+  const foldOpacity = folds.map((node) => Number(node.getAttribute('opacity')));
+  let geometry: BreezeBridgeGeometry = {
+    width: 1,
+    height: 1,
+    breadth: 1,
+    focus: { x: 0, y: 0 },
+    family: 'desktop',
+  };
+  let openingDistance = 0;
+  let lastPose = '';
+  const attribute = (node: Element | null, name: string, value: string) => {
+    if (node && node.getAttribute(name) !== value)
+      node.setAttribute(name, value);
+  };
+
   return {
-    measure(w, h) {
-      width = w;
-      height = h;
+    measure(width, height) {
+      const measured = storyBreezeGeometry(width, height);
+      geometry = { ...measured, width, height };
+      root.dataset.breezeFamily = geometry.family;
       for (const svg of svgs)
         svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-      lastGeometry = '';
+      outline?.setAttribute('d', measured.outline);
+      luminous?.setAttribute('d', measured.outline);
+      folds.forEach((node, i) => node.setAttribute('d', measured.folds[i]));
+      threads.forEach((node, i) => node.setAttribute('d', measured.threads[i]));
+      openingDistance = height * (geometry.family === 'mobile' ? 0.9 : 1.1);
       lastPose = '';
     },
     paint(progress, reduced) {
-      if (reduced) return;
-      const p = Math.min(progress, homeStoryTiming.breezeOutEnd);
-      const state = homeStoryFrame(p, width, height);
-      const geometryKey =
-        p <= homeStoryTiming.breezeApproach ? 'identity' : p.toFixed(5);
-      if (geometryKey !== lastGeometry) {
-        lastGeometry = geometryKey;
-        const geometry = storyBreezeGeometry(width, height, p);
-        root.dataset.breezeFamily = geometry.family;
-        outline?.setAttribute('d', geometry.outline);
-        folds.forEach((node, i) => node.setAttribute('d', geometry.folds[i]));
-        threads.forEach((node, i) => {
-          node.setAttribute('d', geometry.threads[i]);
-          node.setAttribute('opacity', String(1 - state.near * 0.24));
-        });
-        const depth = state.near;
-        front.forEach((stop, i) => {
-          const start = i === 2 || i === 3 ? 0 : 255;
-          const value = Math.round(start + (255 - start) * depth);
-          stop.setAttribute('stop-color', `rgb(${value} ${value} ${value})`);
-          back[i]?.setAttribute(
-            'stop-color',
-            `rgb(${255 - value} ${255 - value} ${255 - value})`,
-          );
-        });
-        // The fabric becomes optically denser near the lens, retaining its
-        // folds and translucent edges instead of using blur or a white overlay.
-        silk.forEach((stop, i) =>
-          stop.setAttribute(
-            'stop-opacity',
-            String(
-              originalSilk[i] +
-                ([0.14, 0.7, 0.3, 0.74, 0.13][i] - originalSilk[i]) *
-                  state.occlusion,
-            ),
-          ),
-        );
-      }
-      const arrival =
-        height * (width < 768 ? 0.9 : 1.1) * (1 - range(p, 0.16, 0.34));
-      const approach = state.near;
-      const sx =
-        1 + approach * (width < 1200 ? 0.09 : 0.14) + state.dissolve * 0.12;
-      const sy = 1 + approach * 0.06 - state.dissolve * 0.22;
-      const x = state.dissolve * width * 0.4;
-      const y = arrival + -state.dissolve * height * 0.035;
-      const transform = `translate(${x.toFixed(2)} ${y.toFixed(2)}) translate(${width * 0.55} ${height * 0.5}) rotate(${(-2 * approach).toFixed(3)}) scale(${sx.toFixed(5)} ${sy.toFixed(5)}) translate(${-width * 0.55} ${-height * 0.5})`;
-      // Finish the camera veil in the sky. The skylight / atrium stays clear;
-      // the cloth must not reappear over the architecture during pull-back.
-      const opacity = (1 - state.dissolve).toFixed(5);
-      const signature = `${transform}/${opacity}`;
+      const { perspective } = homeStoryFrame(progress);
+      const pose = bridgeBreezePose(progress, geometry);
+      const approaching = progress > bridgeTiming.breezeStart && !reduced;
+      // Preserve PASS 2 exactly until the atmospheric approach. The two old
+      // reading poses still exchange only at their invisible midpoint.
+      const y = perspective < 0.5 ? openingDistance : 0;
+      const transform = approaching
+        ? `translate(${(geometry.focus.x + pose.x).toFixed(2)} ${(geometry.focus.y + pose.y).toFixed(2)}) rotate(${pose.rotate.toFixed(4)}) scale(${pose.scale.toFixed(6)}) translate(${(-geometry.focus.x).toFixed(2)} ${(-geometry.focus.y).toFixed(2)})`
+        : `translate(0 ${y.toFixed(2)})`;
+      const opacity = reduced
+        ? 0
+        : approaching
+          ? pose.opacity
+          : Math.abs(1 - 2 * perspective);
+      // Keep the one reusable definition for reverse scroll, but remove all
+      // three SVG projections from rendering once the cloth has left the lens.
+      attribute(root, 'data-breeze-active', String(opacity > 0));
+      const density = approaching ? pose.density : 0;
+      const transferred = approaching ? pose.transfer : 0;
+      const foreground = approaching && pose.foreground;
+      const signature = `${transform}/${opacity.toFixed(5)}/${density.toFixed(5)}/${transferred.toFixed(5)}/${foreground}`;
       if (signature === lastPose) return;
       lastPose = signature;
-      poses.forEach((node, i) => {
-        node.setAttribute('transform', transform);
-        node.setAttribute(
+      for (const node of poses) {
+        const originalProjection =
+          node.getAttribute('data-breeze-pose') !== 'near';
+        attribute(node, 'transform', transform);
+        attribute(
+          node,
           'opacity',
-          i === 0 && p >= homeStoryTiming.breezeNear ? '0' : opacity,
+          (opacity * (originalProjection ? 1 - transferred : 1)).toFixed(5),
+        );
+      }
+      attribute(transfer, 'opacity', transferred.toFixed(5));
+      attribute(luminous, 'opacity', density.toFixed(5));
+      folds.forEach((node, i) => {
+        // Keep curved folds readable close to the lens without graphic stripes.
+        const nearOpacity = i % 3 === 0 ? 0.16 : 0.15 + (i % 4) * 0.06;
+        attribute(
+          node,
+          'opacity',
+          String(foldOpacity[i] + (nearOpacity - foldOpacity[i]) * density),
         );
       });
+      attribute(root, 'data-breeze-foreground', String(foreground));
     },
     destroy() {
       for (const { node, attributes } of saved)
@@ -136,7 +127,13 @@ export function createBreezeRenderer(root: HTMLElement): BreezeDriver {
           if (value === null) node.removeAttribute(name);
           else node.setAttribute(name, value);
         }
-      delete root.dataset.breezeFamily;
+      if (originalFamily === null) root.removeAttribute('data-breeze-family');
+      else root.setAttribute('data-breeze-family', originalFamily);
+      if (originalForeground === null)
+        root.removeAttribute('data-breeze-foreground');
+      else root.setAttribute('data-breeze-foreground', originalForeground);
+      if (originalActive === null) root.removeAttribute('data-breeze-active');
+      else root.setAttribute('data-breeze-active', originalActive);
     },
   };
 }

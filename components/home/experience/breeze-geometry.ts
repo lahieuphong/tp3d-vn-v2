@@ -1,11 +1,9 @@
-import { homeStoryTiming, range } from './home-story-frame';
 /** One cloth in shared-stage coordinates. Width is measured across the curve's
  * normal, never obtained by stretching a landscape image over a tall page. */
 export type BreezeFamily = 'mobile' | 'tablet' | 'desktop';
 type Point = { x: number; y: number };
 export const breezeFamily = (width: number): BreezeFamily =>
   width < 768 ? 'mobile' : width < 1200 ? 'tablet' : 'desktop';
-const clamp = (n: number) => Math.min(1, Math.max(0, n));
 const num = (n: number) => n.toFixed(2);
 function curve(points: Point[], move = true) {
   let d = `${move ? 'M' : 'L'}${num(points[0].x)} ${num(points[0].y)}`;
@@ -18,12 +16,7 @@ function curve(points: Point[], move = true) {
   }
   return d;
 }
-function drawCloth(
-  spine: Point[],
-  breadth: number,
-  family: BreezeFamily,
-  taper?: number[],
-) {
+function drawCloth(spine: Point[], breadth: number, family: BreezeFamily) {
   function fiber(fraction: number) {
     return spine.map((point, i) => {
       const previous = spine[Math.max(0, i - 1)],
@@ -31,10 +24,7 @@ function drawCloth(
       const dx = next.x - previous.x,
         dy = next.y - previous.y,
         length = Math.hypot(dx, dy) || 1;
-      const fold =
-        (0.45 + 0.55 * Math.abs(Math.cos(i * 1.31))) *
-        breadth *
-        (taper?.[i] ?? 1);
+      const fold = (0.45 + 0.55 * Math.abs(Math.cos(i * 1.31))) * breadth;
       const ripple =
         Math.sin(i * 2.3 + fraction * 4.4) *
         breadth *
@@ -56,24 +46,12 @@ function drawCloth(
   const threads = Array.from({ length: 37 }, (_, i) => curve(fiber(i / 36)));
   return { family, outline, folds, threads };
 }
-/** The same cloth goes from Story midground to a camera-close billow, then
- * passes beyond the camera; it never turns back into the atrium. Coordinates are local to the shared stage. */
-export function storyBreezeGeometry(
-  width: number,
-  height: number,
-  progress: number,
-) {
-  const p = clamp(progress);
+/** Approved static cloth in shared-stage coordinates. Geometry changes only
+ * when the viewport is measured; scroll never morphs or stretches its paths. */
+export function storyBreezeGeometry(width: number, height: number) {
   const family = breezeFamily(width);
   const mobile = family === 'mobile';
   const openingDistance = height * (mobile ? 0.9 : 1.1);
-  const mix = (a: number, b: number, t: number) => a + (b - a) * t;
-  const approach = range(
-    p,
-    homeStoryTiming.breezeApproach,
-    homeStoryTiming.breezeNear,
-  );
-  const sweep = range(p, 0.55, 0.635);
   const identityHeight = openingDistance + height * (mobile ? 1.94 : 2.04);
   const opening = openingDistance + height * 0.84;
   const identityX =
@@ -90,23 +68,15 @@ export function storyBreezeGeometry(
     1.14 * opening,
     identityHeight + (identityHeight - opening) * 0.06,
   ];
-  // A diagonal, folded sheet passes across the camera, not an opaque panel.
-  const veilX = [0.39, 0.32, 0.49, 0.57, 0.67, 0.82].map(
-    (x) => x + sweep * 1.45 - 0.55,
-  );
-  const veilY = [-0.48, -0.08, 0.22, 0.53, 0.88, 1.45];
   const spine = identityX.map((x, i) => ({
-    x: mix(x * width, veilX[i] * width, approach),
-    y: mix(identityY[i] - openingDistance, veilY[i] * height, approach),
+    x: x * width,
+    y: identityY[i] - openingDistance,
   }));
-  const originalBreadth = Math.min(width * (mobile ? 0.25 : 0.18), 330);
-  const breadth = mix(
-    originalBreadth,
-    width * (mobile ? 1.02 : 0.99),
-    approach,
-  );
-  const taper = [1, 1, 1, 1, 1, 1].map((v, i) =>
-    mix(v, [0.7, 0.95, 1.2, 1.18, 1.06, 0.7][i], approach),
-  );
-  return drawCloth(spine, breadth, family, taper);
+  const breadth = Math.min(width * (mobile ? 0.25 : 0.18), 330);
+  return {
+    ...drawCloth(spine, breadth, family),
+    // The same bend becomes the near-camera anchor; no second cloth geometry.
+    focus: spine[3],
+    breadth,
+  };
 }

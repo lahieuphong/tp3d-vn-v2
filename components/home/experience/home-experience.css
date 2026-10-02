@@ -14,12 +14,18 @@
   height: 100%;
   pointer-events: none;
 }
+[data-breeze-active='false'] .continuous-breeze {
+  display: none;
+}
 .cb-plane {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  overflow: visible;
+  /* Match the stage's existing viewport clip. An overflow-visible SVG lets
+     the near-camera projection allocate an enormous offscreen layer even
+     though those pixels can never be seen outside the story viewport. */
+  overflow: hidden;
   pointer-events: none;
 }
 .cb-back {
@@ -27,6 +33,19 @@
 }
 .cb-front {
   z-index: 4;
+}
+[data-breeze-foreground='true'] .cb-front {
+  z-index: 8;
+}
+/* The organic cloth is clipped by the existing stage, never by a growing
+   transition mask. Do not promote its oversized transformed vector bounds. */
+.cb-near-projection {
+  pointer-events: none;
+}
+@media (max-width: 767px) {
+  .home-story-stage .cb-near-projection {
+    display: none;
+  }
 }
 
 .home-experience + .site-footer {
@@ -45,9 +64,6 @@
 }
 body .site-header.spatial-home[data-chapter-theme='dark'] {
   color: #f3e9d6;
-}
-body .site-header.spatial-home[data-chapter-theme='sky'] {
-  color: #332b22dc;
 }
 .site-header.spatial-home[data-chapter-theme] .wordmark {
   font-size: clamp(37px, 3.25vw, 55px);

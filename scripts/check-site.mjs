@@ -147,12 +147,45 @@ while (pending.length) {
     assert.match(hero, /id="spatial-hero-story"/);
     assert.match(hero, /becomes a way/);
     assert.match(hero, /of seeing\./);
-    for (const layer of ['sh-monogram'])
-      assert.equal(
-        (hero.match(new RegExp('class="' + layer + '"', 'g')) ?? []).length,
-        1,
-        'Home: one shared ' + layer,
-      );
+    assert.equal(
+      (main.match(/<[^>]+\bclass="[^"]*\bsh-monogram\b[^"]*"/g) ?? []).length,
+      1,
+      'Home: one large narrative TP in the complete HomeStory',
+    );
+    assert.equal(
+      (main.match(/<[^>]+\bdata-shared-tp(?:=|\s|>)/g) ?? []).length,
+      1,
+      'Home: exactly one shared narrative TP owner',
+    );
+    assert.doesNotMatch(
+      hero,
+      /\bdata-shared-tp(?:=|\s|>)/,
+      'Home: the shared artifact is outside the scene-local Hero',
+    );
+    // Inspect the emitted tag ancestry, rather than merely checking that the
+    // marker occurs somewhere after the stage. This permits sibling reordering
+    // while rejecting a TP nested back inside either scene.
+    const ancestors = [];
+    let tpParent;
+    for (const match of main.matchAll(/<\/?([a-z][\w:-]*)\b[^>]*>/gi)) {
+      const [tag, name] = match;
+      if (tag.startsWith('</')) ancestors.pop();
+      else if (/\bdata-shared-tp(?:=|\s|>)/.test(tag)) {
+        tpParent = ancestors.at(-1);
+        break;
+      } else if (
+        !tag.endsWith('/>') &&
+        !/^(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)$/i.test(
+          name,
+        )
+      )
+        ancestors.push(tag);
+    }
+    assert.match(
+      tpParent ?? '',
+      /^<div\b[^>]*\bdata-home-story-stage(?:=|\s|>)/,
+      'Home: the narrative TP is a direct child of the shared sticky stage',
+    );
     assert.equal(
       (html.match(/<header\b/g) ?? []).length,
       1,
@@ -227,13 +260,13 @@ while (pending.length) {
     );
     assert.equal(
       (main.match(/\bhref="#cb-cloth"/g) ?? []).length,
-      2,
-      'Home: back/front projections reference the same fabric',
+      3,
+      'Home: rear/main/front projections reference the same fabric',
     );
     assert.equal(
       (main.match(/\bdata-breeze-svg(?:=|\s|>)/g) ?? []).length,
       2,
-      'Home: exactly two controlled depth projections',
+      'Home: two SVG planes host three coordinated fabric projections',
     );
     assert(
       main.indexOf('spatial-hero-story') <
@@ -298,46 +331,36 @@ while (pending.length) {
         `Home: ${name} is missing its visual assets`,
       );
       const roomPreviews = [
-        ...body.matchAll(
-          /<picture\b[^>]*class="hc-room-preview hc-room-preview-([a-z]+)"[^>]*>([\s\S]*?)<\/picture>/g,
-        ),
+        ...body.matchAll(/<img\b(?=[^>]*data-room-preview="([a-z]+)")[^>]*>/g),
       ];
       assert.deepEqual(
         roomPreviews.map(([, room]) => room),
         ['living', 'bedroom', 'bathroom', 'kitchen'],
-        'Home: each atrium room has one decorative preview',
+        'Home: four optimized room previews',
       );
-      const previewFallbacks = new Set();
-      for (const [, room, preview] of roomPreviews) {
-        const source = preview.match(/<source\b[^>]*>/)?.[0];
-        assert(source, `Home: ${room} preview needs a desktop source`);
-        assert.match(
-          source,
-          /media="\(min-width: 1200px\) and \(hover: hover\) and \(pointer: fine\)"/,
+      for (const [preview, room] of roomPreviews) {
+        assert(
+          preview.includes(
+            `data-src="/images/home-chapters/room-preview-${room}.webp"`,
+          ),
         );
-        assert.equal(
-          source.match(/srcset="([^"]+)"/i)?.[1],
-          `/images/home-chapters/room-preview-${room}.webp`,
-        );
-        const fallback = preview.match(/<img\b[^>]*>/)?.[0];
-        assert(fallback, `Home: ${room} preview needs a fallback`);
-        assert.equal(
-          fallback.match(/\bsrc="([^"]+)"/)?.[1],
-          'data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; width=&#x27;1&#x27; height=&#x27;1&#x27;/%3E',
-          'Home: non-hover devices use only the empty inline preview',
-        );
-        assert.match(fallback, /width="192" height="192" alt=""/);
-        previewFallbacks.add(fallback);
+        assert.match(preview, /width="192" height="192" alt=""/);
       }
       for (const [image] of chapterImages) {
-        assert(
-          /src="\/images\//.test(image) || previewFallbacks.has(image),
-          `Home: ${name} image must be local or a verified preview placeholder`,
+        assert.match(
+          image,
+          /data-src="\/images\/home-chapters\//,
+          'Home: later chapter assets have local deferred sources',
+        );
+        assert.doesNotMatch(
+          image,
+          /\ssrc(?:set)?="/,
+          'Home: SSR must not fetch Atrium or interaction thumbnails at initial boot',
         );
         assert.match(
           image,
           /loading="lazy"/,
-          `Home: ${name} should defer image loading`,
+          'Home: later story assets start only on intent',
         );
         assert.match(
           image,
@@ -390,6 +413,31 @@ while (pending.length) {
       /worlds-architecture|hc-world-selector|hc-worlds-daylight|the space\./,
     );
     assert.match(chapterBodies.worlds, /worlds-atrium\.webp/);
+    assert.equal(
+      (main.match(/\bdata-scene3-camera(?:=|\s|>)/g) ?? []).length,
+      1,
+      'Home: one Scene3 camera carries the sky, oculus and final atrium',
+    );
+    const scene3Plates = [...main.matchAll(/<img\b[^>]*>/g)]
+      .map(([tag]) => tag)
+      .filter((tag) =>
+        /\bsrc="\/images\/home-chapters\/worlds-atrium\.webp"/.test(tag),
+      );
+    assert.equal(
+      scene3Plates.length,
+      1,
+      'Home: no duplicate full-size sky/portal/atrium image',
+    );
+    assert.doesNotMatch(
+      scene3Plates[0],
+      /\bsrcset=/i,
+      'Home: close-up sky reuses the full-resolution plate on every breakpoint',
+    );
+    assert.doesNotMatch(
+      main,
+      /data-sky-preview|data-sky-portal|story-still-sky|sky-static-aperture|swb-portal|scene3-portal/,
+      'Home: no superseded portal or separate sky preview remains',
+    );
     assert.doesNotMatch(
       main,
       /<h2\b[^>]*>[\s\S]*?Objects &amp;\s*<br\s*\/?>\s*Materials[\s\S]*?<\/h2>/,
