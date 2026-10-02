@@ -8,7 +8,11 @@ import {
 
 export type BreezeDriver = {
   measure: (width: number, height: number) => void;
-  paint: (progress: number, reduced: boolean) => void;
+  paint: (
+    progress: number,
+    reduced: boolean,
+    atmosphericTakeover?: number,
+  ) => void;
   destroy: () => void;
 };
 
@@ -74,7 +78,7 @@ export function createBreezeRenderer(root: HTMLElement): BreezeDriver {
       openingDistance = height * (geometry.family === 'mobile' ? 0.9 : 1.1);
       lastPose = '';
     },
-    paint(progress, reduced) {
+    paint(progress, reduced, atmosphericTakeover = 0) {
       const { perspective } = homeStoryFrame(progress);
       const pose = bridgeBreezePose(progress, geometry);
       const approaching = progress > bridgeTiming.breezeStart && !reduced;
@@ -84,11 +88,14 @@ export function createBreezeRenderer(root: HTMLElement): BreezeDriver {
       const transform = approaching
         ? `translate(${(geometry.focus.x + pose.x).toFixed(2)} ${(geometry.focus.y + pose.y).toFixed(2)}) rotate(${pose.rotate.toFixed(4)}) scale(${pose.scale.toFixed(6)}) translate(${(-geometry.focus.x).toFixed(2)} ${(-geometry.focus.y).toFixed(2)})`
         : `translate(0 ${y.toFixed(2)})`;
-      const opacity = reduced
+      const clothOpacity = reduced
         ? 0
         : approaching
           ? pose.opacity
           : Math.abs(1 - 2 * perspective);
+      // Only a warmed, painted WebGL bridge may take over the cloth. The
+      // default remains the complete reversible DOM fallback.
+      const opacity = clothOpacity * (1 - atmosphericTakeover);
       // Keep the one reusable definition for reverse scroll, but remove all
       // three SVG projections from rendering once the cloth has left the lens.
       attribute(root, 'data-breeze-active', String(opacity > 0));

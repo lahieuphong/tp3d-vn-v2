@@ -1,9 +1,12 @@
 import type { BreezeDriver } from './breeze-renderer';
+import { createAtmosphericSkyBridge } from './atmospheric-sky-renderer';
 import {
   MOTION,
   cameraImpulse,
   motionProfile,
   settleVisual,
+  editorial,
+  span,
   type VisualPose,
 } from './home-motion';
 import { prepareSceneImage } from './scene-image';
@@ -43,6 +46,9 @@ export function createHomeStoryTimeline(
     return () => {};
   }
   const sharedTP = stage.querySelector<HTMLElement>('[data-shared-tp]');
+  const skyHost = stage.querySelector<HTMLElement>(
+    '[data-atmospheric-sky-bridge]',
+  );
   const camera = worlds.querySelector<HTMLElement>('[data-scene3-camera]');
   const worldReveals = [
     ...worlds.querySelectorAll<HTMLElement>('[data-chapter-reveal]'),
@@ -76,6 +82,7 @@ export function createHomeStoryTimeline(
       })),
   );
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
   const saved = [
     ...new Set([
       root,
@@ -164,11 +171,15 @@ export function createHomeStoryTimeline(
   let cameraMass: VisualPose | null = null;
   let architectureMass: VisualPose | null = null;
   let lastFrameTime = 0;
+  let atmosphericCrossing = false;
   const discoveryInteraction = createRoomDiscovery(worlds);
   const schedule = () => {
     if (!disposed && !document.hidden && !frame)
       frame = requestAnimationFrame(render);
   };
+  const skyBridge = skyHost
+    ? createAtmosphericSkyBridge(skyHost, schedule)
+    : null;
   const imageSettled = async () => {
     if (!secondary || disposed) return;
     let decoded = false;
@@ -314,7 +325,37 @@ export function createHomeStoryTimeline(
       initialPaints--;
       schedule();
     } else startSecondary();
-    breeze?.paint(bridgeProgress, still);
+    skyBridge?.update({
+      progress: bridgeProgress,
+      width: geometry.width,
+      height: geometry.height,
+      reduced: still,
+      fine: finePointer.matches,
+      visible: scroll <= geometry.top + geometry.span + 1,
+      sceneReady: sceneImage === 'ready',
+    });
+    if (skyHost?.dataset.skyState === 'active') atmosphericCrossing = true;
+    else if (
+      skyHost?.dataset.skyState === 'fallback' ||
+      still ||
+      geometry.width < 768 ||
+      bridgeProgress <= 0.5
+    )
+      atmosphericCrossing = false;
+    else if (
+      skyHost?.dataset.skyState === 'ready' &&
+      bridgeProgress >= bridgeTiming.breezeEnd
+    ) {
+      // A restored/fast-skipped settled scene can finish warming without ever
+      // painting an active cloud frame. Prime its reverse handoff only after
+      // the original cloth is fully gone, preserving a late DOM crossing.
+      atmosphericCrossing = true;
+    }
+    breeze?.paint(
+      bridgeProgress,
+      still,
+      atmosphericCrossing ? editorial(span(bridgeProgress, 0.575, 0.62)) : 0,
+    );
     const progress = p.toFixed(5);
     if (root.dataset.storyProgress !== progress)
       root.dataset.storyProgress = progress;
@@ -539,7 +580,7 @@ export function createHomeStoryTimeline(
       }
     }
     if (debug)
-      debug.textContent = `${progress} · ${bridge.phase} · ${motion.phase} · TP ${pose.phase} · Breeze ${motion.approach.toFixed(3)}/${motion.through.toFixed(3)} · Scene3 ${worldPose.scale.toFixed(4)} · camera ${cameraMass.scale.toFixed(4)} · mass ${cameraResponse.active || architectureResponse.active ? 'settling' : 'rest'}`;
+      debug.textContent = `${progress} · ${bridge.phase} · ${motion.phase} · TP ${pose.phase} · Breeze ${motion.approach.toFixed(3)}/${motion.through.toFixed(3)} · Scene3 ${worldPose.scale.toFixed(4)} · camera ${cameraMass.scale.toFixed(4)} · mass ${cameraResponse.active || architectureResponse.active ? 'settling' : 'rest'} · ${skyBridge?.debug() ?? 'DOM atmosphere'}`;
     // Reveal the sampled restored frame, never the default scene first.
     if (
       document.readyState === 'complete' &&
@@ -563,6 +604,7 @@ export function createHomeStoryTimeline(
       cancelAnimationFrame(frame);
       frame = 0;
       discoveryInteraction.suspend();
+      skyBridge?.suspend();
       for (const node of [camera, architecture, sharedTP])
         if (node) property(node, 'will-change', 'auto');
     } else resize();
@@ -581,6 +623,7 @@ export function createHomeStoryTimeline(
   window.addEventListener('pageshow', restore);
   document.addEventListener('visibilitychange', visibility);
   reduced.addEventListener('change', resize);
+  finePointer.addEventListener('change', resize);
   const preparedImage = image
     ? prepareSceneImage(image, {
         ready: () => {
@@ -599,6 +642,7 @@ export function createHomeStoryTimeline(
     disposed = true;
     preparedImage?.destroy();
     discoveryInteraction.destroy();
+    skyBridge?.destroy();
     cancelAnimationFrame(frame);
     observer.disconnect();
     window.removeEventListener('scroll', schedule);
@@ -606,6 +650,7 @@ export function createHomeStoryTimeline(
     window.removeEventListener('pageshow', restore);
     document.removeEventListener('visibilitychange', visibility);
     reduced.removeEventListener('change', resize);
+    finePointer.removeEventListener('change', resize);
     secondary?.removeEventListener('load', imageSettled);
     secondary?.removeEventListener('error', imageSettled);
     debug?.remove();

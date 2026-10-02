@@ -29,6 +29,8 @@ function browser({
   missing = false,
   sceneImage = 'ready',
   initialScroll = 0,
+  sky = false,
+  fine = true,
 } = {}) {
   const events = [],
     frames = new Map(),
@@ -223,10 +225,23 @@ function browser({
     ]),
   );
   const sharedTP = new Node();
+  const skyHost = sky ? new Node() : null;
+  const skyLifecycle = {
+    created: 0,
+    suspended: 0,
+    destroyed: 0,
+    updates: [],
+    mode: 'dormant',
+    wake: null,
+  };
   const readStory = new Node();
   sharedTP.setAttribute('aria-hidden', 'true');
   stage.querySelector = (selector) =>
-    selector === '[data-shared-tp]' ? sharedTP : null;
+    selector === '[data-shared-tp]'
+      ? sharedTP
+      : selector === '[data-atmospheric-sky-bridge]'
+        ? skyHost
+        : null;
   openingGroups['.sh-story-signoff, .sh-read-story, .sh-center-copy'].push(
     readStory,
   );
@@ -272,6 +287,10 @@ function browser({
   header.dataset.opening = 'story';
   document.querySelector = () => header;
   const media = new Map([
+    [
+      '(hover: hover) and (pointer: fine)',
+      Object.assign(new Events(), { matches: fine }),
+    ],
     [
       '(prefers-reduced-motion: reduce)',
       Object.assign(new Events(), { matches: reduced }),
@@ -319,6 +338,28 @@ function browser({
     module: loaded,
     exports: loaded.exports,
     require(path) {
+      if (path === './atmospheric-sky-renderer')
+        return {
+          createAtmosphericSkyBridge(host, wake) {
+            assert.equal(host, skyHost);
+            skyLifecycle.created++;
+            skyLifecycle.wake = wake;
+            return {
+              update(input) {
+                skyLifecycle.updates.push({ ...input });
+                host.dataset.skyState = skyLifecycle.mode;
+              },
+              suspend() {
+                skyLifecycle.suspended++;
+              },
+              destroy() {
+                skyLifecycle.destroyed++;
+                host.removeAttribute('data-sky-state');
+              },
+              debug: () => 'stub atmosphere',
+            };
+          },
+        };
       if (path === './home-production') return loadStoryMath('home-production');
       if (path === './room-discovery')
         return {
@@ -419,6 +460,8 @@ function browser({
     openingNodes,
     openingGroups,
     sharedTP,
+    skyHost,
+    skyLifecycle,
     readStory,
     secondary,
     discovery,
@@ -437,6 +480,9 @@ function browser({
     breeze,
     flush,
     scroll,
+    setWidth: (nextWidth) => {
+      width = nextWidth;
+    },
     count,
   };
 }
@@ -871,7 +917,11 @@ for (const initiallyLocked of [true, false]) {
 }
 
 for (let i = 0; i < 30; i++) {
-  const b = browser({ reduced: i % 2 === 0, width: i % 3 === 0 ? 390 : 1440 });
+  const b = browser({
+    reduced: i % 2 === 0,
+    width: i % 3 === 0 ? 390 : 1440,
+    sky: true,
+  });
   const stop = b.createHomeStoryTimeline(b.root, b.breeze);
   b.flush();
   b.flush();
@@ -883,6 +933,12 @@ for (let i = 0; i < 30; i++) {
   stop();
   assert.deepEqual(b.count(), { frames: 0, listeners: 0, observers: 0 });
   assert.deepEqual(b.imageLifecycle, { prepared: 1, disposed: 1 });
+  assert.equal(
+    b.skyLifecycle.created,
+    1,
+    'one atmosphere controller per mount',
+  );
+  assert.equal(b.skyLifecycle.destroyed, 1, 'unmount owns atmosphere disposal');
 }
 const missing = browser({ missing: true });
 missing.createHomeStoryTimeline(missing.root)();
@@ -1025,6 +1081,251 @@ for (const sceneImage of ['ready', 'pending', 'failed']) {
   );
 }
 
+// The optional WebGL renderer consumes the same master frame. It never owns a
+// second scroll/resize/visibility loop or changes content accessibility.
+{
+  const b = browser({ sky: true, initialScroll: 2340 * 0.47 });
+  const stop = b.createHomeStoryTimeline(b.root, b.breeze);
+  b.flush();
+  b.flush();
+  const sampleSky = (p, mode = 'active') => {
+    b.skyLifecycle.mode = mode;
+    b.scroll(p * 2340);
+    b.flush();
+    return b.skyLifecycle.updates.at(-1);
+  };
+  assert.equal(b.skyLifecycle.created, 1);
+  assert.equal(b.window.listeners.get('scroll').size, 1);
+  assert.equal(b.resizes.length, 1);
+  assert.equal(
+    b.paints.at(-1)[2],
+    0,
+    'DOM Breeze remains intact before takeover',
+  );
+  sampleSky(0.575);
+  assert.equal(
+    b.paints.at(-1)[2],
+    0,
+    'handoff starts with the complete Breeze',
+  );
+  const handoffMidpoint = (0.575 + 0.62) / 2;
+  const skyFrame = sampleSky(handoffMidpoint);
+  assert.equal(
+    skyFrame.progress,
+    handoffMidpoint,
+    'cloud camera follows canonical progress',
+  );
+  assert.equal(skyFrame.width, 1440);
+  assert.equal(skyFrame.height, 900);
+  assert.equal(skyFrame.reduced, false);
+  assert.equal(skyFrame.fine, true);
+  assert.equal(skyFrame.visible, true);
+  assert.equal(skyFrame.sceneReady, true);
+  assert(b.paints.at(-1)[2] > 0 && b.paints.at(-1)[2] < 1);
+  sampleSky(0.62);
+  assert.equal(
+    b.paints.at(-1)[2],
+    1,
+    'Breeze yields once atmosphere takes over',
+  );
+  sampleSky(0.76, 'ready');
+  assert.equal(
+    b.paints.at(-1)[2],
+    1,
+    'completed atmospheric crossing cannot bring the cloth back over sky',
+  );
+  sampleSky(0.62, 'fallback');
+  assert.equal(
+    b.paints.at(-1)[2],
+    0,
+    'context fallback immediately restores DOM Breeze',
+  );
+  sampleSky(0.66);
+  sampleSky(0.49, 'ready');
+  assert.equal(
+    b.paints.at(-1)[2],
+    0,
+    'reverse restores the original Scene2 cloth',
+  );
+  b.skyLifecycle.wake();
+  b.skyLifecycle.wake();
+  assert.equal(
+    b.count().frames,
+    1,
+    'shader readiness coalesces on the master RAF',
+  );
+  b.flush();
+  b.media.get('(hover: hover) and (pointer: fine)').matches = false;
+  b.media.get('(hover: hover) and (pointer: fine)').emit('change');
+  b.flush();
+  assert.equal(
+    b.skyLifecycle.updates.at(-1).fine,
+    false,
+    'pointer changes recalculate the tier',
+  );
+  sampleSky(0.66);
+  b.skyLifecycle.mode = 'fallback';
+  b.setWidth(390);
+  b.window.emit('resize');
+  b.flush();
+  assert.equal(b.skyLifecycle.updates.at(-1).width, 390);
+  assert.equal(
+    b.paints.at(-1)[2],
+    0,
+    'resizing into mobile fallback clears an active takeover',
+  );
+  b.skyLifecycle.mode = 'active';
+  b.setWidth(1440);
+  b.window.emit('resize');
+  b.flush();
+  assert.equal(
+    b.paints.at(-1)[2],
+    1,
+    'eligible resize can resume the current atmospheric frame',
+  );
+  b.skyLifecycle.mode = 'fallback';
+  b.media.get('(prefers-reduced-motion: reduce)').matches = true;
+  b.media.get('(prefers-reduced-motion: reduce)').emit('change');
+  b.flush();
+  assert.equal(
+    b.paints.at(-1)[2],
+    0,
+    'enabling reduced motion clears a previous takeover',
+  );
+  b.skyLifecycle.mode = 'active';
+  b.media.get('(prefers-reduced-motion: reduce)').matches = false;
+  b.media.get('(prefers-reduced-motion: reduce)').emit('change');
+  b.flush();
+  assert.equal(b.paints.at(-1)[2], 1);
+  b.document.hidden = true;
+  b.document.emit('visibilitychange');
+  const hiddenUpdates = b.skyLifecycle.updates.length;
+  assert.equal(b.skyLifecycle.suspended, 1);
+  b.skyLifecycle.wake();
+  b.scroll(2340 * 0.66);
+  b.flush();
+  assert.equal(
+    b.skyLifecycle.updates.length,
+    hiddenUpdates,
+    'hidden tabs do no WebGL frame work',
+  );
+  assert.equal(b.count().frames, 0);
+  b.document.hidden = false;
+  b.document.emit('visibilitychange');
+  b.flush();
+  assert.equal(b.skyLifecycle.updates.at(-1).progress, 0.66);
+  assert.equal(
+    b.paints.at(-1)[2],
+    1,
+    'visibility resume preserves takeover at the same native frame',
+  );
+  sampleSky(1.1, 'ready');
+  assert.equal(
+    b.skyLifecycle.updates.at(-1).visible,
+    false,
+    'Footer suspends decorative rendering',
+  );
+  stop();
+  stop();
+  assert.equal(b.skyLifecycle.destroyed, 1);
+  b.skyLifecycle.wake();
+  assert.deepEqual(b.count(), { frames: 0, listeners: 0, observers: 0 });
+}
+
+// A restored/fast-skipped Scene 3 has no forward active-cloud frame to set the
+// latch. Warming after the original cloth exit must still prepare its reverse.
+for (const initialProgress of [0.95, 0.47]) {
+  const b = browser({ sky: true, initialScroll: 2340 * initialProgress });
+  const stop = b.createHomeStoryTimeline(b.root, b.breeze);
+  b.flush();
+  b.skyLifecycle.mode = 'warming';
+  b.scroll(2340 * 0.95);
+  b.flush();
+  assert.equal(
+    b.paints.at(-1)[2],
+    0,
+    'an unready bridge keeps the DOM fallback',
+  );
+  b.skyLifecycle.mode = 'ready';
+  b.skyLifecycle.wake();
+  b.flush();
+  assert.equal(
+    b.paints.at(-1)[2],
+    1,
+    'ready settled Scene3 primes reverse handoff',
+  );
+  b.scroll(2340 * 0.75);
+  b.flush();
+  assert.equal(
+    b.paints.at(-1)[2],
+    1,
+    'reverse sky cannot briefly resurrect DOM cloth',
+  );
+  b.skyLifecycle.mode = 'active';
+  b.scroll(2340 * 0.72);
+  b.flush();
+  assert.equal(
+    b.paints.at(-1)[2],
+    1,
+    'cloud re-entry preserves the same cloth takeover',
+  );
+  stop();
+}
+
+{
+  const b = browser({ sky: true, initialScroll: 2340 * 0.74 });
+  const stop = b.createHomeStoryTimeline(b.root, b.breeze);
+  b.flush();
+  b.skyLifecycle.mode = 'ready';
+  for (const progress of [0.74, 0.8, 0.839]) {
+    b.scroll(2340 * progress);
+    b.flush();
+    assert.equal(
+      b.paints.at(-1)[2],
+      0,
+      'late warm-up cannot switch a still-visible DOM crossing',
+    );
+  }
+  b.scroll(2340 * 0.85);
+  b.flush();
+  assert.equal(
+    b.paints.at(-1)[2],
+    1,
+    'reverse handoff may prime once the old cloth has exited',
+  );
+  stop();
+}
+
+for (const sceneImage of ['pending', 'failed']) {
+  const b = browser({ sky: true, sceneImage, initialScroll: 2340 * 0.68 });
+  const stop = b.createHomeStoryTimeline(b.root, b.breeze);
+  b.flush();
+  assert.equal(b.root.dataset.storyProgress, '0.68000');
+  assert.equal(b.skyLifecycle.updates.at(-1).progress, 0.48);
+  assert.equal(b.skyLifecycle.updates.at(-1).sceneReady, false);
+  assert.equal(
+    b.paints.at(-1)[2],
+    0,
+    'undecoded Scene3 never starts cloud takeover',
+  );
+  stop();
+}
+
+for (const options of [{ reduced: true, width: 1440 }, { width: 390 }]) {
+  const b = browser({ sky: true, ...options });
+  const stop = b.createHomeStoryTimeline(b.root, b.breeze);
+  b.skyLifecycle.mode = 'dormant';
+  b.scroll(2340 * 0.66);
+  b.flush();
+  assert.equal(
+    b.paints.at(-1)[2],
+    0,
+    'mobile/reduced preserves the DOM bridge',
+  );
+  assert.equal(b.skyLifecycle.updates.at(-1).reduced, !!options.reduced);
+  stop();
+}
+
 const { homeStoryFrame } = mathModule.exports;
 const samples = Array.from({ length: 201 }, (_, i) => homeStoryFrame(i / 200));
 assert.deepEqual(
@@ -1058,5 +1359,5 @@ assert.doesNotMatch(
   'driver reads native scroll without hijacking input',
 );
 console.log(
-  'HomeStory PASS 4 passed: one owner and TP, native/restored progress, reversible poses, inert controls, reduced continuity, idle stillness and 30 complete cleanups.',
+  'HomeStory passed: one owner and TP, native/restored progress, reversible poses, inert controls, reduced continuity, atmosphere handoff/gating, idle stillness and 30 complete cleanups.',
 );

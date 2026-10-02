@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { ContinuousBreeze } from './continuous-breeze';
 import { SharedTP } from './shared-tp';
+import { AtmosphericSkyBridge } from './atmospheric-sky-bridge';
 import './home-story.css';
 
 /** One persistent viewport, released into the normal document-flow Footer. */
@@ -14,6 +15,7 @@ export function HomeStory({ children }: { children: ReactNode }) {
       <div className="home-story-stage" data-home-story-stage>
         <SharedTP />
         {children}
+        <AtmosphericSkyBridge />
         <ContinuousBreeze />
         <aside className="story-rail" aria-hidden="true">
           <span className="story-rail-track">
