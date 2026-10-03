@@ -2,6 +2,8 @@
 
 `/worlds` is a curated catalogue of digital interiors and spatial studies. It shares Tân Phong's existing fonts, colours, header and footer. This redesign changes only Worlds presentation and its data/validation support; Homepage, its Hero and the other content routes are unchanged.
 
+Since TP3D PASS 05 the catalogue is also the World's **01 Gallery**: the `/world` Lobby links its one open room here. `/worlds` keeps its URL, filters, fragments and editorial header and footer. The Lobby is not a replacement for it. See [TP3D-PASS-05-WORLD-GATEWAY.md](TP3D-PASS-05-WORLD-GATEWAY.md).
+
 ## Content
 
 Edit `data/worlds.ts`. A `World` contains `id`, `slug`, `title`, `category`, `style`, `type`, `year`, `description`, `image: { src, alt }`, `featured`, `available`, `sketchfabUid`, `externalUrl`, and author/licence `credit` metadata.

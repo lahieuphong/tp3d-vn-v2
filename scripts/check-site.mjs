@@ -310,7 +310,9 @@ while (pending.length) {
       {
         name: 'worlds',
         heading: 'home-worlds-title',
-        destinations: ['/worlds'],
+        // TP3D PASS 05: the primary gateway enters the Lobby; /worlds stays
+        // reachable through the hero portal, navigation and the Lobby.
+        destinations: ['/world'],
       },
     ]) {
       const body = chapterBodies[name];
@@ -491,6 +493,57 @@ while (pending.length) {
     );
     assert(!html.includes('<canvas'), `${route}: unexpected WebGL canvas`);
   }
+  if (route === '/') {
+    // TP3D PASS 05: ENTER THE WORLD is a real link to the Lobby.
+    const gateway = html.match(
+      /<a\b[^>]*\bdata-world-gateway\b[^>]*>[\s\S]*?<\/a>/,
+    );
+    assert(gateway, 'Home: the Atrium gateway must be server-rendered');
+    assert.match(gateway[0], /href="\/world"/);
+    assert.match(gateway[0], /ENTER THE WORLD/);
+    assert.doesNotMatch(html, /EXPLORE 3D WORLDS/);
+  }
+  if (route === '/world') {
+    // TP3D PASS 05: the Lobby shell, complete as server HTML.
+    assert.match(html, /<title>The Lobby — TP3D<\/title>/);
+    assert.equal((html.match(/<h1\b/g) ?? []).length, 1, 'Lobby: one h1');
+    assert.equal(
+      (html.match(/<header\b/g) ?? []).length,
+      1,
+      'Lobby: one header',
+    );
+    assert.doesNotMatch(
+      html,
+      /class="site-header|class="site-footer/,
+      'Lobby: the editorial header and footer step aside',
+    );
+    assert.doesNotMatch(html, /<canvas\b|three\.module|atmospheric-sky/);
+    assert.match(html, /<main\b[^>]*id="main"[^>]*data-world-lobby/);
+    const rooms = (nav) =>
+      [
+        ...(
+          html.match(new RegExp(`aria-label="${nav}"[\\s\\S]*?</ol>`))?.[0] ??
+          ''
+        ).matchAll(
+          /<li\b[^>]*data-world-room="([^"]+)"[^>]*data-status="([^"]+)"[^>]*>([\s\S]*?)<\/li>/g,
+        ),
+      ].map(([, id, status, body]) => ({ id, status, body }));
+    const spatial = rooms('Lobby rooms');
+    const map = rooms('World map');
+    for (const list of [spatial, map]) {
+      assert.deepEqual(
+        list.map((room) => room.id),
+        ['gallery', 'objects', 'archive', 'lab', 'studio'],
+        'Lobby: both navigation modes list the same rooms in order',
+      );
+      for (const room of list) {
+        if (room.status === 'available')
+          assert.match(room.body, /<a\b[^>]*href="\/worlds"/);
+        else assert.doesNotMatch(room.body, /<a\b/, `${room.id}: no fake link`);
+      }
+    }
+    assert.match(html, /<a\b[^>]*href="\/"[^>]*>[\s\S]*?Exit/);
+  }
   if (route === '/worlds') {
     assert.equal(
       (html.match(/data-world="/g) ?? []).length,
@@ -547,6 +600,7 @@ while (pending.length) {
   report.push({ route, title });
 }
 for (const route of [
+  '/world',
   '/spaces',
   '/projects',
   '/collections',

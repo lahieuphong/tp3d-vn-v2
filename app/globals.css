@@ -34,6 +34,9 @@
   --border: #d9d5cd;
   --paper: #eeece5;
   --walnut: #79644e;
+  /* TP3D PASS 05: the World's ground. The PORTAL cover and the Lobby's first
+     paint share it, so crossing never flashes. Deep warm charcoal, not black. */
+  --world-ground: #1c1712;
   --radius: 0;
   --gutter: 64px;
   --section: 120px;

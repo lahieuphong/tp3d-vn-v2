@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import '@/components/shared/spatial-type.css';
 import './spatial-hero.css';
 
 export function SpatialHero({

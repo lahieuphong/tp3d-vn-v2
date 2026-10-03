@@ -14,6 +14,7 @@ an inference, it is labelled as such.
 | Audit browser | Chrome 154.0.8037.59, headless, Windows 11, ANGLE/D3D11 on **NVIDIA RTX 3090** |
 | Supplied recordings | `Ghi Màn hình 2026-10-02 lúc 23.45.05.mov` (UNESCO reference) and `Tân Phong.mov` (current site), analysed in PASS 0/1 and **deleted from the repo root on 2026-10-03** (never committed); extracted frames remain in `work/pass0/reference/` (local, gitignored) |
 | Evidence folder | `work/pass0/` (gitignored, local only — see §29) |
+| TP3D PASS 05 (2026-10-04) | Enter the World gateway: the Atrium CTA reads "ENTER THE WORLD ⟶" and links to the new `/world` Lobby (was "EXPLORE 3D WORLDS" → `/worlds`). A plain primary activation crosses through one fixed `--world-ground` cover (`components/world/world-portal.ts`, z 150, 1000 ms circle from the CTA preview; 220 ms flat fade reduced); modifier/middle clicks and no-JS keep the real link. The homepage timeline, frame functions, Atrium image, room shortcuts and every value in §34 are unchanged; the final Atrium differs from PASS 04 only inside the CTA. The editorial header and footer step aside on `/world`. See §35 and `docs/TP3D-PASS-05-WORLD-GATEWAY.md`. |
 | TP3D PASS 04 (2026-10-04) | Atrium reveal retimed so architecture comes before interface: camera 0.72–0.88 desktop / 0.715–0.875 tablet / 0.715–0.87 phone (was 0.705–0.91 / 0.701–0.907 / 0.686–0.895), measured recognition 0.81 and settle 0.85, rooms from 0.845, title from 0.872, all revealed and settled at 0.915 (hold 0.085), header ink 0.82–0.855 and exposure 0.785–0.865 from measured band luminance, ordered reduced reveals, zenith shade on tablet/phone plates, a short-landscape Atrium layout. The §5 rows from 0.64 on, §15's Scene 3 camera row, §16's Scene 3 line and §23's header range are superseded; see §34 and `docs/TP3D-PASS-04-ATMOSPHERE-WORLDS.md`. Everything through the 0.64 swap is unchanged. |
 | TP3D PASS 03 (2026-10-03) | Perspective → Atmosphere refined: Scene 2 copy now leaves by 0.60 (labels 0.484–0.556, body 0.506–0.58, heading 0.526–0.60), the cloth first stirs from 0.48 (`MOTION.breeze.stir` 0.03), its threads resolve over 0.525–0.595 (`pose.weave`), and reduced motion cuts at the 0.64 swap inside a 0.015 exposure dip instead of cross-dissolving 0.605–0.64. The §5 Scene 2 exit-text row, the §11 approach start, §12 step 1 and the §16 bridge line are superseded; see §33 and `docs/TP3D-PASS-03-PERSPECTIVE-ATMOSPHERE.md`. Atmosphere engine, takeover, TP, swap, sky hold and everything from camera start unchanged. |
 | TP3D PASS 02 (2026-10-03) | Arrival → Perspective handoff retimed with no copy overlap: Scene 1 out by 0.26, copy-free breath to 0.31, plate B opened by a centred aperture (desktop/tablet) or dissolved inside the breath (mobile/reduced), Scene 2 by group to 0.42. The §5 rows for 0.14–0.42 and the §16 Scene 1 → 2 line are superseded; see §32 and `docs/TP3D-PASS-02-SPATIAL-HANDOFF.md`. TP travel, Scene 2 from 0.42, bridge and Atrium unchanged. |
@@ -750,3 +751,33 @@ header; short landscape screens (`max-width: 1199px`, `max-height: 540px`,
 landscape) use the grouped composition sized by `svh`.
 `check-atmosphere-worlds` locks PASS 01–03 through the swap against
 `8baae05` and the approved Atrium reveal.
+
+## 35. TP3D PASS 05 — Enter the World gateway + Lobby (summary)
+
+Full record: `docs/TP3D-PASS-05-WORLD-GATEWAY.md`.
+
+**Homepage.** Only the Atrium CTA changed: `WorldGatewayLink`
+(`components/world/world-gateway-link.tsx`) renders `<a href="/world"
+data-world-gateway>` with "ENTER THE WORLD ⟶" and the unchanged circular
+preview (now `data-world-origin`). Its reveal window (0.895–0.915) and
+interactive gate (0.915) are PASS 04's. The four room shortcuts keep their
+routes. No new RAF, listener on scroll, canvas or request before intent;
+`/world` is prefetched on pointer enter, focus or touch start only.
+
+**Portal** (`components/world/world-portal.ts`, no RAF)
+
+| Step | Value |
+| --- | --- |
+| Gate | plain primary activation only (`isPlainPrimaryActivation`); a second activation while crossing is ignored |
+| Cover | fixed layer z 150 (above header 40, below intro 200): dim to 0.35 + one circle in `--world-ground` scaled from the preview radius to the viewport, `DURATION.cinematic` 1000 ms, `cssEase('cinematic')`, transform/opacity only |
+| Reduced | flat opacity fade, `DURATION.micro` 220 ms, linear |
+| Navigate | `router.push('/world')` once, after the cover completes |
+| Release | the Lobby's `LobbyArrival` resets scroll under the cover, then fades it 1 → 0 over `DURATION.fast` 400 ms |
+| Safety | resize / reduced-motion change completes the cover and crosses; cancelled or stalled animation crosses (cover + 400 ms); release watchdog 2.5 s; document navigation fallback 4 s; popstate away from `/world` and `pageshow` (persisted) remove the layer |
+
+**Lobby.** `/world` (`app/world/page.tsx`, `components/world/world-lobby.tsx`)
+is a server-rendered 2.5D shell over the Atrium plate. There is no canvas
+or Three.js; rooms come from `data/world-building.ts`. The root layout's
+`EditorialChrome` hides `SiteHeader` and `SiteFooter` on `/world` and
+`/world/*`. `check-world-gateway` and the `/` and `/world` blocks in
+`check-site` lock this.

@@ -1,0 +1,493 @@
+/* TP3D PASS 05 — The Lobby. A quiet, dark architectural place: the Atrium
+   plate reframed under a calm exposure, one identity, a directory of rooms
+   and a fast World map. The plate layer is the only part a future GLB
+   environment replaces. */
+:root:has(main[data-world-lobby]),
+:root:has(main[data-world-lobby]) body {
+  /* The first paint already matches the PORTAL cover. */
+  background: var(--world-ground);
+  color-scheme: dark;
+}
+.world-lobby,
+.wl-chrome {
+  --wl-serif: 'Cormorant Spatial', Cormorant, Georgia, serif;
+  --wl-sans: 'Manrope Spatial', Manrope, Arial, sans-serif;
+  --wl-ivory: #f3e9d6;
+  --wl-rule: rgb(243 233 214 / 32%);
+  --wl-gutter: clamp(22px, 5.4vw, 80px);
+  color: var(--wl-ivory);
+}
+.world-lobby a,
+.wl-chrome a {
+  color: inherit;
+  text-decoration: none;
+}
+.world-lobby :focus-visible,
+.wl-chrome :focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 6px;
+}
+
+/* Reduced chrome: identity, World map and a clear exit. Always present. */
+.wl-chrome {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  height: clamp(78px, 9.2svh, 108px);
+  padding-inline: var(--wl-gutter);
+}
+.wl-wordmark {
+  display: inline-flex;
+  flex-direction: column;
+  min-height: 44px;
+  justify-content: center;
+  font: 400 clamp(32px, 2.7vw, 46px) / 0.9 var(--wl-serif);
+  letter-spacing: -0.045em;
+}
+.wl-wordmark span {
+  margin-top: 7px;
+  font: 500 clamp(6px, 0.5vw, 8px) / 1 var(--wl-sans);
+  letter-spacing: 0.27em;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+.wl-controls {
+  display: flex;
+  align-items: center;
+  gap: clamp(18px, 2.6vw, 44px);
+}
+.wl-map summary,
+.wl-exit {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font: 500 10px/1 var(--wl-sans);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.wl-map summary {
+  list-style: none;
+}
+.wl-map summary::-webkit-details-marker {
+  display: none;
+}
+/* A 1px plus that becomes a minus when the map is open. */
+.wl-map summary::after {
+  content: '';
+  width: 9px;
+  height: 9px;
+  background:
+    linear-gradient(currentColor, currentColor) center / 9px 1px no-repeat,
+    linear-gradient(currentColor, currentColor) center / 1px 9px no-repeat;
+}
+.wl-map details[open] summary::after {
+  background: linear-gradient(currentColor, currentColor) center / 9px 1px
+    no-repeat;
+}
+.wl-map-list {
+  /* Anchored to the chrome, so it always stays inside the viewport. */
+  position: absolute;
+  top: calc(100% - 6px);
+  right: var(--wl-gutter);
+  width: min(330px, calc(100vw - 2 * var(--wl-gutter)));
+  margin: 0;
+  padding: 6px 22px;
+  list-style: none;
+  background: rgb(28 23 18 / 96%);
+  border: 1px solid rgb(243 233 214 / 18%);
+}
+.wl-map-list li + li {
+  border-top: 1px solid rgb(243 233 214 / 10%);
+}
+.wl-map-entry {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  align-items: baseline;
+  gap: 12px;
+  min-height: 48px;
+  padding: 13px 0;
+}
+.wl-map-name {
+  font: 400 24px/1 var(--wl-serif);
+  letter-spacing: -0.02em;
+}
+.wl-map [data-status='planned'] .wl-map-entry {
+  color: rgb(243 233 214 / 78%);
+}
+
+/* The place. */
+.world-lobby {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-rows: 1fr auto auto;
+  min-height: 100svh;
+  overflow: clip;
+  padding: clamp(118px, 18svh, 200px) var(--wl-gutter) clamp(22px, 4svh, 40px);
+  background: var(--world-ground);
+}
+.wl-plate {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+}
+.wl-plate img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Through the Atrium and down: the oculus leaves the frame; the floor
+     ring, the pool and the openings around it carry the place. */
+  object-position: 50% 88%;
+  transform: scale(1.28);
+  transform-origin: 50% 88%;
+}
+.wl-plate::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  /* A calm, low exposure in the World ground colour; no vignette. */
+  background: linear-gradient(
+    180deg,
+    rgb(28 23 18 / 90%) 0%,
+    rgb(28 23 18 / 68%) 32%,
+    rgb(28 23 18 / 70%) 62%,
+    rgb(28 23 18 / 94%) 100%
+  );
+}
+.wl-identity {
+  align-self: center;
+  max-width: 36rem;
+  margin: 0 auto;
+  text-align: center;
+}
+.wl-eyebrow {
+  margin: 0 0 20px;
+  font: 500 10px/1.6 var(--wl-sans);
+  letter-spacing: 0.34em;
+  opacity: 0.8;
+}
+.wl-identity h1 {
+  margin: 0;
+  font: 400 clamp(64px, 7.4vw, 136px) / 0.86 var(--wl-serif);
+  letter-spacing: -0.05em;
+  max-width: none;
+}
+.wl-identity h1 em {
+  font-style: italic;
+}
+.wl-lede {
+  max-width: 27em;
+  margin: 28px auto 0;
+  font: 500 clamp(9px, 0.68vw, 11px) / 2 var(--wl-sans);
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+
+/* Spatial directory: five stations set on a shallow arc, as if around the
+   ring below. The open room carries the brightest rule. */
+.wl-rooms {
+  margin-top: clamp(36px, 7svh, 84px);
+}
+.wl-rooms ol {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: end;
+  gap: clamp(14px, 2.2vw, 40px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wl-room:nth-child(1),
+.wl-room:nth-child(5) {
+  transform: translateY(-5svh);
+}
+.wl-room:nth-child(2),
+.wl-room:nth-child(4) {
+  transform: translateY(-1.6svh);
+}
+.wl-room-body {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  min-height: 44px;
+  padding: 18px 0 6px;
+  border-top: 1px solid var(--wl-rule);
+}
+.wl-number,
+.wl-summary,
+.wl-status {
+  font: 500 9px/1.6 var(--wl-sans);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.wl-number {
+  font-size: 10px;
+}
+.wl-name {
+  font: 400 clamp(28px, 2.6vw, 48px) / 1 var(--wl-serif);
+  letter-spacing: -0.025em;
+}
+.wl-status {
+  margin-top: 4px;
+}
+.wl-status > span {
+  display: inline-block;
+  transition: transform var(--motion-duration-micro) var(--motion-ease-primary);
+}
+.wl-room[data-status='available'] .wl-room-body {
+  border-top-color: rgb(243 233 214 / 72%);
+}
+/* Planned wings read quieter by their rule and status, never by fading small
+   type below AA contrast over the plate. */
+.wl-room[data-status='planned'] .wl-room-body {
+  color: rgb(243 233 214 / 78%);
+  border-top-color: rgb(243 233 214 / 16%);
+}
+.wl-room-body:focus-visible .wl-status > span,
+.wl-map-entry:focus-visible .wl-status > span {
+  transform: translate(3px, -3px);
+}
+@media (hover: hover) and (pointer: fine) {
+  a.wl-room-body:hover .wl-status > span,
+  a.wl-map-entry:hover .wl-status > span {
+    transform: translate(3px, -3px);
+  }
+}
+.wl-meta {
+  display: flex;
+  justify-content: space-between;
+  max-width: none;
+  gap: 24px;
+  margin: clamp(30px, 6svh, 64px) 0 0;
+  font: 500 9px/1.6 var(--wl-sans);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+
+/* Arrival (MEDIUM): the ground is already there; the space settles in, then
+   the identity, then the rooms. Durations and curves are the motion tokens;
+   reduced motion shows the composed Lobby at once (global kill switch). */
+@keyframes wl-plate-in {
+  from {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes wl-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes wl-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.wl-plate {
+  animation: wl-plate-in var(--motion-duration-normal)
+    var(--motion-ease-primary) 120ms both;
+}
+.wl-identity {
+  animation: wl-rise var(--motion-duration-normal) var(--motion-ease-primary)
+    380ms both;
+}
+.wl-room-body {
+  animation: wl-rise var(--motion-duration-fast) var(--motion-ease-primary)
+    calc(620ms + var(--wl-index, 0) * 70ms) both;
+}
+.wl-meta {
+  animation: wl-fade var(--motion-duration-fast) var(--motion-ease-primary)
+    1000ms both;
+}
+
+/* Tablet: the same place with tighter stations. */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .wl-name {
+    font-size: clamp(24px, 3.1vw, 34px);
+  }
+}
+
+/* Phones: the directory is the fast path; one readable column. */
+@media (max-width: 767px) {
+  .wl-chrome {
+    height: 76px;
+  }
+  .wl-wordmark {
+    font-size: 32px;
+  }
+  .wl-controls {
+    gap: 18px;
+  }
+  .wl-wide {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .world-lobby {
+    grid-template-rows: auto auto auto;
+    align-content: start;
+    padding: 118px var(--wl-gutter) 28px;
+  }
+  .wl-plate img {
+    object-position: 52% 72%;
+  }
+  .wl-plate::after {
+    background: linear-gradient(
+      180deg,
+      rgb(28 23 18 / 90%) 0%,
+      rgb(28 23 18 / 70%) 40%,
+      rgb(28 23 18 / 90%) 100%
+    );
+  }
+  .wl-identity {
+    align-self: start;
+    margin: 0;
+    text-align: left;
+  }
+  .wl-identity h1 {
+    font-size: clamp(56px, 17vw, 78px);
+  }
+  .wl-lede {
+    margin: 20px 0 0;
+  }
+  .wl-rooms {
+    margin-top: 48px;
+  }
+  .wl-meta {
+    flex-direction: column;
+    gap: 6px;
+  }
+}
+
+/* Phones and tablet portrait: the directory reads as one list, the fast path
+   in its own right. The plate stays spatial behind it. */
+@media (max-width: 767px),
+  (min-width: 768px) and (max-width: 1199px) and (orientation: portrait) {
+  .wl-rooms ol {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .wl-room:nth-child(n) {
+    transform: none;
+  }
+  .wl-room-body {
+    grid-template-columns: 34px 1fr auto;
+    grid-template-areas:
+      'number name status'
+      'number summary status';
+    align-items: baseline;
+    gap: 4px 14px;
+    min-height: 64px;
+    padding: 16px 0;
+  }
+  .wl-room:last-child .wl-room-body {
+    border-bottom: 1px solid rgb(243 233 214 / 16%);
+  }
+  .wl-rooms .wl-number {
+    grid-area: number;
+  }
+  .wl-name {
+    grid-area: name;
+    font-size: 30px;
+  }
+  .wl-rooms .wl-summary {
+    grid-area: summary;
+  }
+  .wl-rooms .wl-status {
+    grid-area: status;
+    align-self: center;
+    margin: 0;
+  }
+}
+@media (min-width: 768px) and (max-width: 1199px) and (orientation: portrait) {
+  .wl-rooms {
+    justify-self: center;
+    width: min(100%, 600px);
+  }
+  .wl-name {
+    font-size: 36px;
+  }
+  .wl-rooms .wl-summary,
+  .wl-rooms .wl-status {
+    font-size: 9px;
+  }
+}
+
+/* Short landscape (shared with the Atrium's rule): identity left, the
+   directory as a compact list on the right. */
+@media (max-width: 1199px) and (max-height: 540px) and (orientation: landscape) {
+  .wl-chrome {
+    height: 68px;
+  }
+  .world-lobby {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    grid-template-rows: 1fr auto;
+    align-items: center;
+    column-gap: 5vw;
+    padding: 76px var(--wl-gutter) 16px;
+  }
+  .wl-identity {
+    grid-column: 1;
+    margin: 0;
+    text-align: left;
+  }
+  .wl-identity h1 {
+    font-size: clamp(46px, 15svh, 72px);
+  }
+  .wl-lede {
+    margin: 16px 0 0;
+  }
+  .wl-rooms {
+    grid-column: 2;
+    margin: 0;
+  }
+  .wl-rooms ol {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .wl-room:nth-child(n) {
+    transform: none;
+  }
+  .wl-room-body {
+    grid-template-columns: 30px 1fr auto auto;
+    align-items: baseline;
+    gap: 12px;
+    min-height: 44px;
+    padding: 9px 0;
+  }
+  .wl-name {
+    font-size: clamp(20px, 6svh, 26px);
+  }
+  .wl-rooms .wl-status {
+    margin: 0;
+  }
+  .wl-meta {
+    grid-column: 1 / -1;
+    margin-top: 10px;
+  }
+}

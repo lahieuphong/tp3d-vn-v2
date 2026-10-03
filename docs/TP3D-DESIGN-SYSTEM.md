@@ -10,6 +10,7 @@ changes a rule.
 - Arrival → Perspective handoff record: [TP3D-PASS-02-SPATIAL-HANDOFF.md](TP3D-PASS-02-SPATIAL-HANDOFF.md)
 - Perspective → Atmosphere record: [TP3D-PASS-03-PERSPECTIVE-ATMOSPHERE.md](TP3D-PASS-03-PERSPECTIVE-ATMOSPHERE.md)
 - Atmosphere → Worlds / Atrium record: [TP3D-PASS-04-ATMOSPHERE-WORLDS.md](TP3D-PASS-04-ATMOSPHERE-WORLDS.md)
+- Enter the World gateway and Lobby record: [TP3D-PASS-05-WORLD-GATEWAY.md](TP3D-PASS-05-WORLD-GATEWAY.md)
 - Homepage timeline internals (progress ranges, WebGL tiers, measured
   baselines): [TANPHONG_HOME_MOTION_CONTEXT.md](TANPHONG_HOME_MOTION_CONTEXT.md)
 - Motion tokens: `lib/motion/tokens.ts`, mirrored as `--motion-*` in
@@ -34,8 +35,8 @@ website.
 | Layer | Meaning | Where it lives today |
 | --- | --- | --- |
 | Website | Editorial gallery / portfolio | All routes; the homepage story |
-| Enter The World | Immersive digital building | Atrium threshold (homepage Scene 3) → `/worlds` |
-| Rooms | Different spatial experiences | Atrium openings (Living, Bedroom, Bathroom, Kitchen) → `/spaces/*`, `/worlds/*`; future `/experience/[slug]` |
+| Enter The World | Immersive digital building | Atrium CTA "ENTER THE WORLD" → PORTAL → `/world`, the Lobby (TP3D PASS 05) |
+| Rooms | Different spatial experiences | The building directory: five Lobby rooms in `data/world-building.ts` (01 Gallery open → `/worlds`; 02 Objects, 03 Archive, 04 Lab, 05 Studio planned). The Atrium openings (Living, Bedroom, Bathroom, Kitchen → `/spaces/*`, `/worlds/*`) are featured shortcuts, not the directory. Future `/experience/[slug]` |
 | GLB models | Exhibits | Not yet supplied. `/worlds/[slug]` shows Sketchfab scenes after a click (click-to-load) |
 | Three.js | Exhibition engine | `/experience/[slug]` registry (empty). The homepage sky bridge is the only current use (§14) |
 
@@ -118,7 +119,8 @@ experience banner and the Atrium.
 - `.spatial-hero` and `.continuous-breeze` must not create stacking contexts.
   Don't put transform, opacity, isolation or containment on them.
 
-**Global layers:** header z 40, skip link z 100, intro z 200.
+**Global layers:** header z 40, skip link z 100, World portal cover z 150,
+intro z 200.
 
 **Shape**
 
@@ -234,6 +236,9 @@ The homepage aliases are declared in `components/home/hero/spatial-hero.css`.
 - Neutral and warm only. Blue appears only as sky.
 - No saturated accent, no pure black, no pure white on ivory grounds. `#fff`
   is used only for copy over photographs.
+- The World ground is a token: `--world-ground: #1c1712` (warm umber, not
+  black). The portal cover and the Lobby's first paint use it, so the crossing
+  never flashes (TP3D PASS 05).
 - New colors become tokens in `:root`. Promote the homepage literals to tokens
   when a pass touches them (proposed names: `--stone-ground`, `--stone-ink`,
   `--ivory-light`, `--exposure-shade`). Don't mass-rename in a non-visual pass.
@@ -438,6 +443,16 @@ the full map.
     complete before the first typography, and header ink changes where the
     image behind it crosses the ivory/ink contrast crossover, not at a
     chapter number. `check-atmosphere-worlds` enforces this (TP3D PASS 04).
+12. **Crossing into the World is intentional.** Editorial browsing never
+    launches immersive mode by itself: no scroll position, timer, hover or
+    autoplay starts it. The crossing begins only from an explicit activation
+    of the gateway. The gateway is a real link that works without JavaScript
+    and keeps native modifier and middle clicks; script only adds the PORTAL
+    to a plain primary activation. Inside, the World always offers a fast
+    route to every room (the World map) and a clear exit back to the website.
+    Every interrupted crossing (back, restore, resize, a stalled route)
+    removes the cover and leaves nothing locked. `check-world-gateway`
+    enforces this (TP3D PASS 05).
 
 ## 10. Image behavior
 
@@ -527,7 +542,8 @@ the full map.
   p ≥ 0.895, the CTA at 0.915; TP3D PASS 04).
 
 **Prefetch:** homepage links use `prefetch={false}` so bandwidth stays with the
-story.
+story. The World gateway prefetches the `/world` route only on intent
+(pointer enter, focus, touch start), and never anything 3D.
 
 **Scroll**
 
@@ -633,6 +649,8 @@ requires deliberate updates to those assertions.
 **Where Three.js belongs**
 
 - Enter The World, `/experience/[slug]`, 3D viewers and individual rooms.
+  The `/world` Lobby gets WebGL only with a real GLB environment, never as a
+  procedural placeholder; until then it is a photographic 2.5D shell.
 - **The homepage gets no new canvas.** The existing homepage atmospheric sky
   bridge (lazy `import('three')`, tiered, one context per Home mount) stays
   until the user decides its future. See the audit's blockers. It is the only
@@ -673,6 +691,10 @@ project's catalogue.
 
 - The homepage portal ends at the Atrium. Entering a room is a route
   navigation.
+- Enter the World is a route navigation to `/world` behind one fixed cover in
+  `--world-ground` (`components/world/world-portal.ts`, TP3D PASS 05). The
+  Lobby is a 2.5D shell with no canvas. Its plate layer is what a future GLB
+  Lobby replaces; room IDs, routes and both navigation modes stay.
 - No canvas persists across routes.
 - The homepage must not preload room scenes.
 

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
+import { EditorialChrome } from '@/components/layout/editorial-chrome';
 import './globals.css';
 import '@/components/home/intro/home-intro.css';
 import {
@@ -35,9 +36,13 @@ export default function RootLayout({
         <a className="skip-link" href="#main">
           Skip to content
         </a>
-        <SiteHeader />
+        <EditorialChrome>
+          <SiteHeader />
+        </EditorialChrome>
         {children}
-        <SiteFooter />
+        <EditorialChrome>
+          <SiteFooter />
+        </EditorialChrome>
       </body>
     </html>
   );

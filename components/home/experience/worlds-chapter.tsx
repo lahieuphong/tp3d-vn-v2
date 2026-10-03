@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { worldsChapterOptions } from '@/data/home-chapters';
 import { ChapterImage } from './chapter-image';
+import { WorldGatewayLink } from '@/components/world/world-gateway-link';
 import './worlds-chapter.css';
 
 export function WorldsChapter() {
@@ -60,13 +61,14 @@ export function WorldsChapter() {
           </div>
         ))}
       </nav>
-      <Link
-        href="/worlds"
-        prefetch={false}
-        className="hc-atrium-cta"
-        data-chapter-reveal="9"
-      >
-        <span className="hc-atrium-preview" aria-hidden="true">
+      {/* TP3D PASS 05: the primary gateway crosses into the Lobby (/world).
+          The four room links above stay shortcuts into current content. */}
+      <WorldGatewayLink className="hc-atrium-cta" data-chapter-reveal="9">
+        <span
+          className="hc-atrium-preview"
+          aria-hidden="true"
+          data-world-origin=""
+        >
           <ChapterImage
             asset="worlds-atrium-preview"
             sizes="(max-width: 1199px) 54px, 96px"
@@ -88,9 +90,9 @@ export function WorldsChapter() {
           ))}
         </span>
         <span className="hc-link">
-          EXPLORE 3D WORLDS <span aria-hidden="true">⟶</span>
+          ENTER THE WORLD <span aria-hidden="true">⟶</span>
         </span>
-      </Link>
+      </WorldGatewayLink>
       <div
         className="hc-atrium-baseline"
         aria-hidden="true"
