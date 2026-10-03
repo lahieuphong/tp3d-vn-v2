@@ -7,6 +7,7 @@ changes a rule.
 
 - Point-in-time audit, homepage map and blockers: [TP3D-PASS-00-AUDIT.md](TP3D-PASS-00-AUDIT.md)
 - Arrival / first impression record: [TP3D-PASS-01-ARRIVAL.md](TP3D-PASS-01-ARRIVAL.md)
+- Arrival → Perspective handoff record: [TP3D-PASS-02-SPATIAL-HANDOFF.md](TP3D-PASS-02-SPATIAL-HANDOFF.md)
 - Homepage timeline internals (progress ranges, WebGL tiers, measured
   baselines): [TANPHONG_HOME_MOTION_CONTEXT.md](TANPHONG_HOME_MOTION_CONTEXT.md)
 - Motion tokens: `lib/motion/tokens.ts`, mirrored as `--motion-*` in
@@ -289,7 +290,7 @@ not ship.
 
 | Concept | Meaning | Existing examples | Allowed techniques | Defaults |
 | --- | --- | --- | --- | --- |
-| **REVEAL** | Architectural masks, clipping, controlled image reveals | Intro panels opening from a horizontal slit (`hi-top-open`/`hi-bottom-open`, 1000ms cinematic). Scene 2/3 copy revealed by role (opacity + 8–9px rise, scroll-mapped). Worlds grid reveal (70ms column stagger) | `clip-path: inset()` on a frame, opacity, `translateY` ≤12px, image scale ≤1.025 inside a fixed frame | Text `fast`, images `normal`, curtains `cinematic`; ease `primary` (curtains `cinematic`) |
+| **REVEAL** | Architectural masks, clipping, controlled image reveals | Intro panels opening from a horizontal slit (`hi-top-open`/`hi-bottom-open`, 1000ms cinematic). Scene 2/3 copy revealed by role (opacity + 8–9px rise, scroll-mapped). Scene 2 plate opening as a centred aperture behind the TP (`clip-path: inset()`, scroll-mapped, TP3D PASS 02). Worlds grid reveal (70ms column stagger) | `clip-path: inset()` on a frame, opacity, `translateY` ≤12px, image scale ≤1.025 inside a fixed frame | Text `fast`, images `normal`, curtains `cinematic`; ease `primary` (curtains `cinematic`) |
 | **DEPTH** | Small scale differences, translate3d, perspective, layered movement | SharedTP travel (scale → 0.86). Scene 2 architecture push +3.5%. TP departure. Worlds card tilt (≤2°, perspective 1400px) | `translate3d`, scale deltas ≤4% on full-bleed planes, perspective ≥1200px, UI rotation ≤2° | Scroll-mapped, or `normal` when time-based |
 | **BREEZE** | Very subtle light or atmospheric movement | Continuous breeze cloth (vector, scroll-mapped). Intro raster breeze drift (7s). WebGL ambient cloud micro-motion (only inside the bridge, 0.35–0.7% of viewport height per second) | Opacity, slow transform drift, shader time | Time-driven only inside an active, visible moment. Never moves the camera or text. Off in reduced motion |
 | **PARALLAX** | Planes at slightly different velocities | `MOTION.depthRatios` (architecture 0.9 / artifact 1 / breeze 1.22). Worlds detail stage pointer offsets 4/7px | Up to 3 planes per section. Velocity spread within the existing 0.9–1.22 band. Pointer parallax on the desktop tier only | Scroll-mapped. Pointer through `createPointerFollower` |
@@ -396,6 +397,21 @@ the full map.
    animations on scene elements during the intro (`revealing`) are fractions
    of `--hi-duration` and end at or before it. The gate completes on the
    panels' `animationend` and removes every reveal animation at that moment.
+9. **Scene handoffs never double-expose.** This applies between two scenes on
+   the one stage.
+   - The outgoing copy leaves completely, in order (metadata, peripheral,
+     headline), before any incoming copy appears.
+   - A copy-free breath sits between them, carried by the architecture and
+     the persistent object. It lasts at least 0.05 of progress with motion,
+     0.02 reduced.
+   - Photographic plates change by occlusion, never by a full-frame blend:
+     an aperture `clip-path` on desktop/tablet, fully composed before the
+     incoming copy appears. On phones and in reduced motion, a short dissolve
+     happens entirely inside the breath.
+   - The incoming scene enters as at most three groups: heading, body,
+     metadata.
+   - The Scene 1 → 2 handoff (`arrivalTiming`, TP3D PASS 02) is the
+     reference, and `check-spatial-hero` enforces it.
 
 ## 10. Image behavior
 

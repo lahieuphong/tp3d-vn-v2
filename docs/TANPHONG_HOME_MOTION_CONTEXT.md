@@ -14,6 +14,7 @@ an inference, it is labelled as such.
 | Audit browser | Chrome 154.0.8037.59, headless, Windows 11, ANGLE/D3D11 on **NVIDIA RTX 3090** |
 | Supplied recordings | `Ghi Màn hình 2026-10-02 lúc 23.45.05.mov` (UNESCO reference) and `Tân Phong.mov` (current site), analysed in PASS 0/1 and **deleted from the repo root on 2026-10-03** (never committed); extracted frames remain in `work/pass0/reference/` (local, gitignored) |
 | Evidence folder | `work/pass0/` (gitignored, local only — see §29) |
+| TP3D PASS 02 (2026-10-03) | Arrival → Perspective handoff retimed with no copy overlap: Scene 1 out by 0.26, copy-free breath to 0.31, plate B opened by a centred aperture (desktop/tablet) or dissolved inside the breath (mobile/reduced), Scene 2 by group to 0.42. The §5 rows for 0.14–0.42 and the §16 Scene 1 → 2 line are superseded; see §32 and `docs/TP3D-PASS-02-SPATIAL-HANDOFF.md`. TP travel, Scene 2 from 0.42, bridge and Atrium unchanged. |
 | TP3D PASS 01 (2026-10-03) | Arrival refined: intro opening 1500 ms desktop / 1000 ms mobile (was 1000 / 900), first-scroll approach p 0–0.14, desktop Scene 1 pointer depth on the master RAF. §23 loader timings are superseded; see §31 and `docs/TP3D-PASS-01-ARRIVAL.md`. Scene 2, bridge and Atrium unchanged. |
 | TP3D PASS 00 (2026-10-03) | New pass series: design-system source of truth `docs/TP3D-DESIGN-SYSTEM.md`, audit `docs/TP3D-PASS-00-AUDIT.md`, motion tokens/utilities in `lib/motion/` (`yarn check:motion`). No homepage code or timing changed; this document remains the timeline reference. |
 | PASS 1 (2026-10-03) | Atmospheric auto-motion bridge — commit `a25d1ac` on `main`, **deployed to production on 2026-10-03** (Vercel deployment `dpl_AwoGMD2xWPoBP3U13nqD7Ey3fBf3`). Sections 4–6, 11–13, 15–18 and 28 describe the repository after PASS 1; §25 stays the PASS 0 live baseline. Details: §30 and `docs/HOME-ATMOSPHERIC-AUTO-MOTION.md`. |
@@ -639,3 +640,51 @@ Full record: `docs/TP3D-PASS-01-ARRIVAL.md`.
 - Ticked by the master RAF (`step()` → `heroDepth.tick` / `wantsTime`).
   Pointer input calls `request()`, never the narrative render.
 - 0 RAF at rest.
+
+---
+
+## 32. TP3D PASS 02 — Arrival → Perspective handoff (summary)
+
+Full record: `docs/TP3D-PASS-02-SPATIAL-HANDOFF.md`.
+
+**Scene 1 out**
+
+| Element | Range |
+| --- | --- |
+| Metadata | 0.14–0.195 |
+| Portals (sink 12 px, ×0.982) | 0.155–0.23 |
+| EN headline | 0.185–0.25 |
+| VI headline (<1200: 0.14–0.215) | 0.195–0.26 |
+
+`.sh-discovery` is hidden from 0.26.
+
+**Breath** (no copy): 0.26–0.31 desktop, 0.25–0.31 tablet and mobile.
+
+**Plate B**
+
+- Desktop/tablet: aperture `clip-path: inset(0 x% 0 x%)`, 50 → 0% over
+  0.255–0.325, with opacity over 0.255–0.275. Then `clip-path: none`.
+- Mobile: dissolve over 0.265–0.305.
+- Reduced: dissolve over 0.28–0.30.
+
+**Scene 2 in**
+
+| Group | Range |
+| --- | --- |
+| Heading (eyebrow + h2), EN / VI | 0.31–0.36 / 0.32–0.37 |
+| Body, EN / VI | 0.345–0.395 / 0.355–0.405 |
+| Metadata | 0.375–0.42 |
+
+**Reduced motion**
+
+| Element | Range |
+| --- | --- |
+| Scene 1 out | 0.25–0.28 |
+| Scene 2 heading / body / metadata | 0.30–0.33 / 0.31–0.34 / 0.32–0.35 |
+
+The read-story link is interactive from the metadata group's end on both
+paths.
+
+**Unchanged:** the TP travel 0.12–0.42 (reduced 0.28–0.32), the chapter
+switch at 0.30, the cloth pose exchange 0.27–0.33, the Scene 2 hold
+0.42–0.48 and every bridge range.

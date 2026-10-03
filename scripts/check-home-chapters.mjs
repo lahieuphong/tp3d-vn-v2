@@ -1464,6 +1464,81 @@ assert.doesNotMatch(
   /preventDefault\s*\(|scrollTo\s*\(|setState\s*\(|setInterval\s*\(|addEventListener\(\s*['"](?:wheel|pointermove)['"]/,
   'driver reads native scroll without hijacking input',
 );
+// TP3D PASS 02: the Arrival → Perspective handoff as the master writes it.
+// Fast skips, a mid-transition resize, a hidden tab and a reduced-motion
+// change must all land on exactly the pure frame for that progress.
+{
+  const b = browser();
+  const stop = b.createHomeStoryTimeline(b.root, b.breeze);
+  b.flush();
+  b.flush();
+  const textKeys = Object.keys(b.openingGroups).filter(
+    (key) =>
+      !key.includes('architecture') &&
+      key !== '.sh-leaves' &&
+      key !== '.sh-story' &&
+      key !== '.sh-discovery',
+  );
+  const scene1 = textKeys.filter(
+    (key) =>
+      key.includes('sh-welcome') ||
+      key.includes('sh-discovery') ||
+      key.includes('sh-portals') ||
+      key.includes('sh-scroll-indicator'),
+  );
+  const scene2 = textKeys.filter((key) => !scene1.includes(key));
+  const expectFrame = (p, width, reduced, label) => {
+    const frame = mathModule.exports.arrivalFrame(p, width, true, reduced);
+    for (const key of textKeys)
+      for (const node of b.openingGroups[key])
+        assert.equal(
+          node.style.opacity,
+          frame[key].opacity,
+          `${label}: ${key} opacity`,
+        );
+  };
+  const breath = (label) => {
+    for (const key of [...scene1, ...scene2])
+      for (const node of b.openingGroups[key])
+        assert.equal(node.style.opacity, '0.00000', `${label}: ${key} clear`);
+  };
+  const jump = (p) => {
+    b.scroll(p * 2340);
+    b.flush();
+  };
+  jump(0.45);
+  expectFrame(0.45, 1440, false, 'fast skip forward across the handoff');
+  jump(0.05);
+  expectFrame(0.05, 1440, false, 'fast skip back to Arrival');
+  jump(0.285);
+  breath('negative space');
+  expectFrame(0.285, 1440, false, 'negative space');
+  b.setWidth(390);
+  b.window.emit('resize');
+  b.flush();
+  expectFrame(0.285, 390, false, 'resize to mobile mid-transition');
+  breath('mobile negative space');
+  b.setWidth(1440);
+  b.window.emit('resize');
+  b.flush();
+  jump(0.33);
+  b.document.hidden = true;
+  b.document.emit('visibilitychange');
+  b.scroll(0.36 * 2340);
+  b.flush();
+  expectFrame(0.33, 1440, false, 'hidden tab paints nothing');
+  b.document.hidden = false;
+  b.document.emit('visibilitychange');
+  b.flush();
+  expectFrame(0.36, 1440, false, 'resume lands on the current frame');
+  jump(0.29);
+  b.media.get('(prefers-reduced-motion: reduce)').matches = true;
+  b.media.get('(prefers-reduced-motion: reduce)').emit('change');
+  b.flush();
+  expectFrame(0.29, 1440, true, 'reduced motion mid-transition');
+  breath('reduced negative space');
+  stop();
+}
 console.log(
   'HomeStory passed: one owner and TP, native/restored progress, reversible poses, inert controls, reduced continuity, atmosphere handoff/gating, ambient air on the master RAF only while alive, idle stillness and 30 complete cleanups.',
 );

@@ -170,15 +170,156 @@ for (const [width, height] of sizes) {
         }
       }
   }
-  const frame = arrivalFrame(0.29, width, true);
-  assert(
-    Number(frame['.sh-welcome-en h1'].opacity) > 0,
-    'Scene 1 copy is still present at the overlap',
-  );
-  assert(
-    Number(frame['.sh-story-en h2'].opacity) > 0,
-    'Scene 2 begins before Scene 1 disappears',
-  );
+  // TP3D PASS 02: no double exposure. Scene 1 copy has fully left before any
+  // Scene 2 copy enters; a negative-space breath sits between them, carried
+  // by the architecture and the travelling TP. (Replaces the PASS 2-era
+  // assertion that both headlines overlapped at p 0.29.)
+  const scene1Copy = [
+    '.sh-welcome-en h1',
+    '.sh-welcome-title',
+    '.sh-discovery .sh-signature, .sh-mobile-eyebrow, .sh-discovery-axis',
+    '.sh-scroll-indicator',
+    '.sh-portals',
+  ];
+  const scene2Groups = {
+    heading: [
+      '.sh-story-column > .sh-eyebrow:first-child',
+      '.sh-story-en h2',
+      '.sh-story-vi h2',
+    ],
+    body: [
+      '.sh-story-en .sh-rule, .sh-story-en .sh-story-body',
+      '.sh-story-vi .sh-rule, .sh-story-vi .sh-story-body',
+    ],
+    metadata: ['.sh-story-signoff, .sh-read-story, .sh-center-copy'],
+  };
+  const scene2Copy = Object.values(scene2Groups).flat();
+  for (const reduced of [false, true]) {
+    const level = (frame, keys) =>
+      Math.max(...keys.map((key) => Number(frame[key].opacity)));
+    let breath = 0;
+    let longestBreath = 0;
+    const firstVisible = {};
+    for (let i = 0; i <= 600; i++) {
+      const p = i / 1000;
+      const frame = arrivalFrame(p, width, true, reduced);
+      const one = level(frame, scene1Copy);
+      const two = level(frame, scene2Copy);
+      assert(
+        !(one > 0 && two > 0),
+        `p ${p}: Scene 1 and Scene 2 copy never share the frame`,
+      );
+      assert(
+        !(
+          level(frame, ['.sh-welcome-en h1', '.sh-welcome-title']) > 0 &&
+          level(frame, scene2Groups.heading) > 0
+        ),
+        `p ${p}: the two headlines are never readable together`,
+      );
+      assert(
+        !(
+          Number(frame['.sh-portals'].opacity) > 0 &&
+          Number(frame['[data-hero-layer="architecture-b"]'].opacity) > 0
+        ),
+        `p ${p}: portals never stack over the plate change`,
+      );
+      assert(
+        !('opacity' in frame['[data-hero-layer="architecture-a"]']),
+        'the architecture is present throughout (plate A never fades)',
+      );
+      for (const [group, keys] of Object.entries(scene2Groups))
+        if (firstVisible[group] === undefined && level(frame, keys) > 0)
+          firstVisible[group] = p;
+      // Desktop/tablet: plate B is revealed through a centred aperture, never
+      // blended full-frame over plate A, and is fully composed under any
+      // Scene 2 copy. Phones and reduced motion: no moving edge, and the
+      // dissolve happens entirely inside the copy-free breath.
+      const plate = frame['[data-hero-layer="architecture-b"]'];
+      const clip = plate['clip-path'];
+      const edge =
+        clip === 'none' ? 0 : Number(clip.match(/inset\(0 ([\d.]+)%/)[1]);
+      const plateOpacity = Number(plate.opacity);
+      if (reduced || width < 768) {
+        assert.equal(clip, 'none', 'no moving edge on phones or reduced');
+        if (plateOpacity > 0 && plateOpacity < 1)
+          assert(
+            one === 0 && two === 0,
+            `p ${p}: the plates change inside the breath`,
+          );
+      } else {
+        if (plateOpacity > 0 && plateOpacity < 1)
+          assert(
+            edge >= 32,
+            `p ${p}: B only fades while the aperture is narrow`,
+          );
+        if (two > 0)
+          assert(edge <= 6, `p ${p}: aperture edges clear the text columns`);
+        if (i) {
+          const before = arrivalFrame((i - 1) / 1000, width, true)[
+            '[data-hero-layer="architecture-b"]'
+          ]['clip-path'];
+          const previous =
+            before === 'none'
+              ? 0
+              : Number(before.match(/inset\(0 ([\d.]+)%/)[1]);
+          assert(
+            edge <= previous + 1e-9,
+            `p ${p}: the aperture never closes going forward`,
+          );
+        }
+      }
+      breath = one === 0 && two === 0 && p > 0.1 && p < 0.42 ? breath + 1 : 0;
+      longestBreath = Math.max(longestBreath, breath);
+    }
+    assert(
+      longestBreath / 1000 >= (reduced ? 0.019 : 0.049),
+      `a perceptible negative-space breath (${longestBreath / 1000})`,
+    );
+    assert(
+      firstVisible.heading < firstVisible.body &&
+        firstVisible.body < firstVisible.metadata,
+      'Scene 2 enters by group: heading, body, metadata',
+    );
+    // Reverse scroll: identical frames on the way back, densely sampled.
+    const dense = Array.from({ length: 121 }, (_, i) => 0.1 + i / 400);
+    assert.deepEqual(
+      dense.map((p) => arrivalFrame(p, width, true, reduced)),
+      dense
+        .toReversed()
+        .map((p) => arrivalFrame(p, width, true, reduced))
+        .reverse(),
+      'reverse scroll reproduces every transition frame',
+    );
+    // The approved Scene 2 reading composition is unchanged.
+    const depth = width < 768 ? 0.5 : width < 1200 ? 0.7 : 1;
+    const settled = arrivalFrame(tpTiming.settle, width, true, reduced);
+    for (const key of scene2Copy) {
+      assert.equal(settled[key].opacity, '1.00000', `${key} fully revealed`);
+      assert.equal(
+        settled[key].transform,
+        'translate3d(0.000px, 0.000px, 0) scale(1.000000)',
+        `${key} at rest`,
+      );
+    }
+    for (const key of [...scene1Copy, '.sh-discovery'])
+      assert.equal(settled[key].opacity, '0.00000', `${key} gone`);
+    assert.equal(
+      settled['.sh-portals'].transform,
+      reduced
+        ? 'translate3d(0.000px, 0.000px, 0) scale(1.000000)'
+        : `translate3d(0.000px, ${(12 * depth).toFixed(3)}px, 0) scale(0.982000)`,
+    );
+    assert.deepEqual(
+      { ...settled['[data-hero-layer="architecture-b"]'] },
+      {
+        opacity: '1.00000',
+        'clip-path': 'none',
+        transform: 'translate3d(0.000px, 0.000px, 0) scale(1.000000)',
+      },
+      'Scene 2 plate at rest',
+    );
+  }
+  const frame = arrivalFrame(0.335, width, true);
   assert(
     Number(frame['.sh-story-en h2'].opacity) >
       Number(frame['.sh-story-vi h2'].opacity),

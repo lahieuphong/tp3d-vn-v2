@@ -587,7 +587,7 @@ export function createHomeStoryTimeline(
         bridge.scene2Visible &&
           labelDeparture.opacity > 0.8 &&
           visualChapter === 'perspective' &&
-          (still ? state.perspective === 1 : p >= arrivalTiming.labels[1]),
+          p >= (still ? arrivalTiming.reduced : arrivalTiming).labels[1],
       );
       expose(worlds!, bridge.interactive);
       if (rail) {

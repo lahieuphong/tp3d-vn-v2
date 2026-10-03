@@ -25,18 +25,45 @@ export const arrivalTiming = {
   // TP3D PASS 01: the first scroll answers at once. The far plane dollies in
   // under 1% and the near leaves drift; copy, portals and TP keep holding.
   approach: [0, 0.14],
-  metadata: [0.14, 0.23],
-  portals: [0.17, 0.295],
-  headline: [0.2, 0.3],
-  secondaryHeadline: [0.205, 0.305],
-  narrowHeadline: [0.14, 0.245],
-  architecture: [0.22, 0.375],
-  eyebrow: [0.245, 0.305],
-  headingEn: [0.285, 0.345],
-  headingVi: [0.3, 0.36],
-  bodyEn: [0.335, 0.395],
-  bodyVi: [0.35, 0.41],
-  labels: [0.36, 0.42],
+  // TP3D PASS 02: Scene 1 leaves in order (metadata, portals, headlines) and
+  // is gone by 0.26. Until 0.31 only the architecture, the travelling TP and
+  // the breeze carry the move. Inside that breath plate B is revealed through
+  // a vertical aperture opening from behind the TP (an architectural mask,
+  // never two photographs blended). Scene 2 then enters by group: heading
+  // (eyebrow + title), body, metadata.
+  metadata: [0.14, 0.195],
+  portals: [0.155, 0.23],
+  headline: [0.185, 0.25],
+  secondaryHeadline: [0.195, 0.26],
+  narrowHeadline: [0.14, 0.215],
+  architecture: [0.255, 0.325],
+  // Plate B gains opacity only while the aperture is still narrow.
+  architectureFade: [0.255, 0.275],
+  // Phones crop both plates to near-blank walls: a short dissolve inside the
+  // breath is simpler there than a moving edge.
+  mobileArchitecture: [0.265, 0.305],
+  eyebrow: [0.31, 0.36],
+  headingEn: [0.31, 0.36],
+  headingVi: [0.32, 0.37],
+  bodyEn: [0.345, 0.395],
+  bodyVi: [0.355, 0.405],
+  labels: [0.375, 0.42],
+  // Reduced motion: the same order as short opacity changes, no overlap.
+  reduced: {
+    depart: [0.25, 0.28],
+    architecture: [0.28, 0.3],
+    heading: [0.3, 0.33],
+    body: [0.31, 0.34],
+    labels: [0.32, 0.35],
+  },
+} as const;
+const reducedRole = {
+  eyebrow: 'heading',
+  headingEn: 'heading',
+  headingVi: 'heading',
+  bodyEn: 'body',
+  bodyVi: 'body',
+  labels: 'labels',
 } as const;
 
 export function homeStoryFrame(progress: number) {
@@ -100,18 +127,21 @@ export function arrivalFrame(
   reduced = false,
 ) {
   const p = clamp(progress);
-  const { perspective } = homeStoryFrame(p);
   const depth = width < 768 ? 0.5 : width < 1200 ? 0.7 : 1;
   const read = (interval: readonly [number, number]) => fade(p, ...interval);
-  const enter = (interval: readonly [number, number]) =>
-    reduced ? perspective : read(interval);
+  type Entry = keyof typeof reducedRole;
+  const enter = (name: Entry) =>
+    read(
+      reduced ? arrivalTiming.reduced[reducedRole[name]] : arrivalTiming[name],
+    );
+  // Every Scene 1 element leaves before any Scene 2 element enters.
   const leave = (interval: readonly [number, number]) =>
-    reduced ? perspective : read(interval);
+    read(reduced ? arrivalTiming.reduced.depart : interval);
   const opacity = (n: number) => n.toFixed(5);
   const move = (x: number, y: number, scale = 1) =>
     `translate3d(${x.toFixed(3)}px, ${y.toFixed(3)}px, 0) scale(${scale.toFixed(6)})`;
-  const reveal = (interval: readonly [number, number], distance = 8) => {
-    const value = enter(interval);
+  const reveal = (name: Entry, distance = 8) => {
+    const value = enter(name);
     return {
       opacity: opacity(value),
       transform: move(0, reduced ? 0 : (1 - value) * distance * depth),
@@ -125,7 +155,22 @@ export function arrivalFrame(
     };
   };
   const portal = leave(arrivalTiming.portals);
-  const architecture = storyReady ? enter(arrivalTiming.architecture) : 0;
+  // Desktop and tablet open B as a centred aperture, fully composed (no clip)
+  // before any Scene 2 copy. Phones and reduced motion dissolve the plates
+  // entirely inside the breath instead.
+  const dissolve = reduced || width < 768;
+  const aperture =
+    storyReady && !dissolve ? read(arrivalTiming.architecture) : 1;
+  const architecture = storyReady
+    ? read(
+        reduced
+          ? arrivalTiming.reduced.architecture
+          : dissolve
+            ? arrivalTiming.mobileArchitecture
+            : arrivalTiming.architectureFade,
+      )
+    : 0;
+  const inset = (50 * (1 - aperture)).toFixed(3);
   const travel = tpPose(
     p,
     { x: 0, y: 0, scale: 0.86, width: 0, height: 0, opacity: 1 },
@@ -145,7 +190,7 @@ export function arrivalFrame(
     '.sh-discovery': {
       opacity: opacity(
         reduced
-          ? 1 - perspective
+          ? 1 - leave(arrivalTiming.headline)
           : p >= arrivalTiming.secondaryHeadline[1]
             ? 0
             : 1,
@@ -164,24 +209,12 @@ export function arrivalFrame(
       ),
     },
     '.sh-story': { opacity: '1' },
-    '.sh-story-column > .sh-eyebrow:first-child': reveal(
-      arrivalTiming.eyebrow,
-      5,
-    ),
-    '.sh-story-en h2': reveal(arrivalTiming.headingEn),
-    '.sh-story-vi h2': reveal(arrivalTiming.headingVi),
-    '.sh-story-en .sh-rule, .sh-story-en .sh-story-body': reveal(
-      arrivalTiming.bodyEn,
-      6,
-    ),
-    '.sh-story-vi .sh-rule, .sh-story-vi .sh-story-body': reveal(
-      arrivalTiming.bodyVi,
-      6,
-    ),
-    '.sh-story-signoff, .sh-read-story, .sh-center-copy': reveal(
-      arrivalTiming.labels,
-      5,
-    ),
+    '.sh-story-column > .sh-eyebrow:first-child': reveal('eyebrow', 5),
+    '.sh-story-en h2': reveal('headingEn'),
+    '.sh-story-vi h2': reveal('headingVi'),
+    '.sh-story-en .sh-rule, .sh-story-en .sh-story-body': reveal('bodyEn', 6),
+    '.sh-story-vi .sh-rule, .sh-story-vi .sh-story-body': reveal('bodyVi', 6),
+    '.sh-story-signoff, .sh-read-story, .sh-center-copy': reveal('labels', 5),
     '.sh-leaves': {
       transform: move(
         reduced ? 0 : 12 * depth * travel,
@@ -197,6 +230,7 @@ export function arrivalFrame(
     },
     '[data-hero-layer="architecture-b"]': {
       opacity: opacity(architecture),
+      'clip-path': aperture >= 1 ? 'none' : `inset(0 ${inset}% 0 ${inset}%)`,
       transform: move(
         reduced ? 0 : 2 * depth * (1 - travel),
         reduced ? 0 : 3 * depth * (1 - travel),
@@ -204,5 +238,5 @@ export function arrivalFrame(
       ),
     },
     '.sh-scroll-indicator': departure(arrivalTiming.metadata, 0),
-  } satisfies Record<string, Partial<CSSStyleDeclaration>>;
+  } satisfies Record<string, Record<string, string>>;
 }
