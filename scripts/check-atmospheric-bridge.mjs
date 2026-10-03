@@ -95,13 +95,14 @@ for (const [width, height] of sizes) {
         pose = atriumPose(p, geometry, reduced);
       for (const value of [...Object.values(state), ...Object.values(pose)])
         if (typeof value === 'number') assert(Number.isFinite(value));
-      if (!reduced)
-        assert.notEqual(
-          state.scene2Visible,
-          state.scene3Visible,
-          'readable architecture is exclusive; no Scene2/3 crossfade',
-        );
-      else {
+      // TP3D PASS 03: reduced motion cuts under an exposure dip instead of
+      // cross-dissolving, so both modes show exactly one world.
+      assert.notEqual(
+        state.scene2Visible,
+        state.scene3Visible,
+        'readable architecture is exclusive; no Scene2/3 crossfade',
+      );
+      if (reduced) {
         const scene2Alpha = state.scene2Visible ? state.scene2Opacity : 0;
         const scene3Alpha = state.scene3Visible ? state.worldOpacity : 0;
         const plateAlpha = 1 - (1 - scene2Alpha) * (1 - scene3Alpha);

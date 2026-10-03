@@ -19,7 +19,7 @@
     "check:assets": "node scripts/check-assets.mjs",
     "check:intro": "node scripts/check-home-preloader.mjs && node scripts/check-intro-runtime.mjs && node scripts/check-intro-controller.mjs",
     "check:hero": "node scripts/check-spatial-hero.mjs && node scripts/check-hero-depth.mjs",
-    "check:home": "node scripts/check-atmospheric-sky.mjs && node scripts/check-room-discovery.mjs && node scripts/check-home-motion.mjs && node scripts/check-atmospheric-bridge.mjs && node scripts/check-home-chapters.mjs && node scripts/check-continuous-breeze.mjs && node scripts/check-scene-image.mjs",
+    "check:home": "node scripts/check-atmospheric-sky.mjs && node scripts/check-room-discovery.mjs && node scripts/check-home-motion.mjs && node scripts/check-atmospheric-bridge.mjs && node scripts/check-home-chapters.mjs && node scripts/check-continuous-breeze.mjs && node scripts/check-perspective-atmosphere.mjs && node scripts/check-scene-image.mjs",
     "check:worlds": "node scripts/check-worlds.mjs",
     "check:motion": "node scripts/check-motion-foundation.mjs"
   },

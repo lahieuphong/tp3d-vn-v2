@@ -44,6 +44,7 @@ for (const [width, height] of [
     profile = motionProfile(width);
   const cloth = { ...storyBreezeGeometry(width, height), width, height };
   for (const boundary of [
+    MOTION.bridge.exitStart,
     MOTION.bridge.breezeStart,
     MOTION.breeze.peak,
     MOTION.breeze.crossingEnd,

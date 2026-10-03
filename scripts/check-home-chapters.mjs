@@ -31,6 +31,7 @@ function browser({
   initialScroll = 0,
   sky = false,
   fine = true,
+  saveData = false,
 } = {}) {
   const events = [],
     frames = new Map(),
@@ -417,7 +418,7 @@ function browser({
     },
     window,
     document,
-    navigator: {},
+    navigator: saveData ? { connection: { saveData: true } } : {},
     ResizeObserver,
     getComputedStyle(node) {
       assert.equal(
@@ -1538,6 +1539,226 @@ assert.doesNotMatch(
   expectFrame(0.29, 1440, true, 'reduced motion mid-transition');
   breath('reduced negative space');
   stop();
+}
+// TP3D PASS 03: Perspective → Atmosphere as the master writes it. Every
+// written state equals the pure frame for the current progress, whatever the
+// WebGL lifecycle, input path, viewport or motion preference.
+{
+  const { MOTION } = loadStoryMath('home-motion');
+  const { bridgeFrame, storyTextDeparture, departureRole, bridgeTiming } =
+    bridgeModule;
+  const editorial = (t) => t * t * (3 - 2 * t);
+  const takeover = (p) =>
+    editorial(
+      Math.min(
+        1,
+        Math.max(
+          0,
+          (p - MOTION.breeze.takeover[0]) /
+            (MOTION.breeze.takeover[1] - MOTION.breeze.takeover[0]),
+        ),
+      ),
+    );
+  const expectBridge = (b, p, width, reduced, label) => {
+    const frame = bridgeFrame(p, width, reduced);
+    const visibility = (on) => (on ? 'visible' : 'hidden');
+    assert.equal(
+      b.story.style.getPropertyValue('visibility'),
+      visibility(frame.scene2Visible),
+      `${label}: Scene 2 visibility`,
+    );
+    assert.equal(
+      b.world.style.getPropertyValue('visibility'),
+      visibility(frame.scene3Visible),
+      `${label}: Scene 3 visibility`,
+    );
+    assert.notEqual(
+      b.story.style.getPropertyValue('visibility'),
+      b.world.style.getPropertyValue('visibility'),
+      `${label}: one world at a time`,
+    );
+    assert.equal(b.world.style.opacity, frame.worldOpacity.toFixed(5));
+    assert.equal(b.architecture.style.opacity, frame.scene2Opacity.toFixed(5));
+    assert.equal(
+      b.sharedTP.style.getPropertyValue('visibility'),
+      visibility(frame.scene2Visible),
+      `${label}: TP belongs to Scene 2`,
+    );
+    if (frame.swapped) assert.equal(b.sharedTP.style.opacity, '0.00000');
+    if (p > bridgeTiming.exitStart)
+      for (const [selector, nodes] of Object.entries(b.openingGroups)) {
+        const role = departureRole(selector);
+        if (!role) continue;
+        for (const node of nodes)
+          assert.equal(
+            node.style.opacity,
+            storyTextDeparture(p, role, width, reduced).opacity.toFixed(5),
+            `${label}: ${selector}`,
+          );
+      }
+  };
+  const settle = (b) => {
+    for (let i = 0; i < 30 && b.count().frames; i++) b.flush();
+  };
+  // Fast skips and exact swap reversal, with an active atmosphere.
+  {
+    const b = browser({ sky: true, initialScroll: 2340 * 0.45 });
+    const stop = b.createHomeStoryTimeline(b.root, b.breeze);
+    b.skyLifecycle.mode = 'active';
+    const jump = (p) => {
+      b.scroll(2340 * p);
+      b.flush();
+    };
+    jump(0.45);
+    for (const p of [0.7, 0.45, 0.7, 0.45]) {
+      jump(p);
+      expectBridge(b, p, 1440, false, `fast skip to ${p}`);
+    }
+    assert.equal(b.paints.at(-1)[2], 0, 'Perspective keeps the whole cloth');
+    for (const p of [0.6399, 0.64, 0.6401, 0.64, 0.6399, 0.63, 0.64]) {
+      jump(p);
+      expectBridge(b, p, 1440, false, `swap ${p}`);
+      assert.equal(b.paints.at(-1)[0], p, 'cloth samples native progress');
+    }
+    stop();
+  }
+  // WebGL readiness: ready before the bridge, it takes over; once the
+  // crossing has begun (during the Breeze, very late or after the swap
+  // threshold) the renderer stays 'ready' and the DOM cloth carries the whole
+  // crossing. A failure restores the cloth at once.
+  for (const [readyAt, expectTakeover] of [
+    [0.47, true],
+    [0.56, false],
+    [0.63, false],
+    [0.66, false],
+  ]) {
+    const b = browser({ sky: true, initialScroll: 2340 * 0.45 });
+    const stop = b.createHomeStoryTimeline(b.root, b.breeze);
+    b.skyLifecycle.mode = 'warming';
+    for (const p of [0.45, 0.5, 0.54, 0.56, 0.58, 0.6, 0.62, 0.64, 0.66]) {
+      if (p >= readyAt)
+        b.skyLifecycle.mode = readyAt < 0.5 && p > 0.5135 ? 'active' : 'ready';
+      b.scroll(2340 * p);
+      b.flush();
+      expectBridge(b, p, 1440, false, `ready at ${readyAt}, p ${p}`);
+      assert.equal(
+        b.paints.at(-1)[2],
+        expectTakeover && p > 0.5135 ? takeover(p) : 0,
+        `ready at ${readyAt}: takeover @${p}`,
+      );
+    }
+    if (expectTakeover) {
+      b.skyLifecycle.mode = 'fallback';
+      b.scroll(2340 * 0.6);
+      b.flush();
+      assert.equal(b.paints.at(-1)[2], 0, 'failure mid-bridge restores cloth');
+      expectBridge(b, 0.6, 1440, false, 'failure mid-bridge');
+    }
+    stop();
+  }
+  {
+    // Failure before activation: the complete DOM bridge, swap unchanged.
+    const b = browser({ sky: true, initialScroll: 2340 * 0.45 });
+    const stop = b.createHomeStoryTimeline(b.root, b.breeze);
+    b.skyLifecycle.mode = 'fallback';
+    for (const p of [0.5, 0.58, 0.6399, 0.64, 0.66]) {
+      b.scroll(2340 * p);
+      b.flush();
+      assert.equal(b.paints.at(-1)[2], 0);
+      expectBridge(b, p, 1440, false, `fallback ${p}`);
+    }
+    stop();
+  }
+  // Save-Data phones keep the DOM fallback; the master reports the hint.
+  {
+    const b = browser({ sky: true, width: 390, saveData: true });
+    const stop = b.createHomeStoryTimeline(b.root, b.breeze);
+    b.skyLifecycle.mode = 'fallback';
+    for (const p of [0.58, 0.64, 0.66]) {
+      b.scroll(2340 * p);
+      b.flush();
+      assert.equal(b.skyLifecycle.updates.at(-1).saveData, true);
+      assert.equal(b.paints.at(-1)[2], 0, 'Save-Data keeps the DOM cloth');
+      expectBridge(b, p, 390, false, `Save-Data ${p}`);
+    }
+    stop();
+  }
+  // Reduced motion: no cloth pass, no atmosphere, a dip-cut at the swap.
+  {
+    const b = browser({ sky: true, reduced: true });
+    const stop = b.createHomeStoryTimeline(b.root, b.breeze);
+    b.skyLifecycle.mode = 'fallback';
+    for (const p of [
+      0.6, 0.625, 0.635, 0.6399, 0.64, 0.645, 0.655, 0.64, 0.6399,
+    ]) {
+      b.scroll(2340 * p);
+      b.flush();
+      assert.equal(b.paints.at(-1)[1], true, 'reduced paints no cloth pass');
+      assert.equal(b.paints.at(-1)[2], 0);
+      expectBridge(b, p, 1440, true, `reduced ${p}`);
+      const plate = Number(
+        bridgeFrame(p, 1440, true).swapped
+          ? b.world.style.opacity
+          : b.architecture.style.opacity,
+      );
+      assert(plate >= MOTION.reduced.floor - 1e-5, 'a plate is always shown');
+    }
+    stop();
+  }
+  // Mobile tier, hidden tab, resize and orientation change mid-bridge.
+  {
+    const b = browser({ sky: true, width: 390, initialScroll: 2340 * 0.45 });
+    const stop = b.createHomeStoryTimeline(b.root, b.breeze);
+    b.skyLifecycle.mode = 'ready';
+    b.flush();
+    b.skyLifecycle.mode = 'active';
+    b.scroll(2340 * 0.58);
+    b.flush();
+    assert.equal(b.skyLifecycle.updates.at(-1).width, 390);
+    assert.equal(b.paints.at(-1)[2], takeover(0.58), 'mobile tier takes over');
+    expectBridge(b, 0.58, 390, false, 'mobile handoff');
+    b.document.hidden = true;
+    b.document.emit('visibilitychange');
+    b.scroll(2340 * 0.62);
+    b.flush();
+    assert.equal(b.count().frames, 0, 'hidden tab schedules nothing');
+    b.document.hidden = false;
+    b.document.emit('visibilitychange');
+    b.flush();
+    expectBridge(b, 0.62, 390, false, 'resume inside atmosphere');
+    assert.equal(b.paints.at(-1)[2], takeover(0.62));
+    b.setWidth(1440);
+    b.window.emit('resize');
+    b.flush();
+    expectBridge(b, 0.62, 1440, false, 'resize during handoff');
+    for (const [width, height] of [
+      [820, 1180],
+      [1180, 820],
+    ]) {
+      b.setWidth(width);
+      b.stage.height = height;
+      b.sequenceNode.height = height * 3.6;
+      b.window.scrollY = height * 2.6 * 0.6;
+      b.window.emit('resize');
+      b.flush();
+      assert.equal(b.root.dataset.storyProgress, '0.60000');
+      assert.equal(b.skyLifecycle.updates.at(-1).height, height);
+      expectBridge(b, 0.6, width, false, `orientation ${width}×${height}`);
+    }
+    stop();
+  }
+  // Outside the living atmosphere the master schedules no frames at all.
+  {
+    const b = browser({ sky: true, initialScroll: 2340 * 0.45 });
+    const stop = b.createHomeStoryTimeline(b.root, b.breeze);
+    b.skyLifecycle.mode = 'ready';
+    for (const p of [0.45, 0.8, 0.95]) {
+      b.scroll(2340 * p);
+      settle(b);
+      assert.equal(b.count().frames, 0, `no RAF at rest @${p}`);
+    }
+    stop();
+  }
 }
 console.log(
   'HomeStory passed: one owner and TP, native/restored progress, reversible poses, inert controls, reduced continuity, atmosphere handoff/gating, ambient air on the master RAF only while alive, idle stillness and 30 complete cleanups.',

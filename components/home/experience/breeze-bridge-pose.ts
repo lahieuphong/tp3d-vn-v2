@@ -51,6 +51,10 @@ export function bridgeBreezePose(p: number, geometry: BreezeBridgeGeometry) {
     opacity: 1 - exit,
     density: editorial(span(p, ...MOTION.breeze.density)),
     transfer: mobile ? 0 : editorial(span(p, ...MOTION.breeze.transfer)),
+    // The fine weave belongs to reading distance. Magnified at the lens, its
+    // threads would become hard graphic lines, so they resolve out of focus
+    // while the cloth transfers toward the camera (every family).
+    weave: 1 - editorial(span(p, ...MOTION.breeze.transfer)),
     foreground: p >= MOTION.breeze.foreground && p < bridgeTiming.breezeEnd,
   };
 }

@@ -359,6 +359,35 @@ assert.equal(
   0,
   'stopping inside the atmospheric pass produces no additional writes',
 );
+// TP3D PASS 03: the first stir starts with Scene 2's departure, and the fine
+// weave resolves out of focus as the cloth nears the lens, in either direction.
+renderer.paint(0.48, false);
+assert(
+  threads.every((node) => node.getAttribute('opacity') === null),
+  'the reading weave keeps its authored attributes',
+);
+renderer.paint(0.5, false);
+assert.notEqual(
+  poses[0].getAttribute('transform'),
+  'translate(0 0.00)',
+  'air stirs the cloth before breezeStart',
+);
+assert(threads.every((node) => node.getAttribute('opacity') === null));
+renderer.paint(0.56, false);
+const resolving = Number(threads[0].getAttribute('opacity'));
+assert(resolving > 0 && resolving < 1, 'threads resolve during the transfer');
+renderer.paint(0.64, false);
+assert(
+  threads.every((node) => node.getAttribute('opacity') === '0.00000'),
+  'no hairline threads while the cloth fills the lens',
+);
+renderer.paint(0.56, false);
+assert.equal(Number(threads[0].getAttribute('opacity')), resolving);
+renderer.paint(0.3, false);
+assert(
+  threads.every((node) => node.getAttribute('opacity') === null),
+  'reverse restores the authored weave exactly',
+);
 const checkpoints = [0.48, 0.52, 0.56, 0.6, 0.64, 0.68, 0.75, 0.84, 1];
 const state = () => ({
   poses: poses.map((node) => [
@@ -369,6 +398,7 @@ const state = () => ({
   transfer: transfer.getAttribute('opacity'),
   foreground: root.getAttribute('data-breeze-foreground'),
   folds: folds.map((node) => node.getAttribute('opacity')),
+  threads: threads.map((node) => node.getAttribute('opacity')),
 });
 const forwardStates = checkpoints.map((p) => {
   renderer.paint(p, false);

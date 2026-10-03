@@ -14,6 +14,7 @@ an inference, it is labelled as such.
 | Audit browser | Chrome 154.0.8037.59, headless, Windows 11, ANGLE/D3D11 on **NVIDIA RTX 3090** |
 | Supplied recordings | `Ghi Màn hình 2026-10-02 lúc 23.45.05.mov` (UNESCO reference) and `Tân Phong.mov` (current site), analysed in PASS 0/1 and **deleted from the repo root on 2026-10-03** (never committed); extracted frames remain in `work/pass0/reference/` (local, gitignored) |
 | Evidence folder | `work/pass0/` (gitignored, local only — see §29) |
+| TP3D PASS 03 (2026-10-03) | Perspective → Atmosphere refined: Scene 2 copy now leaves by 0.60 (labels 0.484–0.556, body 0.506–0.58, heading 0.526–0.60), the cloth first stirs from 0.48 (`MOTION.breeze.stir` 0.03), its threads resolve over 0.525–0.595 (`pose.weave`), and reduced motion cuts at the 0.64 swap inside a 0.015 exposure dip instead of cross-dissolving 0.605–0.64. The §5 Scene 2 exit-text row, the §11 approach start, §12 step 1 and the §16 bridge line are superseded; see §33 and `docs/TP3D-PASS-03-PERSPECTIVE-ATMOSPHERE.md`. Atmosphere engine, takeover, TP, swap, sky hold and everything from camera start unchanged. |
 | TP3D PASS 02 (2026-10-03) | Arrival → Perspective handoff retimed with no copy overlap: Scene 1 out by 0.26, copy-free breath to 0.31, plate B opened by a centred aperture (desktop/tablet) or dissolved inside the breath (mobile/reduced), Scene 2 by group to 0.42. The §5 rows for 0.14–0.42 and the §16 Scene 1 → 2 line are superseded; see §32 and `docs/TP3D-PASS-02-SPATIAL-HANDOFF.md`. TP travel, Scene 2 from 0.42, bridge and Atrium unchanged. |
 | TP3D PASS 01 (2026-10-03) | Arrival refined: intro opening 1500 ms desktop / 1000 ms mobile (was 1000 / 900), first-scroll approach p 0–0.14, desktop Scene 1 pointer depth on the master RAF. §23 loader timings are superseded; see §31 and `docs/TP3D-PASS-01-ARRIVAL.md`. Scene 2, bridge and Atrium unchanged. |
 | TP3D PASS 00 (2026-10-03) | New pass series: design-system source of truth `docs/TP3D-DESIGN-SYSTEM.md`, audit `docs/TP3D-PASS-00-AUDIT.md`, motion tokens/utilities in `lib/motion/` (`yarn check:motion`). No homepage code or timing changed; this document remains the timeline reference. |
@@ -688,3 +689,31 @@ paths.
 **Unchanged:** the TP travel 0.12–0.42 (reduced 0.28–0.32), the chapter
 switch at 0.30, the cloth pose exchange 0.27–0.33, the Scene 2 hold
 0.42–0.48 and every bridge range.
+
+## 33. TP3D PASS 03 — Perspective → Atmosphere (summary)
+
+Full record: `docs/TP3D-PASS-03-PERSPECTIVE-ATMOSPHERE.md`.
+
+**Timing source of truth** (`home-motion.ts` `MOTION`, desktop `p`; tablet and
+mobile share these ranges, and camera start is 0.705 / 0.701 / 0.686)
+
+| Beat | Range |
+| --- | --- |
+| Scene 2 hold | 0.42–0.48 (unchanged) |
+| First stir of air | from 0.48: 3% of the cloth approach on a smoothstep 0.48–0.632 (`breeze.stir`); the bridge pose applies from `bridge.exitStart` |
+| Copy out, labels / body / heading | 0.484–0.556 / 0.506–0.58 / 0.526–0.60 (was …0.574 / …0.608 / …0.631) |
+| TP anticipation / departure | 0.494–0.556 / 0.534–0.64 (unchanged) |
+| Architecture push | 0.55–0.64 (unchanged) |
+| Cloth approach / foreground / density / transfer | 0.52–0.632 / 0.54 / 0.558–0.626 / 0.525–0.595 (unchanged) |
+| Thread weave resolves | 0.525–0.595 (new, every family) |
+| Cloth → cloud takeover (WebGL only) | 0.556–0.606 (unchanged) |
+| Context loss | from 0.60: no copy remains |
+| World swap | 0.64 (unchanged) |
+| Sky suspension | 0.64 → camera start (unchanged, camera parked) |
+| Reduced swap | Scene 2 + TP 1 → 0.65 over 0.625–0.64, cut, Scene 3 0.65 → 1 over 0.64–0.655 (`reduced.halfDip`, `reduced.floor`); `reduced.dissolve` removed |
+
+**Unchanged:** `SKY_BRIDGE`, tiers, pixel budgets, shaders, ambient rates,
+the renderer, the swap rule, the 0.745 reduced framing cut and every Atrium
+camera, exposure, header and reveal value from camera start.
+`check-perspective-atmosphere` locks the PASS 01/02 frames through 0.48 and
+the Atrium range from camera start against `fefb910`.

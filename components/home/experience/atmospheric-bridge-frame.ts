@@ -69,15 +69,16 @@ export function bridgeFrame(progress: number, width: number, reduced = false) {
   const d = MOTION.departure;
   const swapped = p >= bridgeTiming.swap;
   const reducedSkyEnd = MOTION.reduced.cut;
-  // Reduced motion uses two static framings, without a large animated zoom.
-  // A modest exposure dip softens the cut while keeping the plate readable,
-  // including when native scrolling stops exactly at the framing boundary.
-  const reducedCutOut = smooth(
-    range(p, reducedSkyEnd - MOTION.reduced.halfDip, reducedSkyEnd),
-  );
-  const reducedCutIn = smooth(
-    range(p, reducedSkyEnd, reducedSkyEnd + MOTION.reduced.halfDip),
-  );
+  const reducedLoss = 1 - MOTION.reduced.floor;
+  // Reduced motion uses static framings, without a large animated zoom, and
+  // never blends two plates. The hidden world swap and the framing cut are
+  // each a cut inside a modest exposure dip that keeps a plate readable,
+  // including when native scrolling stops exactly at either boundary.
+  const dipOut = (edge: number) =>
+    smooth(range(p, edge - MOTION.reduced.halfDip, edge));
+  const dipIn = (edge: number) =>
+    smooth(range(p, edge, edge + MOTION.reduced.halfDip));
+  const reducedScene2 = 1 - reducedLoss * dipOut(bridgeTiming.swap);
   const phase =
     p < bridgeTiming.exitStart
       ? 'SCENE2_HOLD'
@@ -97,13 +98,13 @@ export function bridgeFrame(progress: number, width: number, reduced = false) {
                     ? 'SCENE3_REVEAL'
                     : 'SCENE3_HOLD';
   const scene2Opacity = reduced
-    ? 1 - smooth(range(p, ...MOTION.reduced.dissolve))
+    ? reducedScene2
     : 1 - d.architectureFade * architecture;
   return {
     phase,
     swapped,
     scene2Visible: !swapped,
-    scene3Visible: reduced ? p > MOTION.reduced.dissolve[0] : swapped,
+    scene3Visible: swapped,
     textOpacity: swapped ? 0 : heading.opacity,
     textY: heading.y,
     tpScale: reduced
@@ -112,7 +113,9 @@ export function bridgeFrame(progress: number, width: number, reduced = false) {
     tpY: reduced ? 0 : -artifactDepth * (d.tpY[0] * depart + d.tpY[1] * loss),
     tpOpacity: swapped
       ? 0
-      : (1 - d.tpOpacity[0] * depart) * (1 - d.tpOpacity[1] * loss),
+      : (reduced ? reducedScene2 : 1) *
+        (1 - d.tpOpacity[0] * depart) *
+        (1 - d.tpOpacity[1] * loss),
     architectureScale: reduced
       ? 1
       : 1 +
@@ -129,10 +132,13 @@ export function bridgeFrame(progress: number, width: number, reduced = false) {
     scene2Opacity,
     worldOpacity: reduced
       ? !swapped
-        ? smooth(range(p, ...MOTION.reduced.dissolve))
+        ? 0
         : p < reducedSkyEnd
-          ? 1 - (1 - MOTION.reduced.floor) * reducedCutOut
-          : MOTION.reduced.floor + (1 - MOTION.reduced.floor) * reducedCutIn
+          ? Math.min(
+              MOTION.reduced.floor + reducedLoss * dipIn(bridgeTiming.swap),
+              1 - reducedLoss * dipOut(reducedSkyEnd),
+            )
+          : MOTION.reduced.floor + reducedLoss * dipIn(reducedSkyEnd)
       : 1,
     staticSky: reduced && p < reducedSkyEnd,
     exposure: smooth(range(p, ...MOTION.light)),

@@ -294,7 +294,7 @@ not ship.
 | **DEPTH** | Small scale differences, translate3d, perspective, layered movement | SharedTP travel (scale → 0.86). Scene 2 architecture push +3.5%. TP departure. Worlds card tilt (≤2°, perspective 1400px) | `translate3d`, scale deltas ≤4% on full-bleed planes, perspective ≥1200px, UI rotation ≤2° | Scroll-mapped, or `normal` when time-based |
 | **BREEZE** | Very subtle light or atmospheric movement | Continuous breeze cloth (vector, scroll-mapped). Intro raster breeze drift (7s). WebGL ambient cloud micro-motion (only inside the bridge, 0.35–0.7% of viewport height per second) | Opacity, slow transform drift, shader time | Time-driven only inside an active, visible moment. Never moves the camera or text. Off in reduced motion |
 | **PARALLAX** | Planes at slightly different velocities | `MOTION.depthRatios` (architecture 0.9 / artifact 1 / breeze 1.22). Worlds detail stage pointer offsets 4/7px | Up to 3 planes per section. Velocity spread within the existing 0.9–1.22 band. Pointer parallax on the desktop tier only | Scroll-mapped. Pointer through `createPointerFollower` |
-| **PORTAL** | From the editorial website into the immersive world | Scene 2 → Atrium bridge. The world swap happens at p 0.64 under full cloud/cloth occlusion | One portal per journey. The swap is hidden under full occlusion. Reversible. Reduced motion gets a dissolve or cut | Scroll-mapped. Route changes are plain navigations |
+| **PORTAL** | From the editorial website into the immersive world | Scene 2 → Atrium bridge. The world swap happens at p 0.64 under full cloud/cloth occlusion | One portal per journey. The swap is hidden under full occlusion. Reversible. Reduced motion gets a cut inside an exposure dip, never a plate blend (rule 9) | Scroll-mapped. Route changes are plain navigations |
 | **MICRO MOTION** | Buttons, links, image interaction, feedback | `.text-link` arrow `translate(3px,-3px)`. Portal photo scale 1.02 + caption nudge. Room labels (opacity, `translateX(3px)`). Atrium CTA preview scale 1.035 | transform/opacity only, ≤4px nudges, scale per `MOTION_LIMITS` | `micro` or `fast`; ease `primary` |
 
 **Two clocks, never mixed for one property**
@@ -412,6 +412,18 @@ the full map.
      metadata.
    - The Scene 1 → 2 handoff (`arrivalTiming`, TP3D PASS 02) is the
      reference, and `check-spatial-hero` enforces it.
+   - The portal (Scene 2 → Atrium) keeps exactly one world visible. Reduced
+     motion cuts at the swap inside a `MOTION.reduced.halfDip` exposure dip
+     to the 0.65 floor (TP3D PASS 03), like the 0.745 framing cut. It never
+     cross-dissolves the two plates.
+10. **Copy leaves before atmosphere forms over it.** Editorial copy finishes
+    its departure, in order, by the context-loss threshold
+    (`bridge.occlusionStart`). Cloud, fog or cloth never sits over
+    half-readable text. Decorative detail that the camera magnifies past its
+    reading scale (the cloth's hairline threads) resolves out of focus, so
+    it never becomes graphic stripes. Air starts to move before the copy
+    visibly leaves. `check-perspective-atmosphere` enforces this (TP3D
+    PASS 03).
 
 ## 10. Image behavior
 

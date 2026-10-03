@@ -81,7 +81,9 @@ export function createBreezeRenderer(root: HTMLElement): BreezeDriver {
     paint(progress, reduced, atmosphericTakeover = 0) {
       const { perspective } = homeStoryFrame(progress);
       const pose = bridgeBreezePose(progress, geometry);
-      const approaching = progress > bridgeTiming.breezeStart && !reduced;
+      // The approach begins with Scene 2's departure: a restrained first stir
+      // of air (MOTION.breeze.stir) before the cloth accelerates toward the lens.
+      const approaching = progress > bridgeTiming.exitStart && !reduced;
       // Preserve PASS 2 exactly until the atmospheric approach. The two old
       // reading poses still exchange only at their invisible midpoint.
       const y = perspective < 0.5 ? openingDistance : 0;
@@ -102,7 +104,11 @@ export function createBreezeRenderer(root: HTMLElement): BreezeDriver {
       const density = approaching ? pose.density : 0;
       const transferred = approaching ? pose.transfer : 0;
       const foreground = approaching && pose.foreground;
-      const signature = `${transform}/${opacity.toFixed(5)}/${density.toFixed(5)}/${transferred.toFixed(5)}/${foreground}`;
+      // The reading weave stays exactly as authored (no attribute) until it
+      // starts resolving out of focus near the lens.
+      const weave =
+        approaching && pose.weave < 1 ? pose.weave.toFixed(5) : null;
+      const signature = `${transform}/${opacity.toFixed(5)}/${density.toFixed(5)}/${transferred.toFixed(5)}/${foreground}/${weave}`;
       if (signature === lastPose) return;
       lastPose = signature;
       for (const node of poses) {
@@ -117,6 +123,11 @@ export function createBreezeRenderer(root: HTMLElement): BreezeDriver {
       }
       attribute(transfer, 'opacity', transferred.toFixed(5));
       attribute(luminous, 'opacity', density.toFixed(5));
+      for (const node of threads) {
+        if (weave !== null) attribute(node, 'opacity', weave);
+        else if (node.getAttribute('opacity') !== null)
+          node.removeAttribute('opacity');
+      }
       folds.forEach((node, i) => {
         // Keep curved folds readable close to the lens without graphic stripes.
         const nearOpacity = i % 3 === 0 ? 0.16 : 0.15 + (i % 4) * 0.06;

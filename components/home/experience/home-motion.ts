@@ -17,9 +17,12 @@ export const MOTION = {
     anticipation: [0.494, 0.556],
     depth: [0.534, 0.64],
     architecture: [0.55, 0.64],
-    labels: [0.484, 0.574],
-    body: [0.506, 0.608],
-    heading: [0.526, 0.631],
+    // Copy leaves by role before the cloud banks form over its columns: labels
+    // as the cloth starts yielding (breeze.takeover[0]), body mid-handoff, and
+    // the heading last, gone exactly when context loss begins (occlusionStart).
+    labels: [0.484, 0.556],
+    body: [0.506, 0.58],
+    heading: [0.526, 0.6],
     tpScale: [0.04, 0.155],
     tpY: [4, 22],
     tpOpacity: [0.09, 0.42],
@@ -41,6 +44,9 @@ export const MOTION = {
     // before its magnified folds can read as graphic stripes.
     takeover: [0.556, 0.606],
     foreground: 0.54,
+    // The first sign of air: this share of the approach starts with Scene 2's
+    // departure (bridge.exitStart) as a restrained swell of the resting cloth.
+    stir: 0.03,
     peakCoverage: 1.8,
     focus: [0.52, 0.48],
     crossingX: 0.045,
@@ -71,8 +77,9 @@ export const MOTION = {
     [0.883, 0.915],
     [0.892, 0.92],
   ],
+  // Reduced motion never blends two plates: the world swap and the framing
+  // cut are each a cut inside a halfDip-wide exposure dip to the floor.
   reduced: {
-    dissolve: [0.605, 0.64],
     cut: 0.745,
     halfDip: 0.015,
     floor: 0.65,
@@ -117,9 +124,13 @@ export function cameraImpulse(progress: number, width: number) {
   return {
     anticipation: editorial(span(progress, ...MOTION.departure.anticipation)),
     departure: accelerate(span(progress, ...MOTION.departure.depth)),
-    approach: accelerate(
-      span(progress, MOTION.bridge.breezeStart, MOTION.breeze.peak),
-    ),
+    approach:
+      (1 - MOTION.breeze.stir) *
+        accelerate(
+          span(progress, MOTION.bridge.breezeStart, MOTION.breeze.peak),
+        ) +
+      MOTION.breeze.stir *
+        editorial(span(progress, MOTION.bridge.exitStart, MOTION.breeze.peak)),
     through: arrive(
       unit(
         span(progress, MOTION.breeze.crossingEnd, MOTION.bridge.breezeEnd) *
