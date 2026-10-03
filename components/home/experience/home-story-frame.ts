@@ -22,6 +22,9 @@ export const tpTiming = {
   reducedEnd: 0.32,
 } as const;
 export const arrivalTiming = {
+  // TP3D PASS 01: the first scroll answers at once. The far plane dollies in
+  // under 1% and the near leaves drift; copy, portals and TP keep holding.
+  approach: [0, 0.14],
   metadata: [0.14, 0.23],
   portals: [0.17, 0.295],
   headline: [0.2, 0.3],
@@ -128,6 +131,12 @@ export function arrivalFrame(
     { x: 0, y: 0, scale: 0.86, width: 0, height: 0, opacity: 1 },
     reduced,
   ).travel;
+  // Ease-out, so the first wheel step already moves. The TP travel then takes
+  // over: (1 - travel) hands the approach off, so the approved Scene 2
+  // endpoints are unchanged and the motion never reverses.
+  const approach = reduced
+    ? 0
+    : (1 - (1 - range(p, ...arrivalTiming.approach)) ** 2) * (1 - travel);
   const secondary =
     width < 1200
       ? arrivalTiming.narrowHeadline
@@ -176,14 +185,14 @@ export function arrivalFrame(
     '.sh-leaves': {
       transform: move(
         reduced ? 0 : 12 * depth * travel,
-        reduced ? 0 : -42 * depth * travel,
+        reduced ? 0 : -(6 * approach + 42 * travel) * depth,
       ),
     },
     '[data-hero-layer="architecture-a"]': {
       transform: move(
         reduced ? 0 : -3 * depth * travel,
         reduced ? 0 : -2 * depth * travel,
-        reduced ? 1 : 1 + 0.012 * depth * travel,
+        reduced ? 1 : 1 + depth * (0.008 * approach + 0.012 * travel),
       ),
     },
     '[data-hero-layer="architecture-b"]': {

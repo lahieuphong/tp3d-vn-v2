@@ -91,6 +91,22 @@ assert.match(
   'global reduced-motion switch remains',
 );
 
+// CSS cannot read var() inside @keyframes timing functions, so the intro's
+// keyframe curves are literals. They must still be token curves.
+{
+  const intro = readFileSync(
+    new URL('../components/home/intro/home-intro.css', import.meta.url),
+    'utf8',
+  );
+  const allowed = Object.values(tokens.EASE).map(
+    (curve) => `cubic-bezier(${curve.join(', ')})`,
+  );
+  const literals = intro.match(/cubic-bezier\([^)]*\)/g) ?? [];
+  assert(literals.length > 0, 'intro keyframes declare their curves');
+  for (const literal of literals)
+    assert(allowed.includes(literal), `${literal} is not a motion token curve`);
+}
+
 // Durations stay inside the PASS 00 bands and keep their order.
 const bands = {
   micro: [200, 250],

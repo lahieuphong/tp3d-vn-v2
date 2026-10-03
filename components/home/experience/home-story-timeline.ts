@@ -12,6 +12,7 @@ import {
 import { prepareSceneImage } from './scene-image';
 import { HOME_PRODUCTION } from './home-production';
 import { createRoomDiscovery } from './room-discovery';
+import { createHeroDepth } from './hero-depth';
 import {
   bridgeTiming,
   bridgeFrame,
@@ -193,7 +194,8 @@ export function createHomeStoryTimeline(
     request();
   };
   // The one RAF owner. Ambient frames continue only while the atmosphere is
-  // alive on screen; a resting story outside the bridge schedules nothing.
+  // alive on screen or Scene 1 pointer depth is still easing; a resting story
+  // schedules nothing.
   function step(now: number) {
     frame = 0;
     if (disposed || document.hidden) return;
@@ -202,11 +204,14 @@ export function createHomeStoryTimeline(
       skyBridge?.tick(now);
       if (debug) debug.textContent = debugLine();
     }
-    if (skyBridge?.wantsTime()) request();
+    heroDepth.tick(now);
+    if (skyBridge?.wantsTime() || heroDepth.wantsTime()) request();
   }
   const skyBridge = skyHost
     ? createAtmosphericSkyBridge(skyHost, schedule)
     : null;
+  // Pointer input only needs an ambient frame, never the narrative render.
+  const heroDepth = createHeroDepth(stage, request);
   const imageSettled = async () => {
     if (!secondary || disposed) return;
     let decoded = false;
@@ -339,6 +344,14 @@ export function createHomeStoryTimeline(
       still,
     );
     const past = scroll + geometry.header >= geometry.bottom;
+    heroDepth.update({
+      progress: p,
+      width: geometry.width,
+      height: geometry.height,
+      fine: finePointer.matches,
+      reduced: still,
+      visible: scroll <= geometry.top + geometry.span + 1,
+    });
     discoveryInteraction.update({
       progress: bridgeProgress,
       width: geometry.width,
@@ -643,6 +656,7 @@ export function createHomeStoryTimeline(
       frame = 0;
       discoveryInteraction.suspend();
       skyBridge?.suspend();
+      heroDepth.suspend();
       for (const node of [camera, architecture, sharedTP])
         if (node) property(node, 'will-change', 'auto');
     } else resize();
@@ -683,6 +697,7 @@ export function createHomeStoryTimeline(
     preparedImage?.destroy();
     discoveryInteraction.destroy();
     skyBridge?.destroy();
+    heroDepth.destroy();
     cancelAnimationFrame(frame);
     observer.disconnect();
     window.removeEventListener('scroll', schedule);

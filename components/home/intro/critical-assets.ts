@@ -48,7 +48,7 @@ const criticalFonts = [
   { font: 'italic 400 32px "Cormorant Spatial"', text: 'for living.' },
   {
     font: '400 12px "Manrope Spatial"',
-    text: 'INTERIORS & OBJECTS LOADING THE SPACE NỘI THẤT KIẾN TẠO CUỘC SỐNG',
+    text: 'INTERIORS & OBJECTS PREPARING THE SPACE NỘI THẤT KIẾN TẠO CUỘC SỐNG',
   },
 ] as const;
 

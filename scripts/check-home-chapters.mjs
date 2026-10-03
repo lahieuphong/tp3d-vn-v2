@@ -226,6 +226,15 @@ function browser({
   );
   const sharedTP = new Node();
   const skyHost = sky ? new Node() : null;
+  const heroLifecycle = {
+    created: 0,
+    suspended: 0,
+    destroyed: 0,
+    updates: [],
+    ticks: [],
+    alive: false,
+    wake: null,
+  };
   const skyLifecycle = {
     created: 0,
     suspended: 0,
@@ -367,6 +376,30 @@ function browser({
             };
           },
         };
+      if (path === './hero-depth')
+        return {
+          createHeroDepth(host, wake) {
+            assert.equal(host, stage, 'pointer depth belongs to the stage');
+            heroLifecycle.created++;
+            heroLifecycle.wake = wake;
+            return {
+              update(input) {
+                heroLifecycle.updates.push({ ...input });
+              },
+              tick(now) {
+                heroLifecycle.ticks.push(now);
+              },
+              wantsTime: () => heroLifecycle.alive,
+              suspend() {
+                heroLifecycle.suspended++;
+                heroLifecycle.alive = false;
+              },
+              destroy() {
+                heroLifecycle.destroyed++;
+              },
+            };
+          },
+        };
       if (path === './home-production') return loadStoryMath('home-production');
       if (path === './room-discovery')
         return {
@@ -470,6 +503,7 @@ function browser({
     sharedTP,
     skyHost,
     skyLifecycle,
+    heroLifecycle,
     readStory,
     secondary,
     discovery,
@@ -947,6 +981,8 @@ for (let i = 0; i < 30; i++) {
     'one atmosphere controller per mount',
   );
   assert.equal(b.skyLifecycle.destroyed, 1, 'unmount owns atmosphere disposal');
+  assert.equal(b.heroLifecycle.created, 1, 'one pointer depth per mount');
+  assert.equal(b.heroLifecycle.destroyed, 1, 'unmount owns pointer depth');
 }
 const missing = browser({ missing: true });
 missing.createHomeStoryTimeline(missing.root)();
@@ -1244,6 +1280,24 @@ for (const sceneImage of ['ready', 'pending', 'failed']) {
   b.skyLifecycle.alive = false;
   b.flush();
   assert.equal(b.count().frames, 0, 'no loop once the air is done');
+  // Scene 1 pointer depth eases on the same master RAF and stops when settled.
+  b.heroLifecycle.alive = true;
+  b.heroLifecycle.wake();
+  const heroTicks = b.heroLifecycle.ticks.length;
+  const heroUpdates = b.heroLifecycle.updates.length;
+  for (let i = 0; i < 10; i++) {
+    assert.equal(b.count().frames, 1, 'one master RAF while depth eases');
+    b.flush();
+  }
+  assert.equal(b.heroLifecycle.ticks.length - heroTicks, 10);
+  assert.equal(
+    b.heroLifecycle.updates.length,
+    heroUpdates,
+    'pointer frames do not re-run the narrative render',
+  );
+  b.heroLifecycle.alive = false;
+  b.flush();
+  assert.equal(b.count().frames, 0, 'no loop once pointer depth settles');
   b.skyLifecycle.alive = true;
   b.skyLifecycle.wake();
   b.flush();
@@ -1251,6 +1305,7 @@ for (const sceneImage of ['ready', 'pending', 'failed']) {
   b.document.emit('visibilitychange');
   const hiddenUpdates = b.skyLifecycle.updates.length;
   assert.equal(b.skyLifecycle.suspended, 1);
+  assert.equal(b.heroLifecycle.suspended, 1, 'hidden tab rests pointer depth');
   b.skyLifecycle.wake();
   b.scroll(2340 * 0.66);
   b.flush();

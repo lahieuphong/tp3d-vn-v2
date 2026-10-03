@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { loadStoryMath } from './load-story-math.mjs';
 const loaded = { exports: loadStoryMath('home-story-frame') };
-const { arrivalFrame, tpPose } = loaded.exports;
+const { arrivalFrame, tpPose, tpTiming } = loaded.exports;
 const sizes = [
   [375, 812],
   [390, 844],
@@ -129,10 +129,25 @@ for (const [width, height] of sizes) {
         .map((p) => arrivalFrame(p, width, true, reduced))
         .reverse(),
     );
+    // TP3D PASS 01: the Scene 1 reading hold belongs to the copy, portals and
+    // TP. Only the far architecture plane and the near leaves answer the first
+    // scroll, so the first ~300px are no longer dead input.
+    const spatial = ['[data-hero-layer="architecture-a"]', '.sh-leaves'];
+    const content = (frame) =>
+      Object.fromEntries(
+        Object.entries(frame).filter(([key]) => !spatial.includes(key)),
+      );
     assert.deepEqual(
-      arrivalFrame(0, width, true, reduced),
-      arrivalFrame(0.1, width, true, reduced),
+      content(arrivalFrame(0, width, true, reduced)),
+      content(arrivalFrame(0.1, width, true, reduced)),
+      'Scene 1 content has a real reading hold',
     );
+    if (reduced)
+      assert.deepEqual(
+        arrivalFrame(0, width, true, true),
+        arrivalFrame(0.1, width, true, true),
+        'reduced motion keeps the whole first scroll still',
+      );
     assert.deepEqual(
       arrivalFrame(0.42, width, true, reduced),
       arrivalFrame(0.59, width, true, reduced),
@@ -200,6 +215,33 @@ for (const [width, height] of sizes) {
     !('.sh-monogram' in frame),
     'content choreography cannot fade the shared TP',
   );
+  // First scroll: an immediate, sub-1% dolly of the far plane that grows
+  // monotonically into the existing TP travel.
+  const farScale = (p) =>
+    Number(
+      arrivalFrame(p, width, true)[
+        '[data-hero-layer="architecture-a"]'
+      ].transform.match(/scale\(([\d.]+)\)/)[1],
+    );
+  close(farScale(0), 1, 'approved Scene 1 architecture at rest');
+  const approachEnd = farScale(0.12) - 1;
+  assert(approachEnd > 0 && approachEnd <= 0.0081, 'first scroll stays sub-1%');
+  assert(
+    farScale(0.02) - 1 > approachEnd * 0.25,
+    'the first wheel step already answers',
+  );
+  for (let p = 0.005; p <= 0.42; p += 0.005)
+    assert(farScale(p) >= farScale(p - 0.005), 'the dolly never reverses');
+  // The first-scroll approach hands off to the TP travel: Scene 2 keeps the
+  // approved pre-PASS-01 planes exactly.
+  const depth = width < 768 ? 0.5 : width < 1200 ? 0.7 : 1;
+  const scene2 = arrivalFrame(tpTiming.settle, width, true);
+  assert.equal(
+    scene2['.sh-leaves'].transform,
+    `translate3d(${(12 * depth).toFixed(3)}px, ${(-42 * depth).toFixed(3)}px, 0) scale(1.000000)`,
+    'Scene 2 leaves unchanged',
+  );
+  close(farScale(tpTiming.settle), 1 + 0.012 * depth, 'Scene 2 plane A');
 }
 const hero = readFileSync(
   new URL('../components/home/hero/spatial-hero.tsx', import.meta.url),

@@ -4,13 +4,17 @@ import {
   type CriticalAssetResult,
 } from './critical-assets';
 import { markHomeIntroPlayed, type HomeIntroDecision } from './intro-runtime';
+import { DURATION } from '@/lib/motion/tokens';
 
+/** The opening is the homepage's single arrival moment (`entrance`); phones
+ * keep a shorter `cinematic` opening. Every reveal phase in home-intro.css is a
+ * fraction of this duration, so the gate never cuts an animation short. */
 export const INTRO_TIMING = {
   minimum: 1800,
   maximum: 4000,
   ready: 150,
-  desktop: 1000,
-  mobile: 900,
+  desktop: DURATION.entrance,
+  mobile: DURATION.cinematic,
   reduced: 300,
 } as const;
 

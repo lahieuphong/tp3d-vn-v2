@@ -6,6 +6,7 @@ before you implement anything. Update this document in the same pass that
 changes a rule.
 
 - Point-in-time audit, homepage map and blockers: [TP3D-PASS-00-AUDIT.md](TP3D-PASS-00-AUDIT.md)
+- Arrival / first impression record: [TP3D-PASS-01-ARRIVAL.md](TP3D-PASS-01-ARRIVAL.md)
 - Homepage timeline internals (progress ranges, WebGL tiers, measured
   baselines): [TANPHONG_HOME_MOTION_CONTEXT.md](TANPHONG_HOME_MOTION_CONTEXT.md)
 - Motion tokens: `lib/motion/tokens.ts`, mirrored as `--motion-*` in
@@ -328,6 +329,12 @@ var(--motion-ease-primary)`. In TS, write `transition('transform', 'fast')`.
 For RAF or WAAPI code, use `easing.primary(t)`, which evaluates the same
 cubic-bezier.
 
+CSS ignores `var()` inside a keyframe's `animation-timing-function` (measured
+in Chrome, TP3D PASS 01). Per-segment keyframe curves must therefore be the
+token curve written literally, with a comment naming the token.
+`yarn check:motion` verifies every `cubic-bezier` in `home-intro.css`. Add
+each stylesheet to that check when its keyframes migrate.
+
 ## 9. Motion intensity rules
 
 | Level | Allowed | Not allowed |
@@ -375,6 +382,20 @@ the full map.
    | Pointer parallax | 8px |
    | Tilt | 2° |
    | Perspective | ≥1200px |
+
+6. **Scroll answers from the first step.** A reading hold applies to content
+   (copy, links, the TP), not to the space. A spatial plane may answer the
+   first wheel step with a sub-1% move that hands off into the next
+   choreography without changing its approved endpoints. This is the Scene 1
+   approach, `arrivalTiming.approach`.
+7. **The arrival's first paint is a composed, contentful frame.** Never hide
+   first-frame content behind `opacity: 0` until hydration. In TP3D PASS 01
+   doing so cost about 340 ms of throttled FCP and mobile LCP. Silence comes
+   from what arrives later, not from an empty first frame.
+8. **Gate-bound reveals finish with their gate.** Time-driven reveal
+   animations on scene elements during the intro (`revealing`) are fractions
+   of `--hi-duration` and end at or before it. The gate completes on the
+   panels' `animationend` and removes every reveal animation at that moment.
 
 ## 10. Image behavior
 
@@ -442,8 +463,13 @@ the full map.
 
 - No custom cursors, cursor followers or magnetic buttons.
 - Pointer-driven motion runs on the desktop tier only, for `pointerType ===
-  'mouse'`, through `createPointerFollower`. It eases back to rest when the
-  pointer leaves and reads layout once per hover.
+  'mouse'`. It eases back to rest when the pointer leaves and reads layout
+  once per hover.
+  - **Outside the homepage story:** use `createPointerFollower`.
+  - **Inside the sticky story:** pointer input only sets a target, and a
+    driver with `update` / `tick` / `wantsTime` is ticked by the master RAF.
+    The pattern is `components/home/experience/hero-depth.ts`, which mirrors
+    the sky bridge.
 
 **Focus outlines**
 
@@ -476,7 +502,8 @@ mixed by scroll.
 1. Animate `transform` and `opacity`. Use `clip-path` where reasonable. Never
    animate `top`, `left`, `width`, `height`, `padding` or `margin`. The audit
    lists the legacy exceptions.
-2. One RAF owner per controller. It is event-driven and stops when idle: no
+2. One RAF owner per controller; inside the homepage story the master
+   timeline is the only one. It is event-driven and stops when idle: no
    permanent loops. Time-driven ambient motion runs only while its moment is
    active and visible.
 3. No per-frame React state. Write styles and attributes directly, with

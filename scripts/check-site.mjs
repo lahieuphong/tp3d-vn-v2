@@ -78,7 +78,7 @@ while (pending.length) {
       /<(?:a|button)\b/i,
       'loader navigation must remain presentational',
     );
-    assert.match(loader, /LOADING THE SPACE/);
+    assert.match(loader, /PREPARING THE SPACE/);
     assert.match(loader, /<output\b[^>]*aria-live="polite"/);
     assert.match(
       loader,

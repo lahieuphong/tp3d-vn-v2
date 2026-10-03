@@ -20,6 +20,11 @@ const controllerSource = compile(
   '../components/home/intro/intro-controller.ts',
 );
 const runtimeSource = compile('../components/home/intro/intro-runtime.ts');
+const tokens = { exports: {} };
+runInContext(
+  compile('../lib/motion/tokens.ts'),
+  createContext({ module: tokens, exports: tokens.exports }),
+);
 const flush = async () => {
   for (let i = 0; i < 8; i++) await Promise.resolve();
 };
@@ -251,15 +256,17 @@ function environment({
   context.require = (name) =>
     name === './critical-assets'
       ? { preloadHomeCriticalAssets: assets }
-      : name === './intro-runtime'
-        ? {
-            ...runtime,
-            markHomeIntroPlayed: () => {
-              seen++;
-              runtime.markHomeIntroPlayed();
-            },
-          }
-        : null;
+      : name === '@/lib/motion/tokens'
+        ? tokens.exports
+        : name === './intro-runtime'
+          ? {
+              ...runtime,
+              markHomeIntroPlayed: () => {
+                seen++;
+                runtime.markHomeIntroPlayed();
+              },
+            }
+          : null;
   runInContext(controllerSource, context);
   const { mountHomeIntro, INTRO_TIMING } = context.exports;
   const mount = (decision = { play: true, force: false, startedAt: 0 }) =>
@@ -384,6 +391,9 @@ function environment({
   return e;
 }
 
+// TP3D PASS 01: the opening is the `entrance` token (1500ms desktop) and the
+// `cinematic` token (1000ms mobile); reduced motion keeps its 300ms exit. The
+// completion guard stays duration + 100ms.
 // Min display covers the visible sequence, even if hydration started later.
 for (const start of [0, 650, 3000]) {
   const e = environment({ now: start });
@@ -401,13 +411,13 @@ for (const start of [0, 650, 3000]) {
   assert.equal(e.html.dataset.homeIntro, 'ready');
   await e.advance(1);
   assert.equal(e.html.dataset.homeIntro, 'revealing');
-  assert.equal(e.html.style.getPropertyValue('--hi-duration'), '1000ms');
+  assert.equal(e.html.style.getPropertyValue('--hi-duration'), '1500ms');
   e.overlay.emit('animationend', {
     animationName: 'hi-bottom-open',
     target: e.overlay,
   });
   assert.equal(e.completed, 0, 'only correct exit event completes loader');
-  await e.advance(1000);
+  await e.advance(1500);
   e.overlay.emit('animationend', {
     animationName: 'hi-bottom-open',
     target: e.bottom,
@@ -425,7 +435,7 @@ for (const config of [{}, { mobile: true }, { reduced: true }]) {
   e.observations[0].complete();
   e.finishSequence();
   const enter = 1800 + (config.reduced ? 0 : 150),
-    exit = config.reduced ? 300 : config.mobile ? 900 : 1000;
+    exit = config.reduced ? 300 : config.mobile ? 1000 : 1500;
   await e.advance(enter);
   assert.equal(
     e.html.dataset.homeIntro,
@@ -451,7 +461,7 @@ for (const animationEvent of [true, false]) {
   assert.equal(e.html.dataset.homeIntro, 'ready');
   await e.advance(150);
   assert.equal(e.html.dataset.homeIntro, 'revealing');
-  await e.advance(1100);
+  await e.advance(1600);
   e.assertRestored();
 }
 // Timeout does not fabricate the missing three completion units or linger at ready.
@@ -464,7 +474,7 @@ for (const animationEvent of [true, false]) {
   await e.advance(1);
   assert.equal(e.html.dataset.homeIntro, 'revealing');
   assert.equal(e.progress.at(-1).progress, 2 / 5);
-  await e.advance(1100);
+  await e.advance(1600);
   assert.equal(e.progress.at(-1).completed, 2);
   e.assertRestored();
 }
@@ -501,7 +511,7 @@ for (const reason of ['cleanup', 'pagehide', 'popstate', 'hidden'])
   const second = e.mount(decision);
   e.observations[1].complete();
   e.finishSequence();
-  await e.advance(3050);
+  await e.advance(3550);
   assert.equal(e.completed, 1);
   second();
   e.assertRestored();

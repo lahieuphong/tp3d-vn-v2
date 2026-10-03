@@ -14,6 +14,7 @@ an inference, it is labelled as such.
 | Audit browser | Chrome 154.0.8037.59, headless, Windows 11, ANGLE/D3D11 on **NVIDIA RTX 3090** |
 | Supplied recordings | `Ghi Màn hình 2026-10-02 lúc 23.45.05.mov` (UNESCO reference) and `Tân Phong.mov` (current site), analysed in PASS 0/1 and **deleted from the repo root on 2026-10-03** (never committed); extracted frames remain in `work/pass0/reference/` (local, gitignored) |
 | Evidence folder | `work/pass0/` (gitignored, local only — see §29) |
+| TP3D PASS 01 (2026-10-03) | Arrival refined: intro opening 1500 ms desktop / 1000 ms mobile (was 1000 / 900), first-scroll approach p 0–0.14, desktop Scene 1 pointer depth on the master RAF. §23 loader timings are superseded; see §31 and `docs/TP3D-PASS-01-ARRIVAL.md`. Scene 2, bridge and Atrium unchanged. |
 | TP3D PASS 00 (2026-10-03) | New pass series: design-system source of truth `docs/TP3D-DESIGN-SYSTEM.md`, audit `docs/TP3D-PASS-00-AUDIT.md`, motion tokens/utilities in `lib/motion/` (`yarn check:motion`). No homepage code or timing changed; this document remains the timeline reference. |
 | PASS 1 (2026-10-03) | Atmospheric auto-motion bridge — commit `a25d1ac` on `main`, **deployed to production on 2026-10-03** (Vercel deployment `dpl_AwoGMD2xWPoBP3U13nqD7Ey3fBf3`). Sections 4–6, 11–13, 15–18 and 28 describe the repository after PASS 1; §25 stays the PASS 0 live baseline. Details: §30 and `docs/HOME-ATMOSPHERIC-AUTO-MOTION.md`. |
 
@@ -598,3 +599,43 @@ Summary; full notes and QA in `docs/HOME-ATMOSPHERIC-AUTO-MOTION.md`.
   frames only inside the bridge; 0 RAF / 0 draws in the Atrium and Footer;
   throttled first crossing WebGL in 3/3 runs. Real-phone testing still pending.
 - **Evidence:** `work/pass1/` (gitignored).
+
+---
+
+## 31. TP3D PASS 01 — Arrival (summary)
+
+Full record: `docs/TP3D-PASS-01-ARRIVAL.md`.
+
+**Intro**
+
+- The composed first frame (header replica, silk, brand line) appears at
+  first paint.
+- TP 240 ms, rise 760 ms, slogan 1000 ms, status 1150 ms.
+- The opening is `--hi-duration` = `DURATION.entrance` (1500 ms) on desktop
+  and tablet, `DURATION.cinematic` (1000 ms) on mobile, 300 ms reduced. Its
+  phases are fractions of that duration:
+  - clear 0–0.18
+  - seam ±4 px 0–0.18
+  - slab split 0.18–1.0
+  - far-plane settle 0.18–1.0
+  - TP and leaves settle 0.36–1.0
+  - cloth 0.50–0.95
+  - header 0.65–0.95
+- Measured desktop intro completion: ≈ 3.7 s (was ≈ 3.2 s).
+
+**First scroll**
+
+- `arrivalTiming.approach = [0, 0.14]`.
+- Architecture A: + `0.008 × approach × depth` scale. Leaves: −
+  `6 × approach × depth` px.
+- `approach` is multiplied by `(1 − travel)`, so every Scene 2 endpoint is
+  unchanged.
+- The Scene 1 reading hold now applies to content only: copy, portals, TP.
+
+**Pointer depth** (`hero-depth.ts`)
+
+- Desktop tier only. TP surface ±3/2 px, portals ±6/3.5 px.
+- Weight `1 − smoothstep(p / 0.12)`. τ 220 ms, ε 0.015.
+- Ticked by the master RAF (`step()` → `heroDepth.tick` / `wantsTime`).
+  Pointer input calls `request()`, never the narrative render.
+- 0 RAF at rest.
