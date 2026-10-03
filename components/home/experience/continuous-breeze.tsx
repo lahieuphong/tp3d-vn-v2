@@ -8,7 +8,6 @@ export function ContinuousBreeze() {
       className="continuous-breeze"
       aria-hidden="true"
       data-continuous-breeze
-      data-atmosphere-layer
     >
       <svg
         className="cb-plane cb-back"

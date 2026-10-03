@@ -160,9 +160,17 @@ export function createHomeStoryTimeline(
     debug.setAttribute('aria-hidden', 'true');
     stage.appendChild(debug);
   }
+  // Development-only (?storyDebug=1). The narrative part is refreshed by full
+  // renders; the atmosphere part also by ambient-only frames.
+  let debugNarrative = '';
+  const debugLine = () =>
+    `${debugNarrative} · ${skyBridge?.debug() ?? 'DOM atmosphere'}`;
   let frame = 0,
     disposed = false,
-    needsMeasure = true;
+    needsMeasure = true,
+    // Scroll, resize and lifecycle events need the full narrative render.
+    // Otherwise a frame only lets the atmosphere's air live.
+    narrative = true;
   let ready = false,
     secondaryStarted = false,
     initialPaints = 2;
@@ -172,11 +180,30 @@ export function createHomeStoryTimeline(
   let architectureMass: VisualPose | null = null;
   let lastFrameTime = 0;
   let atmosphericCrossing = false;
+  const saveData =
+    (navigator as Navigator & { connection?: { saveData?: boolean } })
+      .connection?.saveData === true;
   const discoveryInteraction = createRoomDiscovery(worlds);
-  const schedule = () => {
+  const request = () => {
     if (!disposed && !document.hidden && !frame)
-      frame = requestAnimationFrame(render);
+      frame = requestAnimationFrame(step);
   };
+  const schedule = () => {
+    narrative = true;
+    request();
+  };
+  // The one RAF owner. Ambient frames continue only while the atmosphere is
+  // alive on screen; a resting story outside the bridge schedules nothing.
+  function step(now: number) {
+    frame = 0;
+    if (disposed || document.hidden) return;
+    if (narrative) render(now);
+    else {
+      skyBridge?.tick(now);
+      if (debug) debug.textContent = debugLine();
+    }
+    if (skyBridge?.wantsTime()) request();
+  }
   const skyBridge = skyHost
     ? createAtmosphericSkyBridge(skyHost, schedule)
     : null;
@@ -260,7 +287,7 @@ export function createHomeStoryTimeline(
       node.style.setProperty(name, value);
   };
   function render(now = performance.now()) {
-    frame = 0;
+    narrative = false;
     if (disposed || document.hidden) return;
     if (needsMeasure) measure();
     const scroll = document.documentElement.hasAttribute('data-home-intro')
@@ -333,12 +360,13 @@ export function createHomeStoryTimeline(
       fine: finePointer.matches,
       visible: scroll <= geometry.top + geometry.span + 1,
       sceneReady: sceneImage === 'ready',
+      saveData,
+      now,
     });
     if (skyHost?.dataset.skyState === 'active') atmosphericCrossing = true;
     else if (
       skyHost?.dataset.skyState === 'fallback' ||
       still ||
-      geometry.width < 768 ||
       bridgeProgress <= 0.5
     )
       atmosphericCrossing = false;
@@ -351,10 +379,14 @@ export function createHomeStoryTimeline(
       // the original cloth is fully gone, preserving a late DOM crossing.
       atmosphericCrossing = true;
     }
+    // Fabric airflow becomes open atmosphere: the cloth yields while the far,
+    // mid and near banks are already forming behind it.
     breeze?.paint(
       bridgeProgress,
       still,
-      atmosphericCrossing ? editorial(span(bridgeProgress, 0.575, 0.62)) : 0,
+      atmosphericCrossing
+        ? editorial(span(bridgeProgress, ...MOTION.breeze.takeover))
+        : 0,
     );
     const progress = p.toFixed(5);
     if (root.dataset.storyProgress !== progress)
@@ -567,7 +599,11 @@ export function createHomeStoryTimeline(
         property(
           rail,
           'opacity',
-          bridgeProgress > 0.6 && bridgeProgress < 0.82 ? '0' : '1',
+          // Typography leaves before the atmosphere closes in.
+          bridgeProgress >= MOTION.breeze.takeover[0] &&
+            bridgeProgress < bridgeTiming.revealStart
+            ? '0'
+            : '1',
         );
       }
       if (header) {
@@ -579,8 +615,10 @@ export function createHomeStoryTimeline(
           header.dataset.opening = opening;
       }
     }
-    if (debug)
-      debug.textContent = `${progress} · ${bridge.phase} · ${motion.phase} · TP ${pose.phase} · Breeze ${motion.approach.toFixed(3)}/${motion.through.toFixed(3)} · Scene3 ${worldPose.scale.toFixed(4)} · camera ${cameraMass.scale.toFixed(4)} · mass ${cameraResponse.active || architectureResponse.active ? 'settling' : 'rest'} · ${skyBridge?.debug() ?? 'DOM atmosphere'}`;
+    if (debug) {
+      debugNarrative = `bridge ${bridgeProgress.toFixed(4)} (native ${progress}) · ${bridge.phase} · ${motion.phase} · TP ${pose.phase} · Breeze ${motion.approach.toFixed(3)}/${motion.through.toFixed(3)} · Scene3 ${worldPose.scale.toFixed(4)} · camera ${cameraMass.scale.toFixed(4)} · mass ${cameraResponse.active || architectureResponse.active ? 'settling' : 'rest'}`;
+      debug.textContent = debugLine();
+    }
     // Reveal the sampled restored frame, never the default scene first.
     if (
       document.readyState === 'complete' &&
@@ -611,9 +649,11 @@ export function createHomeStoryTimeline(
   };
   const restore = () => {
     cancelAnimationFrame(frame);
+    frame = 0;
     needsMeasure = true;
     lastSignature = '';
     render();
+    if (skyBridge?.wantsTime()) request();
   };
   const observer = new ResizeObserver(resize);
   for (const node of [sequence, stage, header])

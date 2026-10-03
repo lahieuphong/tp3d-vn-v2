@@ -1,5 +1,12 @@
 # Homepage PASS 3B — Three.js atmospheric sky bridge
 
+> Partly superseded by [PASS 1 — Atmospheric auto-motion bridge](./HOME-ATMOSPHERIC-AUTO-MOTION.md):
+> the bridge now has time-driven ambient micro motion (camera still
+> scroll-owned), preparation at p ≥ 0.12, arming before cloud formation, a
+> mobile WebGL tier, a measured sky palette and named Three.js imports.
+> Statements below about "no clock", the 0.30 preload, mobile fallback and
+> bundle size describe PASS 3B.
+
 PASS 3B adds a temporary procedural atmosphere between the approved Scene 2 and Scene 3. Loader, Arrival, SharedTP, Manifesto, the actual Atrium photograph, the existing DOM camera pull-back, room discovery and Footer keep their existing ownership. The earlier PASS 3–5 “zero WebGL” constraint is superseded **only inside this bridge**. Earlier reports remain historical evidence; their performance measurements do not describe this implementation.
 
 This document records the implementation, production checks and local browser measurements. Hardware and measurement limits are stated alongside each result.

@@ -20,7 +20,17 @@ const { outputText } = ts.transpileModule(source, {
   },
 });
 const math = loadStoryMath('atmospheric-sky-frame');
-const { atmosphericSkyFrame, SKY_BRIDGE, skyTier, skyPixelRatio } = math;
+const {
+  atmosphericSkyFrame,
+  SKY_BRIDGE,
+  SKY_TIERS,
+  AMBIENT,
+  skyTier,
+  skyPixelRatio,
+  createAmbient,
+  ambientStep,
+  advanceAmbient,
+} = math;
 const master = (local) =>
   SKY_BRIDGE.start + local * (SKY_BRIDGE.end - SKY_BRIDGE.start);
 const samples = Array.from({ length: 501 }, (_, i) =>
@@ -31,7 +41,7 @@ assert.deepEqual(
   Array.from({ length: 501 }, (_, i) =>
     atmosphericSkyFrame((500 - i) / 500),
   ).reverse(),
-  'camera, density and drift are exactly reversible without a wall clock',
+  'camera, density, coverage and drift are exactly reversible without a wall clock',
 );
 let previousZ = Infinity;
 for (const frame of samples) {
@@ -68,14 +78,31 @@ assert.equal(
   false,
   'final Atrium has no atmosphere',
 );
-for (const width of [320, 390, 767])
-  assert.equal(skyTier(width, true, false), 'fallback');
+for (const width of [320, 390, 767]) {
+  assert.equal(skyTier(width, true, false), 'mobile');
+  assert.equal(skyTier(width, false, false), 'mobile');
+  assert.equal(
+    skyTier(width, false, false, true),
+    'fallback',
+    'Save-Data phones keep the DOM bridge',
+  );
+}
 assert.equal(skyTier(1440, true, true), 'fallback');
+assert.equal(skyTier(390, false, true), 'fallback');
 assert.equal(skyTier(820, true, false), 'tablet');
 assert.equal(skyTier(1440, false, false), 'tablet');
 assert.equal(skyTier(1440, true, false), 'desktop');
-for (const tier of ['desktop', 'tablet']) {
+assert.deepEqual([...SKY_TIERS.desktop.clouds], [0, 1, 2]);
+assert.deepEqual([...SKY_TIERS.tablet.clouds], [0, 1]);
+assert.equal(SKY_TIERS.mobile.clouds.length, 1, 'mobile draws one cloud bank');
+assert.equal(SKY_TIERS.mobile.morph, 0, 'no domain warp on phones');
+assert(SKY_TIERS.mobile.life < SKY_TIERS.tablet.life);
+assert(SKY_TIERS.tablet.life <= SKY_TIERS.desktop.life);
+for (const tier of ['desktop', 'tablet', 'mobile']) {
   for (const [width, height] of [
+    [360, 740],
+    [390, 844],
+    [767, 1024],
     [768, 1024],
     [820, 1180],
     [1440, 900],
@@ -84,18 +111,69 @@ for (const tier of ['desktop', 'tablet']) {
   ]) {
     for (const ratio of [1, 2, 3]) {
       const dpr = skyPixelRatio(width, height, ratio, tier);
-      const budget =
-        tier === 'desktop'
-          ? SKY_BRIDGE.pixelBudget
-          : SKY_BRIDGE.tabletPixelBudget;
-      assert(dpr > 0 && dpr <= (tier === 'desktop' ? 1.5 : 1.25));
+      assert(dpr > 0 && dpr <= SKY_TIERS[tier].dprCap);
       assert(
-        width * height * dpr * dpr <= budget + 1e-6,
+        width * height * dpr * dpr <= SKY_TIERS[tier].pixelBudget + 1e-6,
         'drawing buffer obeys its pixel budget',
       );
     }
   }
 }
+assert.equal(skyPixelRatio(390, 844, 3, 'mobile'), 1, 'phones render at DPR 1');
+
+// Ambient micro motion: integrated, bounded per frame, never a narrative input.
+assert.equal(ambientStep(16.7), 0.0167);
+assert.equal(ambientStep(AMBIENT.maxStepMs * 3), AMBIENT.maxStepMs / 1000);
+for (const gap of [0, -5, AMBIENT.resumeGapMs + 1, 10 * 60 * 1000])
+  assert.equal(ambientStep(gap), 0, 'a hidden or paused gap resumes in place');
+{
+  const spans = [1.2, 0.8, 0.4];
+  const start = createAmbient();
+  assert.equal(advanceAmbient(start, 0, 1, spans), start);
+  assert.equal(
+    advanceAmbient(start, 0.5, 0, spans),
+    start,
+    'no life, no drift',
+  );
+  let state = start;
+  for (let i = 0; i < 600; i++) state = advanceAmbient(state, 1 / 60, 1, spans);
+  assert(Math.abs(state.time - 10) < 1e-9, 'time integrates at the life rate');
+  const [wx, wy] = AMBIENT.wind;
+  for (const [index, [x, y]] of state.planes.entries()) {
+    const speed = Math.hypot(x, y) / 10 / spans[index];
+    assert(
+      Math.abs(speed - AMBIENT.planeDrift[index]) < 1e-9,
+      'each bank keeps its own apparent screen speed',
+    );
+    assert(Math.abs(x * wy - y * wx) < 1e-9, 'clouds share the Breeze current');
+    assert(x > 0 && y > 0, 'air moves toward the Breeze exit (upper right)');
+  }
+  assert(
+    AMBIENT.planeDrift[0] < AMBIENT.planeDrift[1] &&
+      AMBIENT.planeDrift[1] < AMBIENT.planeDrift[2],
+    'far drifts slowest, near most apparent',
+  );
+  assert(AMBIENT.skyDrift < AMBIENT.planeDrift[0], 'distant sky is slowest');
+  assert(
+    Math.max(...AMBIENT.planeDrift) <= 0.01,
+    'no visible race: at most 1% of the viewport per second',
+  );
+  const half = advanceAmbient(start, 1, 0.5, spans);
+  const full = advanceAmbient(start, 1, 1, spans);
+  assert(Math.abs(half.time * 2 - full.time) < 1e-12);
+}
+for (let i = 0; i <= 500; i++) {
+  const frame = atmosphericSkyFrame(i / 500);
+  if (!frame.active) assert.equal(frame.life, 0, 'no ambient work off-bridge');
+}
+assert(atmosphericSkyFrame(0.62).life > 0.8, 'air is most alive inside');
+assert(
+  atmosphericSkyFrame(0.715).life < atmosphericSkyFrame(0.62).life,
+  'drift settles as banks recede into open sky',
+);
+assert.equal(atmosphericSkyFrame(0.64).skyCover, 1);
+assert(atmosphericSkyFrame(0.62).patches > 0, 'sky windows inside the cloud');
+assert.equal(atmosphericSkyFrame(0.7).patches, 0);
 
 const deferred = () => {
   let resolve, reject;
@@ -363,6 +441,8 @@ function harness({
     fine: true,
     visible: true,
     sceneReady: true,
+    saveData: false,
+    now: 1000,
   };
   const update = (changes = {}) => {
     input = { ...input, ...changes };
@@ -392,11 +472,16 @@ function harness({
         0,
       );
   };
+  const tick = (elapsed = 1000 / 60) => {
+    input = { ...input, now: input.now + elapsed };
+    controller.tick(input.now);
+  };
   return {
     ...controller,
     host,
     stats,
     update,
+    tick,
     destroy,
     imported,
     compiled,
@@ -441,16 +526,54 @@ function harness({
     forward,
     'reverse reuses identical camera/uniform poses',
   );
-  const paused = b.stats.renders.length;
+  let paused = b.stats.renders.length;
   for (let i = 0; i < 100; i++) b.update();
   assert.equal(
     b.stats.renders.length,
     paused,
-    'stopping inside clouds does not spin or repeat draws',
+    'repeated scroll input at one timestamp does not repeat draws',
   );
+  // THE test: stop inside the cloud. The lens holds; the air keeps living.
+  b.update({ progress: 0.62 });
+  assert.equal(
+    b.wantsTime(),
+    true,
+    'living atmosphere asks the master for time',
+  );
+  const held = b.stats.renders.at(-1);
+  const before = b.stats.renders.length;
+  for (let i = 0; i < 120; i++) b.tick();
+  const drawn = b.stats.renders.length - before;
+  assert(
+    drawn >= 50 && drawn <= 62,
+    `ambient-only frames are throttled to ~30 fps (${drawn} in 2 s)`,
+  );
+  const alive = b.stats.renders.at(-1);
+  assert.deepEqual(alive.camera, held.camera, 'time never moves the camera');
+  for (const [index, mesh] of alive.meshes.entries()) {
+    assert.deepEqual(mesh.position, held.meshes[index].position);
+    assert(mesh.uniforms.uTime > held.meshes[index].uniforms.uTime);
+    for (const key of ['uDensity', 'uSkyCover', 'uOpening', 'uInside'])
+      assert.equal(mesh.uniforms[key], held.meshes[index].uniforms[key]);
+  }
+  const elapsed = alive.meshes[0].uniforms.uTime;
+  assert(elapsed > 1.5 && elapsed < 2.05, 'about two seconds of air time');
+  // Resume scroll from exactly that narrative position.
+  b.update({ progress: 0.625 });
+  assert.equal(
+    b.stats.renders.at(-1).camera.z,
+    atmosphericSkyFrame(0.625).cameraZ,
+  );
+  // A long hidden gap or long task resumes without teleporting the clouds.
+  b.tick(10 * 60 * 1000);
+  b.tick();
+  const afterGap = b.stats.renders.at(-1).meshes[0].uniforms.uTime;
+  assert(afterGap - elapsed < 0.1, 'no giant elapsed-time jump');
+  paused = b.stats.renders.length;
   b.suspend();
   assert.notEqual(b.host.dataset.skyState, 'active');
   assert.equal(b.host.children[0].style.visibility, 'hidden');
+  assert.equal(b.wantsTime(), false, 'hidden tab: no ambient frames');
   b.update({ progress: 0.64, visible: false });
   assert.equal(
     b.stats.renders.length,
@@ -466,12 +589,19 @@ function harness({
   b.update({ sceneReady: true });
   assert.equal(b.host.dataset.skyState, 'active');
   const worldDraws = b.stats.renders.length;
-  for (const progress of [0.745, 0.9, 1]) b.update({ progress });
+  for (const progress of [0.745, 0.9, 1]) {
+    b.update({ progress });
+    assert.equal(b.wantsTime(), false, 'no ambient loop over the Atrium');
+    for (let i = 0; i < 30; i++) b.tick();
+  }
   assert.equal(
     b.stats.renders.length,
     worldDraws,
     'WebGL stops before the Atrium reading state',
   );
+  b.update({ progress: 1, visible: false });
+  assert.equal(b.wantsTime(), false, 'Footer: no canvas work');
+  b.update({ visible: true });
   b.update({ progress: 0.62 });
   assert.equal(
     b.host.dataset.skyState,
@@ -524,6 +654,21 @@ function harness({
         assert.equal(material.uniforms.uOctaves.value, 2);
     }
   }
+  b.update({ width: 390, height: 844, fine: false, progress: 0.62 });
+  {
+    const renderer = b.stats.renderers[0];
+    const planes = renderer.scene.children;
+    assert.deepEqual(
+      planes.slice(1).map((mesh) => mesh.visible),
+      [false, true, false],
+      'mobile renders one cloud bank plus sky',
+    );
+    assert.deepEqual(b.stats.sizes.at(-1), [390, 844, 1], 'mobile DPR 1');
+    for (const material of b.stats.materials.slice(1))
+      assert.equal(material.uniforms.uMorph.value, 0);
+    assert.equal(b.host.dataset.skyTier, 'mobile');
+  }
+  b.update({ width: 1440, height: 900, fine: true });
   assert.equal(
     b.stats.renderers.length,
     renderCount,
@@ -549,7 +694,11 @@ function harness({
   b.destroy();
 }
 
-for (const changes of [{ reduced: true }, { width: 390 }, { visible: false }]) {
+for (const changes of [
+  { reduced: true },
+  { width: 390, saveData: true },
+  { visible: false },
+]) {
   const b = harness();
   b.update({ progress: 0.62, ...changes });
   await settle();
@@ -560,7 +709,7 @@ for (const changes of [{ reduced: true }, { width: 390 }, { visible: false }]) {
 
 for (const changes of [
   { reduced: true },
-  { width: 390 },
+  { width: 390, saveData: true },
   { visible: false },
   null,
 ]) {
@@ -595,7 +744,7 @@ for (const action of [
   assert.equal(b.stats.renders.length, 0);
   if (action === 'destroy') b.destroy();
   if (action === 'suspend') b.suspend();
-  if (action === 'mobile') b.update({ width: 390 });
+  if (action === 'mobile') b.update({ width: 390, saveData: true });
   if (action === 'late-crossing') b.update({ progress: 0.64 });
   if (action === 'shader-error') b.stats.renderers[0].debug.onShaderError();
   if (action === 'reject') b.compiled.reject(Error('Compile failure'));
@@ -634,6 +783,22 @@ for (const action of [
       'the next crossing uses warm resources',
     );
   }
+  b.destroy();
+}
+
+{
+  const b = harness({ delayCompile: true });
+  b.update({ progress: 0.3 });
+  await settle();
+  b.update({ progress: 0.52 });
+  b.compiled.resolve();
+  await settle();
+  b.update({ progress: 0.521 });
+  assert.equal(
+    b.host.dataset.skyState,
+    'active',
+    'warm-up finished before formation arms the first crossing',
+  );
   b.destroy();
 }
 
@@ -790,5 +955,5 @@ assert.doesNotMatch(
   /requestAnimationFrame\s*\(|setInterval\s*\(|setTimeout\s*\(|Date\.now\s*\(|performance\.now\s*\(/,
 );
 console.log(
-  'Atmospheric sky passed: deterministic depth, viewport coverage, one context, bounded warm-up, native-master rendering, dormant/reverse reuse, 20 crossings, late async/failure fallback and 10 complete route cleanups. Browser visual/performance QA remains separate.',
+  'Atmospheric sky passed: deterministic depth, scroll-owned camera with throttled ambient air (no jump after hidden gaps), viewport coverage, one context, bounded warm-up, native-master rendering, dormant/reverse reuse, 20 crossings, late async/failure fallback and 10 complete route cleanups. Browser visual/performance QA remains separate.',
 );

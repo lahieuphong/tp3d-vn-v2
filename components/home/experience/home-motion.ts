@@ -36,6 +36,10 @@ export const MOTION = {
     suspension: 0.66,
     density: [0.558, 0.626],
     transfer: [0.525, 0.595],
+    // With a painting WebGL atmosphere the cloth yields here, after the far
+    // (0.517) and mid (0.544) banks have begun and while the near mass forms,
+    // before its magnified folds can read as graphic stripes.
+    takeover: [0.556, 0.606],
     foreground: 0.54,
     peakCoverage: 1.8,
     focus: [0.52, 0.48],

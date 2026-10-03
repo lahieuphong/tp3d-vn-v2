@@ -71,7 +71,8 @@ html:has([data-home-story]) {
   height: 100%;
   pointer-events: none;
 }
-@media (max-width: 767px), (prefers-reduced-motion: reduce) {
+/* Phones get the light WebGL tier; reduced motion keeps the static dissolve. */
+@media (prefers-reduced-motion: reduce) {
   .atmospheric-sky-bridge {
     display: none;
   }

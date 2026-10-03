@@ -1,9 +1,15 @@
 import type * as Three from 'three';
 import {
+  advanceAmbient,
+  ambientStep,
   atmosphericSkyFrame,
+  createAmbient,
   SKY_BRIDGE,
+  SKY_TIERS,
   skyPixelRatio,
   skyTier,
+  type AmbientState,
+  type AtmosphericSkyFrame,
   type SkyTier,
 } from './atmospheric-sky-frame';
 import {
@@ -20,6 +26,9 @@ export type AtmosphericSkyInput = {
   fine: boolean;
   visible: boolean;
   sceneReady: boolean;
+  saveData: boolean;
+  /** The master's frame timestamp. Only ambient micro motion consumes it. */
+  now: number;
 };
 
 type SkyState =
@@ -30,6 +39,19 @@ type SkyState =
   | 'active'
   | 'fallback';
 type Uniforms = Record<string, { value: number | Three.Color | Three.Vector2 }>;
+type Library = Pick<
+  typeof Three,
+  | 'WebGLRenderer'
+  | 'Scene'
+  | 'PerspectiveCamera'
+  | 'PlaneGeometry'
+  | 'ShaderMaterial'
+  | 'Mesh'
+  | 'Color'
+  | 'Vector2'
+  | 'SRGBColorSpace'
+  | 'NoToneMapping'
+>;
 type Cloud = {
   mesh: Three.Mesh<Three.PlaneGeometry, Three.ShaderMaterial>;
   material: Three.ShaderMaterial;
@@ -53,9 +75,10 @@ const smoothRange = (value: number, start: number, end: number) => {
   return t * t * (3 - 2 * t);
 };
 
-/** Decorative enhancement with no independent RAF, clock, resize observer or
- * document listener. The HomeStory owner supplies every render and lifecycle
- * signal. Failed/late preparation keeps the complete existing DOM bridge. */
+/** Decorative enhancement with no independent RAF, timer, clock, resize
+ * observer or document listener. The HomeStory owner supplies every render,
+ * timestamp and lifecycle signal. Failed/late preparation keeps the complete
+ * existing DOM bridge. */
 export function createAtmosphericSkyBridge(
   host: HTMLElement,
   requestPaint: () => void,
@@ -68,12 +91,14 @@ export function createAtmosphericSkyBridge(
     fine: false,
     visible: false,
     sceneReady: false,
+    saveData: false,
+    now: 0,
   };
   let resources: Resources | null = null;
   let pendingRenderer: Three.WebGLRenderer | null = null;
   let pendingGeometry: Three.PlaneGeometry | null = null;
   let pendingMaterials: Three.ShaderMaterial[] = [];
-  let library: typeof Three | null = null;
+  let library: Library | null = null;
   let state: SkyState = 'idle';
   let tier: SkyTier = 'fallback';
   let disposed = false;
@@ -86,6 +111,12 @@ export function createAtmosphericSkyBridge(
   let frameSignature = '';
   let renderCount = 0;
   let reason = '';
+  // Ambient life: advanced only while the atmosphere is on screen, from the
+  // master's timestamps. Narrative position never depends on it.
+  let ambient: AmbientState = createAmbient();
+  let lastNow: number | null = null;
+  let lastDraw = -Infinity;
+  let ambientPending = false;
   const originalState = host.getAttribute('data-sky-state');
   const originalTier = host.getAttribute('data-sky-tier');
 
@@ -128,6 +159,7 @@ export function createAtmosphericSkyBridge(
     loading = false;
     ready = false;
     armed = false;
+    lastNow = null;
     reason = why;
     generation++;
     hide('fallback');
@@ -145,9 +177,11 @@ export function createAtmosphericSkyBridge(
     // A later Home mount may try a fresh single context.
     if (!disposed) fallback('context-restored-fallback');
   }
+  const profile = () => (tier === 'fallback' ? null : SKY_TIERS[tier]);
 
   function resize() {
-    if (!resources || tier === 'fallback') return;
+    const quality = profile();
+    if (!resources || !quality || tier === 'fallback') return;
     const { width, height } = latest;
     const pixelRatio = skyPixelRatio(
       width,
@@ -170,12 +204,11 @@ export function createAtmosphericSkyBridge(
         2 * tangent * (SKY_BRIDGE.cameraStart - cloud.z) * 1.38;
       const planeWidth = planeHeight * camera.aspect;
       cloud.mesh.scale.set(planeWidth, planeHeight, 1);
-      (cloud.material.uniforms.uPlaneSize.value as Three.Vector2).set(
-        planeWidth,
-        planeHeight,
-      );
-      cloud.material.uniforms.uOctaves.value = tier === 'desktop' ? 3 : 2;
-      (cloud.material.uniforms.uResolution.value as Three.Vector2).set(
+      const u = cloud.material.uniforms;
+      (u.uPlaneSize.value as Three.Vector2).set(planeWidth, planeHeight);
+      u.uOctaves.value = quality.octaves;
+      u.uMorph.value = quality.morph;
+      (u.uResolution.value as Three.Vector2).set(
         Math.floor(width * pixelRatio),
         Math.floor(height * pixelRatio),
       );
@@ -183,7 +216,7 @@ export function createAtmosphericSkyBridge(
     const skyHeight = 2 * tangent * (SKY_BRIDGE.cameraStart + 36) * 1.12;
     sky.scale.set(skyHeight * camera.aspect, skyHeight, 1);
     sky.material.uniforms.uAspect.value = camera.aspect;
-    sky.material.uniforms.uOctaves.value = tier === 'desktop' ? 3 : 2;
+    sky.material.uniforms.uOctaves.value = quality.octaves;
     (sky.material.uniforms.uResolution.value as Three.Vector2).set(
       Math.floor(width * pixelRatio),
       Math.floor(height * pixelRatio),
@@ -192,30 +225,37 @@ export function createAtmosphericSkyBridge(
   }
 
   function uniforms(seed = 0): Uniforms {
-    const T = library!;
+    const { Color, Vector2 } = library!;
     return {
-      uProgress: { value: 0 },
       uDensity: { value: 0 },
       uInside: { value: 0 },
       uSkyMix: { value: 0 },
       uSkyCover: { value: 0 },
+      uPatches: { value: 0 },
       uOpening: { value: 0 },
       uDrift: { value: 0 },
       uOpacity: { value: 0 },
       uNear: { value: 0 },
-      uOctaves: { value: tier === 'desktop' ? 3 : 2 },
+      uTime: { value: 0 },
+      uMorph: { value: 0 },
+      uBreath: { value: 0 },
+      uOctaves: { value: 2 },
       uSeed: { value: seed },
       uAspect: { value: 1 },
-      uPlaneSize: { value: new T.Vector2(1, 1) },
-      uResolution: { value: new T.Vector2(1, 1) },
-      // Colors are declared in sRGB and Three converts Color to linear. The
+      uFlow: { value: new Vector2(0, 0) },
+      uSkyFlow: { value: new Vector2(0, 0) },
+      uPlaneSize: { value: new Vector2(1, 1) },
+      uResolution: { value: new Vector2(1, 1) },
+      // Colours are declared in sRGB and Three converts Color to linear. The
       // shader's colorspace chunk performs exactly one output conversion.
-      // Sky samples come from the existing 1672×941 Atrium plate, not an HDRI.
-      uSkyUpper: { value: new T.Color('#a9bddd') },
-      uSkyLower: { value: new T.Color('#bccee8') },
-      uIvory: { value: new T.Color('#eee8dc') },
-      uDaylight: { value: new T.Color('#f3f1ef') },
-      uShadow: { value: new T.Color('#b5c0cd') },
+      // Sky values were measured in the Atrium plate's actual oculus crop
+      // (blue sky #b0c3e0 overhead → #c4d5ea at the rim, clouds #eef0f3,
+      // cloud shade #cdd6e4); ivory belongs to the departing Scene 2.
+      uSkyUpper: { value: new Color('#b0c3e0') },
+      uSkyLower: { value: new Color('#c2d3e9') },
+      uIvory: { value: new Color('#eee8dc') },
+      uDaylight: { value: new Color('#eef0f3') },
+      uShadow: { value: new Color('#cdd6e4') },
     };
   }
 
@@ -232,47 +272,102 @@ export function createAtmosphericSkyBridge(
     return true;
   }
 
-  function paint() {
+  /** Whether this narrative frame may be drawn at all. */
+  function drawable(frame: AtmosphericSkyFrame) {
+    return (
+      !!resources &&
+      ready &&
+      armed &&
+      tier !== 'fallback' &&
+      latest.visible &&
+      latest.sceneReady &&
+      !latest.reduced &&
+      frame.active
+    );
+  }
+
+  /** Integrate ambient time from the master's timestamp. Outside the living
+   * atmosphere the clock simply pauses; re-entry resumes without a jump. */
+  function advance(now: number, frame: AtmosphericSkyFrame) {
+    const quality = profile();
+    if (!quality || !drawable(frame) || frame.life <= 0) {
+      lastNow = null;
+      return;
+    }
+    const seconds = lastNow === null ? 0 : ambientStep(now - lastNow);
+    lastNow = now;
+    if (!seconds || !resources) return;
+    const { camera, clouds } = resources;
+    const tangent = Math.tan((camera.fov * Math.PI) / 360);
+    // Each bank drifts at an apparent screen speed: its visible height in its
+    // own noise domain shrinks as the lens approaches it.
+    const spans = clouds.map(
+      (cloud) =>
+        2 *
+        tangent *
+        Math.max(0.45, camera.position.z - cloud.mesh.position.z) *
+        0.22,
+    );
+    ambient = advanceAmbient(
+      ambient,
+      seconds,
+      frame.life * quality.life,
+      spans,
+    );
+    ambientPending = true;
+  }
+
+  function paint(now: number) {
     if (disposed) return;
     const frame = atmosphericSkyFrame(latest.progress);
-    // A shader that finishes compiling after bridge entry must not suddenly
-    // cover Scene 2. Use the DOM version for that crossing; arm outside it.
-    if (ready && !frame.active) armed = true;
-    if (
-      !resources ||
-      !ready ||
-      !armed ||
-      tier === 'fallback' ||
-      !latest.visible ||
-      !latest.sceneReady ||
-      !frame.active
-    ) {
+    // A shader that finishes compiling inside a visible crossing must not
+    // suddenly cover the DOM bridge. It may arm while every plane is still
+    // transparent (before cloud formation) or outside the active range.
+    if (ready && (!frame.active || frame.progress < SKY_BRIDGE.armBefore))
+      armed = true;
+    if (!drawable(frame)) {
       hide(
         failed || tier === 'fallback' ? 'fallback' : ready ? 'ready' : state,
       );
       return;
     }
     resize();
+    const quality = profile()!;
     const signature = `${latest.progress.toFixed(6)}/${sizeSignature}`;
-    if (signature === frameSignature) return;
+    // Scroll/resize changes draw at once. Ambient-only frames are throttled:
+    // the air moves slowly enough that ~24–30 fps is indistinguishable.
+    const narrative = signature !== frameSignature;
+    if (
+      !narrative &&
+      !(ambientPending && now - lastDraw >= quality.ambientFrameMs - 1)
+    )
+      return;
     frameSignature = signature;
-    const held = resources;
+    const held = resources!;
     const { camera, sky, clouds, canvas } = held;
+    // Camera position is scroll-owned. Time never moves the lens.
     camera.position.set(frame.cameraX, frame.cameraY, frame.cameraZ);
     camera.updateMatrixWorld();
     const setFrame = (material: Three.ShaderMaterial) => {
       const u = material.uniforms;
-      u.uProgress.value = frame.progress;
       u.uDensity.value = frame.density;
       u.uInside.value = frame.inside;
       u.uSkyMix.value = frame.skyMix;
       u.uSkyCover.value = frame.skyCover;
+      u.uPatches.value = frame.patches;
       u.uOpening.value = frame.opening;
       u.uDrift.value = frame.drift;
+      u.uTime.value = ambient.time;
+      u.uBreath.value = frame.life * quality.life;
+      (u.uSkyFlow.value as Three.Vector2).set(...ambient.sky);
     };
     setFrame(sky.material);
+    (sky.material.uniforms.uFlow.value as Three.Vector2).set(...ambient.sky);
     for (const [index, cloud] of clouds.entries()) {
       setFrame(cloud.material);
+      (cloud.material.uniforms.uFlow.value as Three.Vector2).set(
+        ...ambient.planes[index],
+      );
       // Modest spatial separation increases depth differential without weather
       // drifting across the screen. Planes fade as the lens passes their Z.
       cloud.mesh.position.z = cloud.z + frame.progress * cloud.velocity;
@@ -286,10 +381,13 @@ export function createAtmosphericSkyBridge(
         entry * smoothRange(distance, 0.45, 2.7) * 0.82;
       cloud.material.uniforms.uNear.value = 1 - smoothRange(distance, 2.5, 8);
       cloud.mesh.visible =
-        distance > 0.45 && (tier === 'desktop' || index !== 2);
+        distance > 0.45 &&
+        (quality.clouds as readonly number[]).includes(index);
     }
     try {
       if (!draw(held)) return;
+      lastDraw = now;
+      ambientPending = false;
       canvas.style.visibility = 'visible';
       setState('active');
     } catch {
@@ -304,24 +402,48 @@ export function createAtmosphericSkyBridge(
     setState('loading');
     const ticket = ++generation;
     try {
-      const T = await import('three');
+      // Named members only, so the bundler can drop the rest of Three.
+      const {
+        WebGLRenderer,
+        Scene,
+        PerspectiveCamera,
+        PlaneGeometry,
+        ShaderMaterial,
+        Mesh,
+        Color,
+        Vector2,
+        SRGBColorSpace,
+        NoToneMapping,
+      } = await import('three');
       if (disposed || failed || ticket !== generation) return;
       loading = false;
       // A resize/reduced-motion switch during import must not create WebGL.
       if (
-        skyTier(latest.width, latest.fine, latest.reduced) === 'fallback' ||
+        skyTier(latest.width, latest.fine, latest.reduced, latest.saveData) ===
+          'fallback' ||
         !latest.visible
       ) {
         setState('idle');
         return;
       }
-      library = T;
+      library = {
+        WebGLRenderer,
+        Scene,
+        PerspectiveCamera,
+        PlaneGeometry,
+        ShaderMaterial,
+        Mesh,
+        Color,
+        Vector2,
+        SRGBColorSpace,
+        NoToneMapping,
+      };
       const canvas = document.createElement('canvas');
       canvas.className = 'atmospheric-sky-canvas';
       canvas.setAttribute('aria-hidden', 'true');
       canvas.style.cssText =
         'display:block;width:100%;height:100%;pointer-events:none;visibility:hidden;';
-      const renderer = new T.WebGLRenderer({
+      const renderer = new WebGLRenderer({
         canvas,
         alpha: true,
         antialias: false,
@@ -333,20 +455,20 @@ export function createAtmosphericSkyBridge(
         failIfMajorPerformanceCaveat: true,
       });
       pendingRenderer = renderer;
-      renderer.outputColorSpace = T.SRGBColorSpace;
-      renderer.toneMapping = T.NoToneMapping;
+      renderer.outputColorSpace = SRGBColorSpace;
+      renderer.toneMapping = NoToneMapping;
       renderer.setClearColor(0x000000, 0);
       renderer.debug.onShaderError = () => {
         // Record the failure; draw() handles disposal outside Three's render.
         reason = 'shader-failed';
       };
-      const scene = new T.Scene();
-      const camera = new T.PerspectiveCamera(48, 1, 0.08, 80);
+      const scene = new Scene();
+      const camera = new PerspectiveCamera(48, 1, 0.08, 80);
       camera.position.z = SKY_BRIDGE.cameraStart;
-      const geometry = new T.PlaneGeometry(1, 1);
+      const geometry = new PlaneGeometry(1, 1);
       pendingGeometry = geometry;
       const makeMaterial = (fragmentShader: string, seed = 0) => {
-        const material = new T.ShaderMaterial({
+        const material = new ShaderMaterial({
           vertexShader: skyVertexShader,
           fragmentShader,
           uniforms: uniforms(seed),
@@ -359,22 +481,25 @@ export function createAtmosphericSkyBridge(
         pendingMaterials.push(material);
         return material;
       };
-      const sky = new T.Mesh(geometry, makeMaterial(skyFragmentShader));
+      const sky = new Mesh(geometry, makeMaterial(skyFragmentShader));
       sky.position.z = -36;
       sky.renderOrder = 0;
       sky.frustumCulled = false;
       scene.add(sky);
+      // Far, mid and near banks. Allocation is fixed; tiers only hide meshes.
       const clouds = [
         { z: -1.25, velocity: 0.12, entry: 0.07 },
         { z: 1.15, velocity: 0.2, entry: 0.18 },
         { z: 3.2, velocity: 0.3, entry: 0.27 },
       ].map((specification, index) => {
         const material = makeMaterial(cloudFragmentShader, index + 0.7);
-        const mesh = new T.Mesh(geometry, material);
+        const mesh = new Mesh(geometry, material);
         mesh.position.z = specification.z;
         mesh.renderOrder = index + 1;
         mesh.frustumCulled = false;
-        mesh.visible = tier === 'desktop' || index < 2;
+        mesh.visible = (
+          (profile()?.clouds ?? []) as readonly number[]
+        ).includes(index);
         scene.add(mesh);
         return { ...specification, mesh, material };
       });
@@ -387,8 +512,8 @@ export function createAtmosphericSkyBridge(
       host.appendChild(canvas);
       resize();
       setState('warming');
-      // One prewarm before the visible range. No render loop, render target,
-      // texture or repeated shader creation is needed on reverse scroll.
+      // One prewarm before the visible range. No render target, texture or
+      // repeated shader creation is needed on reverse scroll.
       await renderer.compileAsync(scene, camera);
       if (disposed || failed || ticket !== generation || !resources) return;
       if (reason === 'shader-failed') {
@@ -397,13 +522,15 @@ export function createAtmosphericSkyBridge(
       }
       if (
         latest.visible &&
-        skyTier(latest.width, latest.fine, latest.reduced) !== 'fallback'
+        skyTier(latest.width, latest.fine, latest.reduced, latest.saveData) !==
+          'fallback'
       ) {
         if (!draw(resources)) return;
         renderer.clear();
       }
       ready = true;
-      armed = !atmosphericSkyFrame(latest.progress).active;
+      const frame = atmosphericSkyFrame(latest.progress);
+      armed = !frame.active || frame.progress < SKY_BRIDGE.armBefore;
       setState('ready');
       requestPaint();
     } catch {
@@ -419,7 +546,12 @@ export function createAtmosphericSkyBridge(
         width: Math.max(1, input.width),
         height: Math.max(1, input.height),
       };
-      tier = skyTier(latest.width, latest.fine, latest.reduced);
+      tier = skyTier(
+        latest.width,
+        latest.fine,
+        latest.reduced,
+        latest.saveData,
+      );
       if (host.dataset.skyTier !== tier) host.dataset.skyTier = tier;
       if (
         !failed &&
@@ -428,10 +560,25 @@ export function createAtmosphericSkyBridge(
         input.progress >= SKY_BRIDGE.preload
       )
         void prepare();
-      paint();
+      advance(latest.now, atmosphericSkyFrame(latest.progress));
+      paint(latest.now);
+    },
+    /** Ambient-only frame: time advances, the narrative frame does not. */
+    tick(now: number) {
+      if (disposed) return;
+      latest = { ...latest, now };
+      advance(now, atmosphericSkyFrame(latest.progress));
+      paint(now);
+    },
+    /** True only while the drawn atmosphere is alive on screen. */
+    wantsTime() {
+      if (disposed || !profile()) return false;
+      const frame = atmosphericSkyFrame(latest.progress);
+      return drawable(frame) && frame.life > 0;
     },
     suspend() {
       latest.visible = false;
+      lastNow = null;
       hide(
         failed || tier === 'fallback' ? 'fallback' : ready ? 'ready' : state,
       );
@@ -442,6 +589,7 @@ export function createAtmosphericSkyBridge(
       generation++;
       ready = false;
       armed = false;
+      lastNow = null;
       release();
       library = null;
       if (originalState === null) host.removeAttribute('data-sky-state');
@@ -452,7 +600,8 @@ export function createAtmosphericSkyBridge(
     debug() {
       const frame = atmosphericSkyFrame(latest.progress);
       const info = resources?.renderer.info;
-      return `sky ${frame.progress.toFixed(3)} ${state}/${tier} z ${frame.cameraZ.toFixed(2)} density ${frame.density.toFixed(2)} mix ${frame.skyMix.toFixed(2)} canvas ${state === 'active' ? 1 : 0} planes ${state === 'active' ? (info?.render.calls ?? 0) : 0} renders ${renderCount} geometry ${info?.memory.geometries ?? 0} textures ${info?.memory.textures ?? 0}${reason ? ` ${reason}` : ''}${ready && !armed ? ' crossing-fallback' : ''}`;
+      const alive = drawable(frame) && frame.life > 0;
+      return `sky ${frame.progress.toFixed(3)} ${state}/${tier} z ${frame.cameraZ.toFixed(2)} density ${frame.density.toFixed(2)} mix ${frame.skyMix.toFixed(2)} open ${frame.opening.toFixed(2)} · uTime ${alive ? 'on' : 'off'} ${ambient.time.toFixed(1)}s life ${frame.life.toFixed(2)} · canvas ${state === 'active' ? 1 : 0} planes ${state === 'active' ? (info?.render.calls ?? 0) : 0} renders ${renderCount} geometry ${info?.memory.geometries ?? 0} textures ${info?.memory.textures ?? 0}${reason ? ` ${reason}` : ''}${ready && !armed ? ' crossing-fallback' : ''}`;
     },
   };
 }

@@ -231,7 +231,9 @@ function browser({
     suspended: 0,
     destroyed: 0,
     updates: [],
+    ticks: [],
     mode: 'dormant',
+    alive: false,
     wake: null,
   };
   const readStory = new Node();
@@ -349,8 +351,13 @@ function browser({
                 skyLifecycle.updates.push({ ...input });
                 host.dataset.skyState = skyLifecycle.mode;
               },
+              tick(now) {
+                skyLifecycle.ticks.push(now);
+              },
+              wantsTime: () => skyLifecycle.alive,
               suspend() {
                 skyLifecycle.suspended++;
+                skyLifecycle.alive = false;
               },
               destroy() {
                 skyLifecycle.destroyed++;
@@ -377,6 +384,7 @@ function browser({
     },
     window,
     document,
+    navigator: {},
     ResizeObserver,
     getComputedStyle(node) {
       assert.equal(
@@ -1102,13 +1110,15 @@ for (const sceneImage of ['ready', 'pending', 'failed']) {
     0,
     'DOM Breeze remains intact before takeover',
   );
-  sampleSky(0.575);
+  const [takeoverStart, takeoverEnd] =
+    loadStoryMath('home-motion').MOTION.breeze.takeover;
+  sampleSky(takeoverStart);
   assert.equal(
     b.paints.at(-1)[2],
     0,
     'handoff starts with the complete Breeze',
   );
-  const handoffMidpoint = (0.575 + 0.62) / 2;
+  const handoffMidpoint = (takeoverStart + takeoverEnd) / 2;
   const skyFrame = sampleSky(handoffMidpoint);
   assert.equal(
     skyFrame.progress,
@@ -1121,8 +1131,14 @@ for (const sceneImage of ['ready', 'pending', 'failed']) {
   assert.equal(skyFrame.fine, true);
   assert.equal(skyFrame.visible, true);
   assert.equal(skyFrame.sceneReady, true);
+  assert.equal(skyFrame.saveData, false);
+  assert.equal(
+    typeof skyFrame.now,
+    'number',
+    'the master supplies its frame timestamp',
+  );
   assert(b.paints.at(-1)[2] > 0 && b.paints.at(-1)[2] < 1);
-  sampleSky(0.62);
+  sampleSky(takeoverEnd);
   assert.equal(
     b.paints.at(-1)[2],
     1,
@@ -1197,6 +1213,40 @@ for (const sceneImage of ['ready', 'pending', 'failed']) {
   b.media.get('(prefers-reduced-motion: reduce)').emit('change');
   b.flush();
   assert.equal(b.paints.at(-1)[2], 1);
+  // Stop scrolling inside the cloud: the master keeps one frame alive for the
+  // air, runs no narrative work for it, and stops when the air is done.
+  sampleSky(0.62);
+  for (let i = 0; i < 30 && b.count().frames; i++) b.flush();
+  assert.equal(b.count().frames, 0, 'bounded architecture mass rests first');
+  b.skyLifecycle.alive = true;
+  b.skyLifecycle.wake();
+  b.flush();
+  const narrativeUpdates = b.skyLifecycle.updates.length;
+  const paintsBefore = b.paints.length;
+  const progressBefore = b.root.dataset.storyProgress;
+  const ticksBefore = b.skyLifecycle.ticks.length;
+  for (let i = 0; i < 60; i++) {
+    assert.equal(b.count().frames, 1, 'one master RAF while the air lives');
+    b.flush();
+  }
+  assert.equal(b.skyLifecycle.ticks.length - ticksBefore, 60);
+  assert.equal(
+    b.skyLifecycle.updates.length,
+    narrativeUpdates,
+    'ambient frames do not re-run the narrative render',
+  );
+  assert.equal(b.paints.length, paintsBefore, 'cloth and story stay put');
+  assert.equal(b.root.dataset.storyProgress, progressBefore);
+  b.scroll(2340 * 0.625);
+  assert.equal(b.count().frames, 1, 'scroll shares the same RAF');
+  b.flush();
+  assert.equal(b.skyLifecycle.updates.at(-1).progress, 0.625);
+  b.skyLifecycle.alive = false;
+  b.flush();
+  assert.equal(b.count().frames, 0, 'no loop once the air is done');
+  b.skyLifecycle.alive = true;
+  b.skyLifecycle.wake();
+  b.flush();
   b.document.hidden = true;
   b.document.emit('visibilitychange');
   const hiddenUpdates = b.skyLifecycle.updates.length;
@@ -1210,6 +1260,7 @@ for (const sceneImage of ['ready', 'pending', 'failed']) {
     'hidden tabs do no WebGL frame work',
   );
   assert.equal(b.count().frames, 0);
+  assert.equal(b.skyLifecycle.alive, false, 'hidden tab suspends the air');
   b.document.hidden = false;
   b.document.emit('visibilitychange');
   b.flush();
@@ -1314,13 +1365,13 @@ for (const sceneImage of ['pending', 'failed']) {
 for (const options of [{ reduced: true, width: 1440 }, { width: 390 }]) {
   const b = browser({ sky: true, ...options });
   const stop = b.createHomeStoryTimeline(b.root, b.breeze);
-  b.skyLifecycle.mode = 'dormant';
+  b.skyLifecycle.mode = options.reduced ? 'fallback' : 'dormant';
   b.scroll(2340 * 0.66);
   b.flush();
   assert.equal(
     b.paints.at(-1)[2],
     0,
-    'mobile/reduced preserves the DOM bridge',
+    'reduced motion, or an unprepared phone atmosphere, keeps the DOM bridge',
   );
   assert.equal(b.skyLifecycle.updates.at(-1).reduced, !!options.reduced);
   stop();
@@ -1359,5 +1410,5 @@ assert.doesNotMatch(
   'driver reads native scroll without hijacking input',
 );
 console.log(
-  'HomeStory passed: one owner and TP, native/restored progress, reversible poses, inert controls, reduced continuity, atmosphere handoff/gating, idle stillness and 30 complete cleanups.',
+  'HomeStory passed: one owner and TP, native/restored progress, reversible poses, inert controls, reduced continuity, atmosphere handoff/gating, ambient air on the master RAF only while alive, idle stillness and 30 complete cleanups.',
 );
