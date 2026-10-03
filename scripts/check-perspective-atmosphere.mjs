@@ -319,59 +319,22 @@ for (const [width, height] of sizes) {
   }
 }
 
-// 19. PASS 04 boundary: Atrium camera, exposure, header, interaction and
-// reveals from cameraStart onward are unchanged from fefb910.
-{
-  const frames = [];
-  for (const [width, height] of sizes) {
-    const g = measureAtrium(width, height);
-    const start = motionProfile(width).cameraStart;
-    for (let i = 0; i <= 400; i++) {
-      const p = start + ((1 - start) * i) / 400;
-      for (const reduced of [false, true]) {
-        const b = bridgeFrame(p, width, reduced);
-        frames.push([
-          atriumPose(p, g, reduced),
-          Array.from({ length: 10 }, (_, order) =>
-            worldReveal(p, order, reduced),
-          ),
-          [
-            b.phase,
-            b.swapped,
-            b.scene2Visible,
-            b.scene3Visible,
-            b.worldOpacity,
-            b.staticSky,
-            b.exposure,
-            b.headerIvory,
-            b.interactive,
-            b.textOpacity,
-            b.tpOpacity,
-          ],
-          atmosphericSkyFrame(p),
-        ]);
-      }
-    }
-  }
-  assert.equal(
-    digest(frames),
-    '608129eadcea9dff',
-    'Atrium pull-back, exposure and reveals after cameraStart are unchanged',
+// 19. PASS 03 hands the Atrium over parked on the sky with no interface.
+// From TP3D PASS 04 the Atrium reveal itself is locked by
+// check-atmosphere-worlds.
+for (const [width, height] of sizes) {
+  const g = measureAtrium(width, height);
+  const start = motionProfile(width).cameraStart;
+  assert.deepEqual(
+    atriumPose(bridgeTiming.swap, g),
+    atriumPose(start, g),
+    'the sky suspension is parked until the pull-back starts',
   );
-  for (const [width, height] of sizes) {
-    const g = measureAtrium(width, height);
-    const start = motionProfile(width).cameraStart;
-    assert.deepEqual(
-      atriumPose(bridgeTiming.swap, g),
-      atriumPose(start, g),
-      'the sky suspension is parked until PASS 04 starts the pull-back',
-    );
-    for (const p of steps(bridgeTiming.swap, start, 40))
-      for (let order = 0; order < 10; order++)
-        assert.equal(worldReveal(p, order).opacity, 0, 'no UI in suspension');
-  }
+  for (const p of steps(bridgeTiming.swap, start, 40))
+    for (let order = 0; order < 10; order++)
+      assert.equal(worldReveal(p, order).opacity, 0, 'no UI in suspension');
 }
 
 console.log(
-  'Perspective → Atmosphere passed: locked PASS 01/02 hold and PASS 04 Atrium range, semantic copy departure before dense cloud, restrained first stir, safe cloth/cloud overlap, exclusive deterministic swap with complete coverage, reduced dip-cut, fast skips and a time-free narrative camera.',
+  'Perspective → Atmosphere passed: locked PASS 01/02 hold, a parked sky handed to PASS 04, semantic copy departure before dense cloud, restrained first stir, safe cloth/cloud overlap, exclusive deterministic swap with complete coverage, reduced dip-cut, fast skips and a time-free narrative camera.',
 );

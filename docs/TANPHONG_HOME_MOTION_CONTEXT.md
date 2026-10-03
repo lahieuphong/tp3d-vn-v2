@@ -14,6 +14,7 @@ an inference, it is labelled as such.
 | Audit browser | Chrome 154.0.8037.59, headless, Windows 11, ANGLE/D3D11 on **NVIDIA RTX 3090** |
 | Supplied recordings | `Ghi Màn hình 2026-10-02 lúc 23.45.05.mov` (UNESCO reference) and `Tân Phong.mov` (current site), analysed in PASS 0/1 and **deleted from the repo root on 2026-10-03** (never committed); extracted frames remain in `work/pass0/reference/` (local, gitignored) |
 | Evidence folder | `work/pass0/` (gitignored, local only — see §29) |
+| TP3D PASS 04 (2026-10-04) | Atrium reveal retimed so architecture comes before interface: camera 0.72–0.88 desktop / 0.715–0.875 tablet / 0.715–0.87 phone (was 0.705–0.91 / 0.701–0.907 / 0.686–0.895), measured recognition 0.81 and settle 0.85, rooms from 0.845, title from 0.872, all revealed and settled at 0.915 (hold 0.085), header ink 0.82–0.855 and exposure 0.785–0.865 from measured band luminance, ordered reduced reveals, zenith shade on tablet/phone plates, a short-landscape Atrium layout. The §5 rows from 0.64 on, §15's Scene 3 camera row, §16's Scene 3 line and §23's header range are superseded; see §34 and `docs/TP3D-PASS-04-ATMOSPHERE-WORLDS.md`. Everything through the 0.64 swap is unchanged. |
 | TP3D PASS 03 (2026-10-03) | Perspective → Atmosphere refined: Scene 2 copy now leaves by 0.60 (labels 0.484–0.556, body 0.506–0.58, heading 0.526–0.60), the cloth first stirs from 0.48 (`MOTION.breeze.stir` 0.03), its threads resolve over 0.525–0.595 (`pose.weave`), and reduced motion cuts at the 0.64 swap inside a 0.015 exposure dip instead of cross-dissolving 0.605–0.64. The §5 Scene 2 exit-text row, the §11 approach start, §12 step 1 and the §16 bridge line are superseded; see §33 and `docs/TP3D-PASS-03-PERSPECTIVE-ATMOSPHERE.md`. Atmosphere engine, takeover, TP, swap, sky hold and everything from camera start unchanged. |
 | TP3D PASS 02 (2026-10-03) | Arrival → Perspective handoff retimed with no copy overlap: Scene 1 out by 0.26, copy-free breath to 0.31, plate B opened by a centred aperture (desktop/tablet) or dissolved inside the breath (mobile/reduced), Scene 2 by group to 0.42. The §5 rows for 0.14–0.42 and the §16 Scene 1 → 2 line are superseded; see §32 and `docs/TP3D-PASS-02-SPATIAL-HANDOFF.md`. TP travel, Scene 2 from 0.42, bridge and Atrium unchanged. |
 | TP3D PASS 01 (2026-10-03) | Arrival refined: intro opening 1500 ms desktop / 1000 ms mobile (was 1000 / 900), first-scroll approach p 0–0.14, desktop Scene 1 pointer depth on the master RAF. §23 loader timings are superseded; see §31 and `docs/TP3D-PASS-01-ARRIVAL.md`. Scene 2, bridge and Atrium unchanged. |
@@ -717,3 +718,35 @@ the renderer, the swap rule, the 0.745 reduced framing cut and every Atrium
 camera, exposure, header and reveal value from camera start.
 `check-perspective-atmosphere` locks the PASS 01/02 frames through 0.48 and
 the Atrium range from camera start against `fefb910`.
+
+## 34. TP3D PASS 04 — Atmosphere → Worlds / Atrium reveal (summary)
+
+Full record: `docs/TP3D-PASS-04-ATMOSPHERE-WORLDS.md`.
+
+**Timing source of truth** (`home-motion.ts` `MOTION`, `home-production.ts`;
+desktop `p` unless noted)
+
+| Beat | Range |
+| --- | --- |
+| World swap | 0.64 (unchanged) |
+| Parked sky (atmosphere clears to 0.72) | 0.64 → camera start |
+| Camera start / end | desktop 0.72 / 0.88, tablet 0.715 / 0.875, phone 0.715 / 0.87 (`arrive`, 5.88× / 5.35× → 1) |
+| Oculus rim enters | ≈0.73–0.74 (after the atmosphere has opened) |
+| Architecture recognisable (`camera.recognizable`) | 0.81 (≥55% of the plate visible) |
+| Plate motion under 1/5 of peak (`camera.settleStart`) | 0.85 |
+| Exposure (`light`) | 0.785–0.865; reduced: switches inside the 0.745 cut dip |
+| Header ink → ivory (`header`) | 0.82–0.855; reduced: across the cut dip |
+| Rooms 01–04 (`ui[0..3]`) | 0.845–0.875, 0.851–0.881, 0.857–0.887, 0.863–0.893 |
+| 3D WORLDS / Enter / the worlds. | 0.867–0.893 / 0.872–0.899 / 0.878–0.905 |
+| Body / signoff / CTA + baseline | 0.885–0.909 / 0.89–0.913 / 0.895–0.915 |
+| Rail + chapter `worlds` (`bridge.revealStart`) | from 0.845 |
+| Room links interactive (`bridge.interactive`) | 0.895; CTA at 0.915 |
+| Settled, discovery (`bridge.settled`, `discoveryStart`) | 0.915 |
+| Final hold | 0.915–1.0 (199 px desktop, 129 px at 390×844) |
+| Reduced UI | 0.775 + 0.006 × order, 0.02 each (rooms → CTA, 0.775–0.854) |
+
+**Also:** tablet and phone plates use a `#241a1499` zenith shade under the
+header; short landscape screens (`max-width: 1199px`, `max-height: 540px`,
+landscape) use the grouped composition sized by `svh`.
+`check-atmosphere-worlds` locks PASS 01–03 through the swap against
+`8baae05` and the approved Atrium reveal.

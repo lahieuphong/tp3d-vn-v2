@@ -265,11 +265,12 @@
   .hc-atrium-preview {
     width: 54px;
   }
+  /* TP3D PASS 04: a zenith shade under the header, as on phones. */
   .hc-atrium-backdrop::after {
     background: linear-gradient(
       180deg,
-      #241a1440,
-      transparent 28%,
+      #241a1499,
+      transparent 24%,
       #24190d99 84%
     );
   }
@@ -293,11 +294,13 @@
   .hc-atrium-backdrop img {
     object-position: 51% 0;
   }
+  /* TP3D PASS 04: the portrait crop puts the oculus sky behind the header.
+     A zenith shade like desktop's keeps the ivory header readable there. */
   .hc-atrium-backdrop::after {
     background: linear-gradient(
       180deg,
-      #241a1433,
-      transparent 20%,
+      #241a1499,
+      transparent 18%,
       #24190d59 38%,
       #24190de0 78%,
       #24190dec

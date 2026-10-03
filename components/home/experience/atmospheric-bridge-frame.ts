@@ -90,7 +90,7 @@ export function bridgeFrame(progress: number, width: number, reduced = false) {
             ? 'CONTEXT_LOSS'
             : p < motionProfile(width).cameraStart
               ? 'SKY_VOID'
-              : p < 0.75
+              : p < MOTION.camera.recognizable
                 ? 'OCULUS'
                 : p < bridgeTiming.revealStart
                   ? 'SCENE3_PULLBACK'
@@ -141,8 +141,22 @@ export function bridgeFrame(progress: number, width: number, reduced = false) {
           : MOTION.reduced.floor + reducedLoss * dipIn(reducedSkyEnd)
       : 1,
     staticSky: reduced && p < reducedSkyEnd,
-    exposure: smooth(range(p, ...MOTION.light)),
-    headerIvory: smooth(range(p, ...MOTION.header)),
+    // Reduced motion changes exposure and header ink inside the framing
+    // cut's dip, so a static plate never visibly darkens.
+    exposure: reduced
+      ? p < reducedSkyEnd
+        ? 0
+        : 1
+      : smooth(range(p, ...MOTION.light)),
+    headerIvory: smooth(
+      reduced
+        ? range(
+            p,
+            reducedSkyEnd - MOTION.reduced.halfDip,
+            reducedSkyEnd + MOTION.reduced.halfDip,
+          )
+        : range(p, ...MOTION.header),
+    ),
     interactive: p >= bridgeTiming.interactive,
     depth,
   };
@@ -178,13 +192,15 @@ export function atriumPose(
 export function worldReveal(progress: number, order: number, reduced = false) {
   // Four room labels precede eyebrow/title/body/signoff/CTA. Even the last
   // interactive control is completely revealed before it enters the tab order.
-  const intervals = MOTION.ui;
-  const [start, end] = intervals[Math.min(9, Math.max(0, order))];
+  const index = Math.min(9, Math.max(0, order));
+  const [start, end] = MOTION.ui[index];
+  // Reduced motion keeps the semantic order as short, static opacity steps.
+  const still = MOTION.reduced.ui;
   const value = smooth(
     range(
       progress,
-      reduced ? MOTION.reduced.ui[0] : start,
-      reduced ? MOTION.reduced.ui[1] : end,
+      reduced ? still.start + still.step * index : start,
+      reduced ? still.start + still.step * index + still.length : end,
     ),
   );
   return {

@@ -8,6 +8,8 @@ changes a rule.
 - Point-in-time audit, homepage map and blockers: [TP3D-PASS-00-AUDIT.md](TP3D-PASS-00-AUDIT.md)
 - Arrival / first impression record: [TP3D-PASS-01-ARRIVAL.md](TP3D-PASS-01-ARRIVAL.md)
 - Arrival → Perspective handoff record: [TP3D-PASS-02-SPATIAL-HANDOFF.md](TP3D-PASS-02-SPATIAL-HANDOFF.md)
+- Perspective → Atmosphere record: [TP3D-PASS-03-PERSPECTIVE-ATMOSPHERE.md](TP3D-PASS-03-PERSPECTIVE-ATMOSPHERE.md)
+- Atmosphere → Worlds / Atrium record: [TP3D-PASS-04-ATMOSPHERE-WORLDS.md](TP3D-PASS-04-ATMOSPHERE-WORLDS.md)
 - Homepage timeline internals (progress ranges, WebGL tiers, measured
   baselines): [TANPHONG_HOME_MOTION_CONTEXT.md](TANPHONG_HOME_MOTION_CONTEXT.md)
 - Motion tokens: `lib/motion/tokens.ts`, mirrored as `--motion-*` in
@@ -259,7 +261,7 @@ The homepage aliases are declared in `components/home/hero/spatial-hero.css`.
 | System | Breakpoints | Used by |
 | --- | --- | --- |
 | Editorial layout | 760/761, 1100, 1700 (+ local 900, 600) | `globals.css`, `navigation.css`, `EditorialImage` sizes |
-| Homepage + motion | 767/768, 1199/1200 (+ tablet portrait/landscape, `max-height: 820px` desktop, 359, `767 + max-height 740`) | Home CSS, `MOTION.breakpoints`, `lib/motion/capability.ts` |
+| Homepage + motion | 767/768, 1199/1200 (+ tablet portrait/landscape, `max-height: 820px` desktop, 359, `767 + max-height 740`, short landscape `1199 + max-height 540 + landscape`) | Home CSS, `MOTION.breakpoints`, `lib/motion/capability.ts` |
 | Worlds catalogue | 359, 600, 639/640, 820/821, 960, 1023/1024, 1439/1440, 1908 | `worlds.css`, `mosaic-block.tsx` |
 
 Motion code uses `MOTION_BREAKPOINTS` (768/1200). Existing editorial pages
@@ -281,7 +283,9 @@ Homepage specifics:
 - Short story copy on mobile and tablet portrait.
 - Room labels sit on architectural coordinates only at ≥1200. Below that they
   form a 2×2 grid.
-- Mobile Atrium uses a stacked layout.
+- Mobile Atrium uses a stacked layout. Short landscape screens (below 1200px,
+  at most 540px tall) use the grouped tablet composition sized by `svh`, so
+  the title clears the fixed header (TP3D PASS 04).
 
 ## 8. Motion language
 
@@ -368,8 +372,9 @@ the full map.
 2. Not everything moves. In any viewport there is at most one primary moving
    group, plus micro feedback.
 3. Every HIGH moment ends in stillness: a hold where nothing moves before the
-   next section takes over. The Atrium's current hold is only 0.08 of the
-   story span (187px on desktop). This is a known issue.
+   next section takes over. The Atrium's hold is 0.085 of the story span
+   (0.915–1.0: 199px on desktop, 129px on a 390×844 phone; TP3D PASS 04). It
+   is still short, and is bounded by the unchanged story height.
 4. Amplitudes scale by tier (`AMPLITUDE`: desktop 1, tablet 0.75, mobile 0.5,
    reduced 0). Durations do not scale.
 5. Upper bounds (`MOTION_LIMITS`, taken from the existing system):
@@ -424,6 +429,15 @@ the full map.
     it never becomes graphic stripes. Air starts to move before the copy
     visibly leaves. `check-perspective-atmosphere` enforces this (TP3D
     PASS 03).
+11. **Architecture is revealed before interface.** In a world reveal the
+    camera tells the story first: sky, the first architectural edge, the
+    opening, then the recognisable space. Interface waits for the plate to
+    settle: room labels begin when plate motion is under 40% of its peak
+    rate and never over a plate scaled more than 1.06×, while
+    titles and copy enter only over a still plate (under 1.01×). Exposure is
+    complete before the first typography, and header ink changes where the
+    image behind it crosses the ivory/ink contrast crossover, not at a
+    chapter number. `check-atmosphere-worlds` enforces this (TP3D PASS 04).
 
 ## 10. Image behavior
 
@@ -509,7 +523,8 @@ the full map.
 **Hidden scenes**
 
 - Hidden scenes are `inert` + `aria-hidden`.
-- Links become interactive only once fully revealed (Atrium p ≥ 0.90).
+- Links become interactive only once fully revealed (Atrium room links at
+  p ≥ 0.895, the CTA at 0.915; TP3D PASS 04).
 
 **Prefetch:** homepage links use `prefetch={false}` so bandwidth stays with the
 story.
@@ -521,7 +536,8 @@ story.
 - `scroll-behavior: auto` while the story is mounted.
 
 **Header:** the header is persistent and never hides. Only its ink changes,
-mixed by scroll.
+mixed by scroll where the image behind it changes from light to dark
+(Atrium: 0.82–0.855, measured from band luminance in TP3D PASS 04).
 
 ## 12. Performance rules
 

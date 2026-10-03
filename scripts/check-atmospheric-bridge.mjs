@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { loadStoryMath } from './load-story-math.mjs';
 const { bridgeTiming, measureAtrium, bridgeFrame, atriumPose, worldReveal } =
   loadStoryMath('atmospheric-bridge-frame');
-const { motionProfile } = loadStoryMath('home-motion');
+const { motionProfile, MOTION } = loadStoryMath('home-motion');
 const { arrivalFrame, tpPose } = loadStoryMath('home-story-frame');
 const sizes = [
   [375, 812],
@@ -129,10 +129,20 @@ for (const [width, height] of sizes) {
       for (let order = 0; order < 10; order++) {
         const reveal = worldReveal(p, order, reduced);
         assert(reveal.opacity >= 0 && reveal.opacity <= 1);
-        if (p < 0.8)
+        // TP3D PASS 04: interface waits for the architecture (motion) or
+        // for the static framing cut to finish (reduced).
+        if (
+          p <
+          (reduced
+            ? MOTION.reduced.cut + MOTION.reduced.halfDip
+            : bridgeTiming.revealStart)
+        )
           assert.equal(reveal.opacity, 0, 'no title/labels/CTA in sky hold');
         if (reveal.interactive) {
-          assert(p >= 0.9, 'controls cannot become active before settlement');
+          assert(
+            p >= bridgeTiming.interactive,
+            'controls cannot become active before settlement',
+          );
           assert(
             reveal.opacity >= 0.999,
             'individual control must be meaningfully visible',
@@ -194,8 +204,9 @@ for (const [width, height] of sizes) {
         change(start, start + 0.01) < change(start + 0.07, start + 0.08),
         'slow camera departure',
       );
+      const end = motionProfile(width).cameraEnd;
       assert(
-        change(0.89, 0.9) < change(start + 0.07, start + 0.08),
+        change(end - 0.01, end) < change(start + 0.07, start + 0.08),
         'long camera arrival',
       );
     }

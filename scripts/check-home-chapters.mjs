@@ -637,7 +637,12 @@ for (const node of f.reveals)
     '0.00000',
     'sky has no room labels/title/CTA',
   );
-at(0.75);
+// TP3D PASS 04: dark ink while sky dominates the band behind the header,
+// half-way exactly at the centre of the measured luminance crossover.
+at(0.78);
+assert.equal(f.header.dataset.chapterTheme, 'light');
+const headerWindow = loadStoryMath('home-motion').MOTION.header;
+at((headerWindow[0] + headerWindow[1]) / 2);
 assert.equal(f.header.dataset.chapterTheme, 'bridge');
 assert.equal(f.header.style.getPropertyValue('--home-header-ivory'), '50.000%');
 at(0.905);
@@ -804,17 +809,21 @@ for (const width of [390, 820, 1440]) {
       p,
       bridgeModule.measureAtrium(width, 900),
     );
+    // The master clears the transform at the exact identity pose.
+    if (pose.x === 0 && pose.y === 0 && pose.scale === 1) return 'none';
     return `translate3d(${pose.x.toFixed(3)}px, ${pose.y.toFixed(3)}px, 0) scale(${pose.scale.toFixed(7)})`;
   };
   const baseline = b.count();
   for (let cycle = 0; cycle < 20; cycle++) {
-    for (const p of [0.78, 0.83, 0.87, 0.76, 0.61, 0.78]) {
+    // TP3D PASS 04: the first room label begins at 0.845, during the last
+    // few percent of plate settling.
+    for (const p of [0.78, 0.86, 0.87, 0.76, 0.61, 0.78]) {
       b.scroll(p * 2340);
       b.flush();
       const settledUI = ui();
       const paintedBreeze = b.paints.at(-1)[0];
       const reads = b.operations.filter((op) => op === 'read').length;
-      if (p === 0.83)
+      if (p === 0.86)
         assert(
           Number(b.reveals[0].style.opacity) > 0,
           'UI begins on raw progress immediately',
@@ -1450,7 +1459,15 @@ assert.equal(homeStoryFrame(0).chapter, 'arrival');
 assert.equal(homeStoryFrame(0.3).chapter, 'perspective');
 assert.equal(homeStoryFrame(0.62).chapter, 'perspective');
 assert.equal(homeStoryFrame(0.65).chapter, 'bridge');
-assert.equal(homeStoryFrame(0.82).chapter, 'worlds');
+// TP3D PASS 04: the worlds chapter (and the rail) return with the first room.
+assert.equal(
+  homeStoryFrame(bridgeModule.bridgeTiming.revealStart - 0.001).chapter,
+  'bridge',
+);
+assert.equal(
+  homeStoryFrame(bridgeModule.bridgeTiming.revealStart).chapter,
+  'worlds',
+);
 const { progress: _progress, ...settled } = homeStoryFrame(0.92);
 for (const p of [0.92, 0.95, 1]) {
   const { progress: _current, ...state } = homeStoryFrame(p);
@@ -1759,6 +1776,167 @@ assert.doesNotMatch(
     }
     stop();
   }
+}
+const steps = (from, to, count) =>
+  Array.from({ length: count + 1 }, (_, i) => from + ((to - from) * i) / count);
+// TP3D PASS 04: the Atrium reveal as the master writes it. Camera, header,
+// exposure, reveals and inert state equal the pure frame for the current
+// progress, in either direction, after jumps, resizes, orientation changes
+// and with or without WebGL.
+{
+  const { MOTION } = loadStoryMath('home-motion');
+  const { atriumPose, measureAtrium, worldReveal, bridgeFrame, bridgeTiming } =
+    bridgeModule;
+  const cameraAt = (p, width, height) => {
+    const pose = atriumPose(p, measureAtrium(width, height));
+    return pose.x === 0 && pose.y === 0 && pose.scale === 1
+      ? 'none'
+      : `translate3d(${pose.x.toFixed(3)}px, ${pose.y.toFixed(3)}px, 0) scale(${pose.scale.toFixed(7)})`;
+  };
+  const settle = (b) => {
+    for (let i = 0; i < 40 && b.count().frames; i++) b.flush();
+  };
+  const expectAtrium = (b, p, width, height, label) => {
+    const frame = bridgeFrame(p, width);
+    assert.equal(b.camera.style.transform, cameraAt(p, width, height), label);
+    assert.equal(
+      b.world.style.getPropertyValue('--world-exposure'),
+      frame.exposure.toFixed(5),
+      `${label}: exposure`,
+    );
+    assert.equal(
+      b.header.style.getPropertyValue('--home-header-ivory'),
+      `${(frame.headerIvory * 100).toFixed(3)}%`,
+      `${label}: header ink`,
+    );
+    for (const node of b.reveals) {
+      const reveal = worldReveal(p, Number(node.dataset.chapterReveal));
+      assert.equal(node.style.opacity, reveal.opacity.toFixed(5), label);
+      if (node.tagName === 'A')
+        assert.equal(node.inert, !reveal.interactive, `${label}: link inert`);
+    }
+    assert.equal(b.world.inert, !frame.interactive, `${label}: world inert`);
+  };
+  // Fast skips, the exact endpoint and a full reverse walk.
+  for (const sky of ['active', 'fallback']) {
+    const b = browser({ sky: true, initialScroll: 2340 * 0.66 });
+    const stop = b.createHomeStoryTimeline(b.root, b.breeze);
+    b.skyLifecycle.mode = sky;
+    const at = (p) => {
+      b.scroll(2340 * p);
+      settle(b);
+    };
+    at(0.66);
+    expectAtrium(b, 0.66, 1440, 900, `${sky} sky suspension`);
+    at(0.95);
+    expectAtrium(b, 0.95, 1440, 900, `${sky} fast skip to the hold`);
+    const endpoint = JSON.stringify([
+      b.camera.style.transform,
+      b.reveals.map((n) => [n.style.opacity, n.inert]),
+      b.header.dataset.chapterTheme,
+    ]);
+    at(0.66);
+    expectAtrium(b, 0.66, 1440, 900, `${sky} fast skip back to the sky`);
+    assert.equal(b.header.dataset.chapterTheme, 'light', 'ink over the sky');
+    // A slow walk forward lands on exactly the fast-skip endpoint.
+    for (const p of steps(0.66, 0.95, 58)) at(p);
+    assert.equal(
+      JSON.stringify([
+        b.camera.style.transform,
+        b.reveals.map((n) => [n.style.opacity, n.inert]),
+        b.header.dataset.chapterTheme,
+      ]),
+      endpoint,
+      'the Atrium endpoint does not depend on the frames before it',
+    );
+    // Reverse: interface, then rooms, then camera, then sky; the header
+    // returns to ink and every link is inert again before it fades.
+    let roomsGone = null,
+      typeGone = null,
+      cameraMoved = null;
+    for (const p of steps(0.95, 0.66, 290)) {
+      at(p);
+      expectAtrium(b, p, 1440, 900, `${sky} reverse @${p.toFixed(3)}`);
+      const type = b.reveals.filter((n) => Number(n.dataset.chapterReveal) > 3);
+      const rooms = b.reveals.filter(
+        (n) => Number(n.dataset.chapterReveal) <= 3,
+      );
+      if (typeGone === null && type.every((n) => n.style.opacity === '0.00000'))
+        typeGone = p;
+      if (
+        roomsGone === null &&
+        rooms.every((n) => n.style.opacity === '0.00000')
+      )
+        roomsGone = p;
+      if (cameraMoved === null && b.camera.style.transform !== 'none')
+        cameraMoved = p;
+    }
+    assert(typeGone >= roomsGone, 'typography withdraws before rooms');
+    assert(
+      roomsGone >= cameraMoved - 0.06,
+      'rooms clear as the camera departs',
+    );
+    assert.equal(b.header.dataset.chapterTheme, 'light');
+    // Final stillness: nothing is scheduled or written in the hold.
+    at(0.95);
+    b.operations.length = 0;
+    for (const p of [0.96, 0.98, 1]) {
+      b.scroll(2340 * p);
+      b.flush();
+    }
+    assert.equal(b.count().frames, 0, 'no narrative RAF in the final hold');
+    assert.equal(
+      b.operations.filter((op) => op === 'write').length,
+      0,
+      'the hold writes nothing',
+    );
+    stop();
+  }
+  // Resize during the pull-back, tablet orientation and phone portrait.
+  {
+    const b = browser({ sky: true, initialScroll: 2340 * 0.8 });
+    const stop = b.createHomeStoryTimeline(b.root, b.breeze);
+    b.skyLifecycle.mode = 'fallback';
+    b.flush();
+    settle(b);
+    expectAtrium(b, 0.8, 1440, 900, 'mid pull-back');
+    for (const [width, height] of [
+      [1180, 820],
+      [820, 1180],
+      [1180, 820],
+      [390, 844],
+      [1440, 900],
+    ]) {
+      b.setWidth(width);
+      b.stage.height = height;
+      b.sequenceNode.height = height * 3.6;
+      b.window.scrollY = height * 2.6 * 0.8;
+      b.window.emit('resize');
+      settle(b);
+      assert.equal(b.root.dataset.storyProgress, '0.80000');
+      expectAtrium(b, 0.8, width, height, `resize to ${width}×${height}`);
+    }
+    stop();
+  }
+  // Reduced motion: static framings and ordered, motionless reveals.
+  {
+    const b = browser({ sky: true, reduced: true, initialScroll: 2340 * 0.7 });
+    const stop = b.createHomeStoryTimeline(b.root, b.breeze);
+    b.skyLifecycle.mode = 'fallback';
+    for (const p of [0.7, 0.744, 0.746, 0.78, 0.8, 0.86, 0.95, 0.8, 0.7]) {
+      b.scroll(2340 * p);
+      settle(b);
+      const pose = atriumPose(p, measureAtrium(1440, 900), true);
+      assert(pose.scale === 1 || pose.scale > 5, 'no animated zoom');
+      for (const node of b.reveals) {
+        const reveal = worldReveal(p, Number(node.dataset.chapterReveal), true);
+        assert.equal(node.style.opacity, reveal.opacity.toFixed(5));
+        assert.equal(node.style.transform, 'none', 'reduced UI never travels');
+      }
+    }
+    stop();
+  }
+  assert(MOTION.bridge.settled === bridgeTiming.settled);
 }
 console.log(
   'HomeStory passed: one owner and TP, native/restored progress, reversible poses, inert controls, reduced continuity, atmosphere handoff/gating, ambient air on the master RAF only while alive, idle stillness and 30 complete cleanups.',

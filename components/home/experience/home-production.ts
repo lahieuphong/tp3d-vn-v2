@@ -3,7 +3,8 @@
 export const HOME_PRODUCTION = {
   scenePreload: 0.16,
   thumbnailPreload: 0.3,
-  discoveryStart: 0.92,
+  // Hover/focus discovery starts with the final hold (MOTION.bridge.settled).
+  discoveryStart: 0.915,
 } as const;
 
 export function complexityTier(width: number, fine: boolean, reduced: boolean) {

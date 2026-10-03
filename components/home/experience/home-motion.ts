@@ -9,9 +9,13 @@ export const MOTION = {
     occlusionStart: 0.6,
     swap: 0.64,
     breezeEnd: 0.84,
-    revealStart: 0.82,
-    interactive: 0.9,
-    settled: 0.92,
+    // TP3D PASS 04: interface waits for the settling architecture. The rail
+    // and the worlds chapter return with the first room label; the four room
+    // links are interactive once all are revealed; the hold starts with the
+    // last reveal.
+    revealStart: 0.845,
+    interactive: 0.895,
+    settled: 0.915,
   },
   departure: {
     anticipation: [0.494, 0.556],
@@ -58,32 +62,45 @@ export const MOTION = {
   camera: {
     source: { width: 1672, height: 941, skyX: 836, skyY: 110 },
     cropHeight: { desktop: 160, tablet: 168, portrait: 176 },
-    start: { desktop: 0.705, tablet: 0.701, mobile: 0.686 },
-    end: { desktop: 0.91, tablet: 0.907, mobile: 0.895 },
-    recognizable: 0.77,
-    settleStart: 0.86,
+    // TP3D PASS 04: a clear sky beat after the atmosphere has opened (0.72),
+    // then the oculus rim, the opening and the Atrium. The pull-back is
+    // shorter (0.155–0.16 of progress) because its old last fifth moved the
+    // plate by under 1%. Portrait crops sit closer to the rim, so phones and
+    // tablets start a little earlier and still show the sky first.
+    start: { desktop: 0.72, tablet: 0.715, mobile: 0.715 },
+    end: { desktop: 0.88, tablet: 0.875, mobile: 0.87 },
+    // Visual milestones: the frame reads as architecture (oculus, columns,
+    // openings, tree) from `recognizable`; plate motion is under a fifth of
+    // its peak rate (log scale) from `settleStart`.
+    recognizable: 0.81,
+    settleStart: 0.85,
   },
-  light: [0.768, 0.92],
-  header: [0.72, 0.78],
+  // Exposure adapts as architecture replaces sky and is complete before the
+  // title; the header ink follows the darkened band behind it.
+  light: [0.785, 0.865],
+  header: [0.82, 0.855],
+  // Rooms (0–3) begin as the camera settles, then 3D WORLDS, Enter, the
+  // worlds., body, signoff and the CTA, all complete by `bridge.settled`.
   ui: [
-    [0.82, 0.86],
-    [0.83, 0.87],
-    [0.84, 0.88],
-    [0.85, 0.89],
-    [0.846, 0.88],
-    [0.854, 0.89],
-    [0.862, 0.9],
-    [0.873, 0.907],
-    [0.883, 0.915],
-    [0.892, 0.92],
+    [0.845, 0.875],
+    [0.851, 0.881],
+    [0.857, 0.887],
+    [0.863, 0.893],
+    [0.867, 0.893],
+    [0.872, 0.899],
+    [0.878, 0.905],
+    [0.885, 0.909],
+    [0.89, 0.913],
+    [0.895, 0.915],
   ],
   // Reduced motion never blends two plates: the world swap and the framing
-  // cut are each a cut inside a halfDip-wide exposure dip to the floor.
+  // cut are each a cut inside a halfDip-wide exposure dip to the floor. After
+  // the cut the static Atrium shows rooms, title and content in order.
   reduced: {
     cut: 0.745,
     halfDip: 0.015,
     floor: 0.65,
-    ui: [0.8, 0.84],
+    ui: { start: 0.775, step: 0.006, length: 0.02 },
   },
   mass: {
     desktop: { tau: 44, pixels: 2.4, scale: 0.0025 },

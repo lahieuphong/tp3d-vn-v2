@@ -141,10 +141,17 @@ for (let cycle = 0; cycle < 30; cycle++) {
     null,
     'no discovery during cinematic travel',
   );
-  f.update(0.919);
+  // TP3D PASS 04: discovery opens with the final hold, not before.
+  const { discoveryStart } = loadStoryMath('home-production').HOME_PRODUCTION;
+  assert.equal(
+    discoveryStart,
+    loadStoryMath('home-motion').MOTION.bridge.settled,
+    'room discovery starts exactly when the Atrium is settled',
+  );
+  f.update(discoveryStart - 0.001);
   f.hover(0);
   assert.equal(f.worlds.getAttribute('data-world-interactive'), null);
-  f.update(0.92);
+  f.update(discoveryStart);
   f.hover(0);
   assert.equal(f.worlds.getAttribute('data-active-room'), 'living');
   assert.equal(

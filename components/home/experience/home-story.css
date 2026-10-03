@@ -151,6 +151,68 @@ html:has([data-home-story]) {
     gap: 0 18px;
   }
 }
+/* TP3D PASS 04: landscape phones (and any short landscape below 1200px).
+   The Atrium keeps the tablet's grouped composition (copy bottom-left, rooms
+   and CTA right), sized by viewport height so the title clears the fixed
+   header without becoming small. The plate crop and camera are unchanged. */
+@media (max-width: 1199px) and (max-height: 540px) and (orientation: landscape) {
+  .home-story-stage .hc-chapter.hc-worlds {
+    display: block;
+    padding: 0;
+  }
+  .home-story-stage .hc-atrium-backdrop::after {
+    background:
+      linear-gradient(
+        180deg,
+        #241a1480,
+        transparent 22%,
+        transparent 62%,
+        #24190d40
+      ),
+      linear-gradient(28deg, #24190dc2, #24190d38 34%, transparent 58%);
+  }
+  .home-story-stage .hc-atrium-copy {
+    position: absolute;
+    inset: auto auto max(24px, 8svh) var(--atrium-gutter);
+    width: min(47%, 430px);
+  }
+  .home-story-stage .hc-chapter.hc-worlds .hc-atrium-copy h2 {
+    font-size: clamp(46px, 15svh, 72px);
+    margin: 4px 0 10px;
+  }
+  .home-story-stage .hc-chapter.hc-worlds .hc-atrium-copy .hc-body {
+    max-width: none;
+    font-size: clamp(13px, 3.8svh, 16px);
+    line-height: 1.32;
+  }
+  .home-story-stage .hc-chapter.hc-worlds .hc-atrium-copy .hc-signoff {
+    margin-top: 8px;
+  }
+  .home-story-stage .hc-chapter.hc-worlds .hc-atrium-rooms {
+    position: absolute;
+    inset: auto 6% calc(max(24px, 8svh) + 64px) auto;
+    width: 38%;
+    height: auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 16px;
+    transform: none;
+  }
+  .home-story-stage .hc-chapter.hc-worlds .hc-atrium-room-link > span {
+    font-size: clamp(20px, 6svh, 26px);
+  }
+  .home-story-stage .hc-chapter.hc-worlds .hc-atrium-cta {
+    position: absolute;
+    inset: auto 6% max(24px, 8svh) auto;
+    gap: 12px;
+  }
+  .home-story-stage .hc-chapter.hc-worlds .hc-atrium-preview {
+    width: 46px;
+  }
+  .home-story-stage .hc-chapter.hc-worlds .hc-atrium-baseline {
+    inset: auto 6% 10px var(--atrium-gutter);
+  }
+}
 /* Reduced motion keeps the one TP in the same persistent stage. The master
    uses a short pose interpolation with no background parallax or stagger. */
 @media (prefers-reduced-motion: reduce) {
