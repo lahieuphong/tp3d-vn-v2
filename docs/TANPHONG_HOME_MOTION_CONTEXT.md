@@ -14,7 +14,7 @@ an inference, it is labelled as such.
 | Audit browser | Chrome 154.0.8037.59, headless, Windows 11, ANGLE/D3D11 on **NVIDIA RTX 3090** |
 | Supplied recordings | `Ghi Màn hình 2026-10-02 lúc 23.45.05.mov` (UNESCO reference) and `Tân Phong.mov` (current site), analysed in PASS 0/1 and **deleted from the repo root on 2026-10-03** (never committed); extracted frames remain in `work/pass0/reference/` (local, gitignored) |
 | Evidence folder | `work/pass0/` (gitignored, local only — see §29) |
-| PASS 1 (2026-10-03) | Atmospheric auto-motion bridge implemented in the working tree — **ahead of production until deployed**. Sections 4–6, 11–13, 15–18 and 28 describe the repository after PASS 1; §25 stays the PASS 0 live baseline. Details: §30 and `docs/HOME-ATMOSPHERIC-AUTO-MOTION.md`. |
+| PASS 1 (2026-10-03) | Atmospheric auto-motion bridge — commit `a25d1ac` on `main`, **deployed to production on 2026-10-03** (Vercel deployment `dpl_AwoGMD2xWPoBP3U13nqD7Ey3fBf3`). Sections 4–6, 11–13, 15–18 and 28 describe the repository after PASS 1; §25 stays the PASS 0 live baseline. Details: §30 and `docs/HOME-ATMOSPHERIC-AUTO-MOTION.md`. |
 
 > Measurement caveat: performance figures come from one high-end desktop GPU in
 > automated headless Chrome. They are not representative of laptops, phones or
@@ -33,14 +33,15 @@ an inference, it is labelled as such.
 | 3D | **three 0.186.1** (+ `@types/three` 0.186.0), lazy-imported by the homepage sky bridge only |
 | Lint / format | oxlint 1.76.0 (type-aware via oxlint-tsgolint), oxfmt 0.61.0 |
 | Package manager | Yarn 4.18.0, `nodeLinker: node-modules`; Node ≥ 22.13 (audit ran Node 24.19.0) |
-| Production deploy | Vercel, `yarn build:vercel` → `NITRO_PRESET=vercel vite build` → `.vercel/output` (Nitro 3 beta) |
+| Production deploy | Vercel, `yarn build:vercel` → `NITRO_PRESET=vercel vite build` → `.vercel/output` (Nitro 3 beta). Vercel does **not** auto-deploy from GitHub: deploy with the Vercel CLI (`vercel deploy --prod --project tp3d-vn-v2 --scope la-hieu-phongs-projects`) from a clean `git archive` export, so the local `work/` evidence (~700 MB) and build outputs are not uploaded. |
 | Default build | `yarn build` → `vinext build` targeting Cloudflare (`@cloudflare/vite-plugin`, `@openai/sites-vite-plugin`); `yarn start` = `wrangler dev` |
 | Image pipeline | Pre-generated local WebP (`scripts/optimize-images.mjs`, sharp); no runtime image service |
 
 ## 2. Live production URL
 
 https://tp3d-vn-v2.vercel.app/ — served by Vercel (`Server: Vercel`). The
-deployed homepage corresponds to HEAD `2b3232b` (see §19).
+deployed homepage corresponded to `2b3232b` at the PASS 0 audit (see §19); since
+2026-10-03 production runs PASS 1 (`a25d1ac`).
 
 ---
 
@@ -564,7 +565,7 @@ Named regression baselines: Scene 1 `p0.000`, 1→2 `p0.270`, Scene 2 `p0.450`,
 
 ---
 
-## 30. PASS 1 — Atmospheric auto-motion bridge (repository, not yet deployed)
+## 30. PASS 1 — Atmospheric auto-motion bridge (`a25d1ac`, deployed 2026-10-03)
 
 Summary; full notes and QA in `docs/HOME-ATMOSPHERIC-AUTO-MOTION.md`.
 
@@ -591,4 +592,8 @@ Summary; full notes and QA in `docs/HOME-ATMOSPHERIC-AUTO-MOTION.md`.
   context at a time, no RAF on `/worlds`, no listener growth.
 - **Open:** the Mac-only blank Atrium frames (§18 risk 1) remain unreproduced
   and untouched.
+- **Production check after deploy (2026-10-03):** 0 page errors on desktop,
+  mobile (emulated) and reduced motion; narrative held at all 11 stops; ambient
+  frames only inside the bridge; 0 RAF / 0 draws in the Atrium and Footer;
+  throttled first crossing WebGL in 3/3 runs. Real-phone testing still pending.
 - **Evidence:** `work/pass1/` (gitignored).
