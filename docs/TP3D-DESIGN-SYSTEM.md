@@ -1,0 +1,700 @@
+# TP3D Design System
+
+The source of truth for every TP3D redesign pass, starting with TP3D PASS 00
+(2026-10-03). If a later brief conflicts with this document, flag the conflict
+before you implement anything. Update this document in the same pass that
+changes a rule.
+
+- Point-in-time audit, homepage map and blockers: [TP3D-PASS-00-AUDIT.md](TP3D-PASS-00-AUDIT.md)
+- Homepage timeline internals (progress ranges, WebGL tiers, measured
+  baselines): [TANPHONG_HOME_MOTION_CONTEXT.md](TANPHONG_HOME_MOTION_CONTEXT.md)
+- Motion tokens: `lib/motion/tokens.ts`, mirrored as `--motion-*` in
+  `app/globals.css`, checked by `yarn check:motion`
+
+> **Pass naming.** This series is numbered "TP3D PASS 00, 01, …". Older
+> documents and code comments use their own numbers: "PASS 0/1" in
+> `TANPHONG_HOME_MOTION_CONTEXT.md`, and "PASS 4/5" in some comments in
+> `components/home/experience/*`. Those belong to earlier work. Always write the
+> "TP3D" prefix.
+
+Every value below was read from the repository unless it is marked as a
+proposal.
+
+---
+
+## 1. Product vision
+
+TP3D (Tân Phong — Interiors & Objects) is not a generic interior-design
+website.
+
+| Layer | Meaning | Where it lives today |
+| --- | --- | --- |
+| Website | Editorial gallery / portfolio | All routes; the homepage story |
+| Enter The World | Immersive digital building | Atrium threshold (homepage Scene 3) → `/worlds` |
+| Rooms | Different spatial experiences | Atrium openings (Living, Bedroom, Bathroom, Kitchen) → `/spaces/*`, `/worlds/*`; future `/experience/[slug]` |
+| GLB models | Exhibits | Not yet supplied. `/worlds/[slug]` shows Sketchfab scenes after a click (click-to-load) |
+| Three.js | Exhibition engine | `/experience/[slug]` registry (empty). The homepage sky bridge is the only current use (§14) |
+
+Emotional progression: **2D → subtle depth → spatial feeling → portal →
+immersive world.** A visitor should first think "this is a beautiful
+gallery", then "there is depth here", and finally "I can enter this world".
+
+The homepage already follows this arc in one persistent viewport:
+
+1. Arrival: an editorial composition
+2. Perspective: a calm story
+3. Breeze and sky: the portal
+4. Atrium: the threshold of the world, with its four room openings
+
+Brand voice:
+
+- Lowercase wordmark "tân phong" with the tagline "INTERIORS & OBJECTS".
+- Bilingual EN/VI on the homepage: "A new breeze *for living.*" / "Một làn gió
+  mới cho không gian sống."
+
+## 2. Brand experience principles
+
+**QUIET MOTION + CINEMATIC DEPTH + PRECISE TYPOGRAPHY + ONE OR TWO MEMORABLE
+MOMENTS.**
+
+- **Feel:** premium, architectural, calm, editorial, spatial, cinematic.
+- **Never feel like:** a gaming site, a WebGL demo, an agency animation
+  showcase, a futuristic or crypto site, or an over-animated landing page.
+- **The two memorable homepage moments are already fixed:** Arrival (intro and
+  Scene 1) and the World Approach (breeze, sky, then the Atrium). Everything
+  else supports them and stays quieter.
+- **Visual thesis**, inherited from `docs/DESIGN-DIRECTION.md`: "a quietly
+  expressive architecture journal". That means cinematic interior photography,
+  generous ivory margins, fine rules, warm wood and stone tones, and
+  restrained serif typography.
+- **No glow, heavy shadows, glass effects or decorative gradients.**
+  Photographic exposure gradients that keep text legible over images are
+  allowed, for example `.hc-atrium-backdrop::after`.
+- **Square corners and 1px rules.**
+
+## 3. Layout principles
+
+**Editorial container**
+
+- `.container` = `calc(100% - var(--gutter) * 2)`, max-width 1440px.
+- `--gutter`: 64px, then 36px (≤1100), then 22px (≤760). At ≥1700 it becomes
+  `max(64px, (100vw - 1500px) / 2)`.
+- `DESIGN-DIRECTION.md` says 1480px. The code is authoritative.
+
+**Gallery hanging**
+
+- Asymmetric pairs: 7fr/4fr intro, 1.7fr/1fr project preview, 1.38fr/1fr
+  spaces, 1fr/2fr detail introductions.
+- Staggered offsets: the second column drops 100–120px (`.collections-duo`,
+  `.all-spaces`, `.all-collections`, `.material-images`).
+- Large images. No boxed cards and no carousels.
+
+**Full-bleed photography** is for the homepage stage, page heroes, the
+experience banner and the Atrium.
+
+**Homepage stage**
+
+- One `position: sticky` 100svh viewport inside a tall section (360/320/280svh).
+- Scenes are absolutely positioned layers in percentage and svh coordinates.
+  They are not separate sections.
+- Plane order:
+
+  | z-index | Plane |
+  | --- | --- |
+  | 0 | Architecture |
+  | 2 | Cloth (back) |
+  | 3 | TP, leaves |
+  | 4 | Cloth (front) |
+  | 5 | Copy |
+  | 6 | Worlds |
+  | 7 | WebGL sky |
+  | 8 | Cloth (foreground) |
+  | 12 | Rail |
+
+- `.spatial-hero` and `.continuous-breeze` must not create stacking contexts.
+  Don't put transform, opacity, isolation or containment on them.
+
+**Global layers:** header z 40, skip link z 100, intro z 200.
+
+**Shape**
+
+- `--radius: 0`.
+- Allowed exceptions: arched portals (`50% 50% 0 0`), circular previews, and
+  Worlds cards (2px).
+
+**Rules (lines):** 1px `var(--border)` on light grounds. On photographs, use
+`currentColor` at 0.5–0.7 opacity.
+
+## 4. Typography
+
+**Families.** All are self-hosted WOFF2 with `font-display: swap`, 6 files,
+133 KB in total.
+
+| Role | Family | Token / alias | Files |
+| --- | --- | --- | --- |
+| Display | Cormorant Garamond (OFL), variable 300–700 | `--font-display` / `--font-heading` | `cormorant.woff2` (normal only) |
+| Body, UI, metadata | Manrope (OFL), variable 200–800 | `--font-body` / `--font-sans` | `manrope.woff2` |
+| Homepage display | `'Cormorant Spatial'`: normal + **real italic**, Latin + Vietnamese subsets | `--sh-serif`, `--hc-serif` | `cormorant{,-italic}{,-vietnamese}.woff2` |
+| Homepage UI | `'Manrope Spatial'`: Latin + Vietnamese | `--sh-sans`, `--hc-sans` | `manrope{,-vietnamese}.woff2` |
+
+The homepage aliases are declared in `components/home/hero/spatial-hero.css`.
+
+**Global scale** (`app/globals.css`)
+
+| Element | Value |
+| --- | --- |
+| h1 | `clamp(54px, 6.1vw, 94px)` |
+| h2 | `clamp(40px, 4.2vw, 64px)` |
+| h3 | 32px |
+| Headings | weight 400, line-height 1.06, letter-spacing −0.025em |
+| Body | Manrope 16px / 1.7, paragraphs max 64ch |
+| `.eyebrow` | Manrope 500, 12px, letter-spacing 0.17em, uppercase copy. The override block at the end of `globals.css` restores 12px for editorial metadata; some contexts drop to 10–11px at ≤760 |
+| `.wordmark` | Cormorant 39px, −0.045em, lowercase + Manrope 8px tagline at 0.25em |
+| `.text-link` | 14px, 1px underline, ↗ arrow, min-height 44px |
+
+**Homepage display scale** (component CSS)
+
+| Element | Value |
+| --- | --- |
+| Scene 1 h1 | `clamp(42px, 3.75vw, 78px)`, line-height 0.93, −0.045em |
+| Scene 2 h2 | `clamp(36px, 3.65vw, 74px)`, 0.91 |
+| Scene 2 body | `clamp(15px, 1.19vw, 23px)` / 1.35 |
+| Atrium h2 | `clamp(78px, 5.65vw, 145px)`, 0.87, −0.055em |
+| Micro-caps (eyebrow, axis, colophon, signatures) | Manrope 500, 6–11px, 0.2–0.32em tracking |
+
+**Rules**
+
+1. **Display weight.** Serif display is always weight 400. Emphasis is an
+   italic `<em>` on the second line ("*for living.*", "*of seeing.*", "*the
+   worlds.*"). Never use bold display.
+2. **Tracking.** Negative tracking tightens with size: −0.025em (body
+   headings) down to −0.055em (Atrium).
+3. **Metadata.** Manrope 500, uppercase, wide tracking. Outside the homepage
+   stage, use 12px, and never go below the existing 10px mobile minimum. The
+   6–8px micro-caps on the homepage stage are an
+   existing art-direction choice: don't make them smaller, and don't use them
+   for essential information.
+4. **Vietnamese.** Vietnamese blocks carry `lang="vi"` and use the Spatial
+   aliases, which include Vietnamese subsets.
+5. **Never animate typography per letter or per word.** The finest grain is a
+   line or a block. The Atrium reveals "Enter" and "*the worlds.*" as two
+   spans, and that is the limit.
+6. **Wrapping.** Use `text-wrap: balance` for headings in contexts that already
+   use it, and `pretty` for Atrium body copy.
+7. **Known gap (from code, not visually verified).** The global `Cormorant`
+   face has no italic file, so `<em>` outside the homepage stage is
+   browser-synthesized. Decide in a typography pass. Don't change it silently.
+
+## 5. Color tokens
+
+**Global tokens** (`:root` in `app/globals.css`)
+
+| Token | Value | Use |
+| --- | --- | --- |
+| `--background` | `#f7f5f0` | Ivory page ground |
+| `--foreground` | `#292823` | Ink |
+| `--muted-foreground` | `#706c62` | Secondary copy, eyebrows |
+| `--border` | `#d9d5cd` | 1px rules |
+| `--paper` | `#eeece5` | Alternate section ground |
+| `--walnut` | `#79644e` | Focus outline, accents |
+
+**Other global literals**
+
+- `#e4e0d7`: image placeholder
+- `#e8e4da`: material section
+- `#eae7df`: footer
+- `#cfcbc1`: footer rule
+- Photo shades: `#171711` at 31%, `#171b16` at 51%, `#151713` at 24%,
+  `#171a16` at 58%
+- Overlay: `rgb(29 28 24 / 28%)`
+
+**Homepage stone palette** (component literals; there are no tokens yet)
+
+| Role | Value |
+| --- | --- |
+| Stage / hero ground | `#e8dcc8` / `#e9ddc8` |
+| Hero ink | `#3c352a` |
+| Header ink → ivory (scroll-mixed) | `#332b22` → `#f3e9d6` |
+| Hairlines | `#83735e`, `#7c6e5c`, `#786c5b` |
+| Light wash | `#eee4d1` (alpha) |
+| Rail | `#574b38` |
+| Atrium copy | `#f5edde` |
+| Atrium exposure shade | `#24190d`, `#241a14` (alpha gradients) |
+| Atrium loading ground | `#352d23` / `#59432c` |
+| Intro paper / ink | `#eee9df` / `#423b31` |
+| Home footer | `#e9e1d3` |
+| WebGL sky (measured from the Atrium oculus) | `#b0c3e0` → `#c2d3e9`, cloud `#eef0f3`, shade `#cdd6e4`, ivory `#eee8dc` |
+
+**Rules**
+
+- Neutral and warm only. Blue appears only as sky.
+- No saturated accent, no pure black, no pure white on ivory grounds. `#fff`
+  is used only for copy over photographs.
+- New colors become tokens in `:root`. Promote the homepage literals to tokens
+  when a pass touches them (proposed names: `--stone-ground`, `--stone-ink`,
+  `--ivory-light`, `--exposure-shade`). Don't mass-rename in a non-visual pass.
+
+## 6. Spacing
+
+- `--section`: 120px, then 96px (≤1100), then 76px (≤760).
+- Documented increments, from `DESIGN-DIRECTION.md`: 4, 8, 12, 16, 24, 32, 48,
+  64, 80, 120, 160px.
+- Common gaps in code: 18, 22–24, 28–36, 48, 64, 80, 96–120px.
+- Touch targets ≥44px (`min-height: 44px`; Atrium room links use 48px).
+- Header height:
+  - Default: 102px; 86px solid; 80px at ≤760.
+  - Homepage: `clamp(78px, 9.2svh, 108px)`; 76px below 768.
+- Homepage stage positions are percentages and svh of the stage, not spacing
+  tokens. Keep them that way, because the compositions are hand-placed against
+  the photographs.
+- Use `svh` for viewport heights. This is existing practice and avoids mobile
+  toolbar jumps.
+
+## 7. Responsive philosophy
+
+**Two breakpoint systems exist today.** Don't add a third.
+
+| System | Breakpoints | Used by |
+| --- | --- | --- |
+| Editorial layout | 760/761, 1100, 1700 (+ local 900, 600) | `globals.css`, `navigation.css`, `EditorialImage` sizes |
+| Homepage + motion | 767/768, 1199/1200 (+ tablet portrait/landscape, `max-height: 820px` desktop, 359, `767 + max-height 740`) | Home CSS, `MOTION.breakpoints`, `lib/motion/capability.ts` |
+| Worlds catalogue | 359, 600, 639/640, 820/821, 960, 1023/1024, 1439/1440, 1908 | `worlds.css`, `mosaic-block.tsx` |
+
+Motion code uses `MOTION_BREAKPOINTS` (768/1200). Existing editorial pages
+keep 760/1100 until a pass consolidates them.
+
+**Device tiers** come from `motionTier()` in `lib/motion/capability.ts`. They
+match the existing atmospheric sky tiers.
+
+| Tier | Condition | Amplitude | Behaviour |
+| --- | --- | --- | --- |
+| desktop | ≥1200px **and** hover + fine pointer | 1 | Full motion, hover and pointer effects |
+| tablet | 768–1199px, **or** any width with a coarse pointer | 0.75 | Reduced amplitude. No dependence on hover: every hover effect must also exist through focus or tap |
+| mobile | <768px | 0.5 | Composition-first: scroll reveals, scale, light, subtle parallax. No mouse-derived motion, one cloth projection, light WebGL tier |
+| reduced | `prefers-reduced-motion: reduce` | 0 | §13 |
+
+Homepage specifics:
+
+- Story height is 360/320/280svh.
+- Short story copy on mobile and tablet portrait.
+- Room labels sit on architectural coordinates only at ≥1200. Below that they
+  form a 2×2 grid.
+- Mobile Atrium uses a stacked layout.
+
+## 8. Motion language
+
+Every motion belongs to exactly one of these six concepts. Anything else does
+not ship.
+
+| Concept | Meaning | Existing examples | Allowed techniques | Defaults |
+| --- | --- | --- | --- | --- |
+| **REVEAL** | Architectural masks, clipping, controlled image reveals | Intro panels opening from a horizontal slit (`hi-top-open`/`hi-bottom-open`, 1000ms cinematic). Scene 2/3 copy revealed by role (opacity + 8–9px rise, scroll-mapped). Worlds grid reveal (70ms column stagger) | `clip-path: inset()` on a frame, opacity, `translateY` ≤12px, image scale ≤1.025 inside a fixed frame | Text `fast`, images `normal`, curtains `cinematic`; ease `primary` (curtains `cinematic`) |
+| **DEPTH** | Small scale differences, translate3d, perspective, layered movement | SharedTP travel (scale → 0.86). Scene 2 architecture push +3.5%. TP departure. Worlds card tilt (≤2°, perspective 1400px) | `translate3d`, scale deltas ≤4% on full-bleed planes, perspective ≥1200px, UI rotation ≤2° | Scroll-mapped, or `normal` when time-based |
+| **BREEZE** | Very subtle light or atmospheric movement | Continuous breeze cloth (vector, scroll-mapped). Intro raster breeze drift (7s). WebGL ambient cloud micro-motion (only inside the bridge, 0.35–0.7% of viewport height per second) | Opacity, slow transform drift, shader time | Time-driven only inside an active, visible moment. Never moves the camera or text. Off in reduced motion |
+| **PARALLAX** | Planes at slightly different velocities | `MOTION.depthRatios` (architecture 0.9 / artifact 1 / breeze 1.22). Worlds detail stage pointer offsets 4/7px | Up to 3 planes per section. Velocity spread within the existing 0.9–1.22 band. Pointer parallax on the desktop tier only | Scroll-mapped. Pointer through `createPointerFollower` |
+| **PORTAL** | From the editorial website into the immersive world | Scene 2 → Atrium bridge. The world swap happens at p 0.64 under full cloud/cloth occlusion | One portal per journey. The swap is hidden under full occlusion. Reversible. Reduced motion gets a dissolve or cut | Scroll-mapped. Route changes are plain navigations |
+| **MICRO MOTION** | Buttons, links, image interaction, feedback | `.text-link` arrow `translate(3px,-3px)`. Portal photo scale 1.02 + caption nudge. Room labels (opacity, `translateX(3px)`). Atrium CTA preview scale 1.035 | transform/opacity only, ≤4px nudges, scale per `MOTION_LIMITS` | `micro` or `fast`; ease `primary` |
+
+**Two clocks, never mixed for one property**
+
+- **Scroll-mapped** choreography is a pure function of progress. Durations are
+  progress ranges in the owning timeline (`home-motion.ts`,
+  `home-story-frame.ts`, `atmospheric-*-frame.ts`). The scroll position is the
+  clock: identical positions give identical frames, forward and backward.
+  There is no smoothing library. Curves: `editorial` (smoothstep),
+  `accelerate` and `arrive` (zero velocity at both ends).
+- **Time-based** motion (CSS transitions, keyframes, pointer interpolation,
+  bounded ambient motion) uses the tokens.
+
+**Tokens** (`lib/motion/tokens.ts` ↔ `app/globals.css`)
+
+| Token | Value | CSS | Use |
+| --- | --- | --- | --- |
+| `DURATION.micro` | 220ms | `--motion-duration-micro` | Links, labels, preview swaps |
+| `DURATION.fast` | 400ms | `--motion-duration-fast` | Hover/focus on larger elements, arrows, underlines |
+| `DURATION.normal` | 650ms | `--motion-duration-normal` | Image reveals, photo hover scale, crossfades |
+| `DURATION.cinematic` | 1000ms | `--motion-duration-cinematic` | Portals, curtains (the intro panels already use exactly this) |
+| `DURATION.entrance` | 1500ms | `--motion-duration-entrance` | A section's single arrival moment |
+| `EASE.primary` | `cubic-bezier(0.16, 1, 0.3, 1)` | `--motion-ease-primary` | Default for every time-based motion |
+| `EASE.cinematic` | `cubic-bezier(0.76, 0, 0.24, 1)` | `--motion-ease-cinematic` | Curtains, portals, state hand-offs (already used by the intro) |
+| `STAGGER` | 70ms | — | Between sibling groups, never between words |
+
+The durations reuse values already present in the site (220, 400, 650 and
+1000ms), so a component can migrate to tokens without a visible change. The
+audit lists every remaining literal and its nearest token.
+
+In CSS, write `transition: transform var(--motion-duration-fast)
+var(--motion-ease-primary)`. In TS, write `transition('transform', 'fast')`.
+For RAF or WAAPI code, use `easing.primary(t)`, which evaluates the same
+cubic-bezier.
+
+## 9. Motion intensity rules
+
+| Level | Allowed | Not allowed |
+| --- | --- | --- |
+| **CALM** (LOW) | Micro feedback. One fade or reveal per block (`fast`/`normal`). Stillness | Parallax, depth moves, ambient motion, staggering more than one group |
+| **MEDIUM** | One REVEAL per section. One PARALLAX or DEPTH layer pair. Staggered groups (≤6 items) | PORTAL, time-driven ambient motion, more than 2 moving planes |
+| **HIGH** | One memorable moment: up to 3 planes, DEPTH + PARALLAX + BREEZE, `cinematic`/`entrance` | Using PORTAL outside the World Approach. More than 2 HIGH sections on a page |
+
+**Homepage rhythm (target)**
+
+The "In the current homepage" column describes the code today. The audit has
+the full map.
+
+| # | Section | Target | In the current homepage |
+| --- | --- | --- | --- |
+| 1 | Arrival / Hero | HIGH | Intro loader + Scene 1 (`HomeIntroLoader`, `HeroSceneA`, portals, SharedTP) |
+| 2 | Story | LOW | Scene 2 "Perspective" (`HeroSceneB`) |
+| 3 | Spaces | MEDIUM/HIGH | **Absent.** Removed from Home in `d9b265c` |
+| 4 | Philosophy | LOW | **Absent** |
+| 5 | Projects | MEDIUM | **Absent** |
+| 6 | Materials | MEDIUM | **Absent.** Removed in `d9b265c` |
+| 7 | Objects | MEDIUM | **Absent** |
+| 8 | World Approach | HIGH | Breeze/sky bridge + Atrium (`WorldsChapter`) |
+| 9 | Footer | LOW | `SiteFooter` |
+
+**Rules**
+
+1. A HIGH moment is followed by a CALM section. Spaces may reach HIGH only if
+   Philosophy after it is fully calm, and it never uses PORTAL.
+2. Not everything moves. In any viewport there is at most one primary moving
+   group, plus micro feedback.
+3. Every HIGH moment ends in stillness: a hold where nothing moves before the
+   next section takes over. The Atrium's current hold is only 0.08 of the
+   story span (187px on desktop). This is a known issue.
+4. Amplitudes scale by tier (`AMPLITUDE`: desktop 1, tablet 0.75, mobile 0.5,
+   reduced 0). Durations do not scale.
+5. Upper bounds (`MOTION_LIMITS`, taken from the existing system):
+
+   | Limit | Value |
+   | --- | --- |
+   | Image scale | 1.025 |
+   | Object or preview scale | 1.035 |
+   | Nudge | 4px |
+   | Reveal rise | 12px |
+   | Pointer parallax | 8px |
+   | Tilt | 2° |
+   | Perspective | ≥1200px |
+
+## 10. Image behavior
+
+**Pipeline**
+
+- Sources live in `assets/` (JPG/PNG).
+- `scripts/optimize-images.mjs` (sharp) writes WebP into `public/images`:
+  720 and 1280 variants at q80, and a full size at q84 (max 1600px, 2400px for
+  the hero).
+- Dimensions go to `data/image-dimensions.json`.
+- There is no runtime image service.
+
+**`<EditorialImage>`** (`components/shared/editorial-image.tsx`)
+
+- Aspect ratio is reserved by layout CSS plus width/height attributes.
+- `srcset` + `sizes`, lazy by default.
+- `priority` (eager + `fetchpriority=high`) is for the LCP image only.
+
+**Homepage plates** (`<picture>` with ≤767 → 720 and ≤1199 → 1280 sources)
+
+- Scene 1 is eager and high priority.
+- Scene 2 and the Atrium are deferred (`data-src`) and installed by the
+  timeline. The Atrium loads at p ≥ 0.16, and its `decode()` gates the bridge.
+
+**Aspect ratios in use**
+
+| Image | Ratio |
+| --- | --- |
+| Editorial default | 1.45 |
+| Project preview | 1.25 |
+| Spaces | 1.8 (feature fills its column) |
+| Collections | 1.13 / 0.95 |
+| Materials strip | 0.6 |
+| Objects | 0.86 |
+| Journal | 1.38 |
+| Project, collection and article heroes | 2 |
+| About | 2.1 |
+| Homepage plates | 1586×992 |
+| Atrium | 1672×941 |
+| Portal atlas | 1254² (2×2) |
+
+**Behaviour rules**
+
+- Images sit in an `overflow: hidden` frame. Hover scale ≤1.025 at `normal`.
+- Reveal with clip, mask or opacity. Never animate `filter` or blur. No Ken
+  Burns loops. No autoplaying video on the homepage.
+- Every new image gets explicit dimensions, an optimized variant set and real
+  alt text, or `alt=""` when decorative.
+- The Atrium is one flat opaque photograph, with no depth layers or alpha.
+  Layered depth needs new assets, not CSS tricks.
+- Photography is placeholder Pexels material (`docs/ASSET-SOURCES.md`).
+  Replace it before public launch.
+
+## 11. Interaction rules
+
+**Hover and focus**
+
+- Hover effects live inside `@media (hover: hover) and (pointer: fine)`.
+- Every hover effect has a `:focus-visible` equivalent. The Atrium CTA and
+  portals already do this.
+- Touch navigates on the first tap. No two-tap reveals (the rule already
+  stated in `worlds.css`).
+
+**Pointer**
+
+- No custom cursors, cursor followers or magnetic buttons.
+- Pointer-driven motion runs on the desktop tier only, for `pointerType ===
+  'mouse'`, through `createPointerFollower`. It eases back to rest when the
+  pointer leaves and reads layout once per hover.
+
+**Focus outlines**
+
+- Global: 2px solid `--walnut`, offset 5px.
+- Homepage photo contexts use `#514332`, or 1px `currentColor` at offset 7px.
+
+**Touch targets:** at least 44px.
+
+**Hidden scenes**
+
+- Hidden scenes are `inert` + `aria-hidden`.
+- Links become interactive only once fully revealed (Atrium p ≥ 0.90).
+
+**Prefetch:** homepage links use `prefetch={false}` so bandwidth stays with the
+story.
+
+**Scroll**
+
+- Scroll stays native: no smoothing, snapping, wheel or touch interception,
+  scroll-jacking or artificial slow scrolling.
+- `scroll-behavior: auto` while the story is mounted.
+
+**Header:** the header is persistent and never hides. Only its ink changes,
+mixed by scroll.
+
+## 12. Performance rules
+
+**Animation**
+
+1. Animate `transform` and `opacity`. Use `clip-path` where reasonable. Never
+   animate `top`, `left`, `width`, `height`, `padding` or `margin`. The audit
+   lists the legacy exceptions.
+2. One RAF owner per controller. It is event-driven and stops when idle: no
+   permanent loops. Time-driven ambient motion runs only while its moment is
+   active and visible.
+3. No per-frame React state. Write styles and attributes directly, with
+   change detection (see `property()` in `home-story-timeline.ts`).
+4. Cache geometry on resize (`ResizeObserver`). Don't read layout in
+   scroll or pointer handlers per frame (`createScrollProgress` and
+   `createPointerFollower` follow this).
+5. Scroll, touch and pointer listeners are `passive`.
+6. Set `will-change` only while an element is actually moving, and remove it
+   afterwards. Never set it as a blanket rule.
+7. No `filter` or `backdrop-filter` animation and no blur transitions. The
+   only `backdrop-filter` in authored CSS forces the shadcn overlay blur to
+   `none`.
+
+**Loading**
+
+8. Load images per §10. Load heavy scene assets by story progress, not on
+   timers.
+9. Keep the existing 6 font files. Don't add families.
+10. Import Three.js dynamically only (§14).
+
+**Dependencies**
+
+11. No new animation dependency without a pass that justifies it.
+
+**GSAP policy.** GSAP is not installed. If a pass adds it:
+
+- Use it only for in-flow sections outside the sticky story.
+- Never pin or scrub inside `HomeStory`.
+- Never use ScrollSmoother.
+- Create it inside `gsap.context()` and register it with `createDisposables()`
+  (it calls `revert()`).
+- Branch on reduced motion with `gsap.matchMedia()`.
+
+**Baselines.** Measured numbers live in `TANPHONG_HOME_MOTION_CONTEXT.md` §18.
+They come from headless Chrome on an RTX 3090 and do not represent laptops,
+phones or Safari. Report only measured values, with their environment.
+
+**Required checks:**
+
+- `yarn lint` (or `node_modules/.bin/oxlint`)
+- `yarn tsc --noEmit`
+- `yarn check:motion`, `check:home`, `check:intro`, `check:hero`,
+  `check:content`, `check:assets`, `check:worlds`
+- `yarn build:vercel`
+
+`check:home` asserts many timing constants and source patterns. Retiming
+requires deliberate updates to those assertions.
+
+## 13. Accessibility and `prefers-reduced-motion`
+
+1. **Global CSS kill switch.** `app/globals.css` sets `animation: none
+   !important; transition: none !important` on every element under `reduce`.
+   Component rules add to it and never fight it. Because of the switch, the
+   150ms reduced-motion opacity transition declared in `worlds.css` never
+   runs.
+2. **Scroll-mapped choreography branches on reduced motion.**
+   - Removed: spatial movement, parallax, staggered rises, WebGL, ambient
+     motion and the cloth.
+   - Allowed: crossfades, dissolves and cuts.
+   - Every chapter, link and the Footer stay reachable. The current homepage
+     implementation is described in `TANPHONG_HOME_MOTION_CONTEXT.md` §16.
+3. **JS reads the preference live** through `readMotionCapability()` /
+   `subscribeMotionCapability()`, or `useMotionCapability()` /
+   `useReducedMotion()` in React. Before hydration, `useReducedMotion()`
+   returns `true`: render the static composition first.
+4. **Pointer and time-driven ambient motion are off** under reduced motion.
+   The loader exits in 300ms.
+5. **Auto-moving content.** Motion that starts on its own and runs longer than
+   5s next to content falls under WCAG 2.2.2 (Pause, Stop, Hide). The current
+   ambient sky runs only while the visitor rests inside the bridge, where
+   almost no text is shown. Review any new ambient motion against 2.2.2.
+6. **Structure.**
+   - Hidden content is `inert`/`aria-hidden`.
+   - The skip link targets `#main`.
+   - Vietnamese copy has `lang="vi"`.
+   - Copy over photographs relies on exposure masks for contrast.
+   - Focus is always visible.
+   - Nothing flashes.
+
+## 14. Rules for future 3D integration
+
+**Where Three.js belongs**
+
+- Enter The World, `/experience/[slug]`, 3D viewers and individual rooms.
+- **The homepage gets no new canvas.** The existing homepage atmospheric sky
+  bridge (lazy `import('three')`, tiered, one context per Home mount) stays
+  until the user decides its future. See the audit's blockers. It is the only
+  WebGL allowed on the homepage, and it must not grow.
+
+**How to add a scene**
+
+1. Register a module in `components/experience/scene-registry.ts` behind a
+   dynamic import: `'room-id': () => import('./scenes/room-id')`.
+2. Export a `createScene({ host, signal, onSelect })` that returns a
+   `SceneHandle` with an idempotent `dispose()` and optionally `setPaused()`.
+3. `ThreeSceneLoader` already handles visibility pause, `pagehide`, context
+   loss, retries and fallbacks.
+
+**Poster first**
+
+- `threeScene.enabled: false` renders the static preview immediately.
+- Load the viewer only on the experience route or on explicit intent. This is
+  the same click-to-load pattern as the Sketchfab viewer.
+
+**Budgets**
+
+- Use the sky bridge's proven defaults: DPR caps (≤1.5 desktop, ≤1.25 tablet,
+  1 mobile), render on demand, pause hidden tabs, `failIfMajorPerformanceCaveat`,
+  and full `dispose()` + `forceContextLoss()` on unmount.
+- For GLBs, compress geometry (Draco or Meshopt) and textures (KTX2). These are
+  recommendations. Set numeric budgets with the first real GLB, measured on
+  real devices.
+
+**Libraries:** plain `three` (0.186.1). React Three Fiber/Drei are not
+installed, and adding them is a dependency decision for a pass.
+
+**Exhibits:** a GLB is an exhibit. Selecting it opens the existing detail
+sheet (`.selection-sheet`, `onSelect({ kind, slug })`), limited to that
+project's catalogue.
+
+**Portal hand-off**
+
+- The homepage portal ends at the Atrium. Entering a room is a route
+  navigation.
+- No canvas persists across routes.
+- The homepage must not preload room scenes.
+
+**Reduced motion:** no camera autopilot or intro flythrough. Show a static
+poster, then explicit controls.
+
+**Accessibility**
+
+- The canvas is focusable and has keyboard controls.
+- The exhibits are also listed in HTML.
+- Credits are shown with every scene (Sketchfab CC BY).
+
+## 15. DO NOT
+
+**Design**
+
+- Redesign or replace the visual identity, wordmark, palette, fonts or
+  editorial grid without a brief that asks for it.
+- Introduce random UI components, glow, glass, heavy shadows, decorative
+  gradients or rounded cards. The generated shadcn primitives in
+  `components/ui` are used only for the header search dialog and the sheets
+  (mobile menu, experience selection). Don't spread them into editorial
+  layouts.
+- Add a new font family, a saturated accent or a new breakpoint.
+- Use the UNESCO reference's assets, artwork, colors, typography, objects or
+  layout. It is a motion study only.
+
+**Motion**
+
+- Invent motion outside the six concepts.
+- Hard-code new durations or easings. Use the tokens.
+- Use excessive fade-ups, per-word or per-letter animation, large custom
+  cursors, constant floating elements, blur transitions, large rotations,
+  aggressive perspective (<1200px), scroll hijacking, artificial slow
+  scrolling, scroll snapping, or decorative particles without narrative
+  purpose.
+- Add Lenis, Locomotive, ScrollSmoother or any scroll smoothing.
+- Add a second scroll owner, ScrollTrigger pin or independent RAF inside the
+  homepage sticky story. Sample the master timeline.
+
+**Performance**
+
+- Add a persistent Three.js canvas, React Three Fiber or a new WebGL context to
+  the homepage.
+- Import `three` at module scope anywhere.
+- Animate layout properties.
+- Use per-frame React state.
+- Use blanket `will-change`.
+- Use permanent RAF loops.
+- Read layout per frame.
+
+**Process**
+
+- Ship motion without a reduced-motion path, a mobile path, and focus parity
+  for hover.
+- Commit screen recordings or `work/` evidence (both are gitignored or local).
+- Report FPS, RAM or GPU numbers that were not measured, or omit the device
+  and browser they came from.
+
+---
+
+## Appendix A — Motion foundation API
+
+Framework-agnostic `create*` controllers return their cleanup function. This is
+the same idiom as `createHomeStoryTimeline`, `createRoomDiscovery` and
+`createBreezeRenderer`. React components call them inside `useEffect` or
+`useLayoutEffect`. No visual effect uses them yet; PASS 00 only prepares them.
+
+| File | Exports | Purpose |
+| --- | --- | --- |
+| `lib/motion/tokens.ts` | `DURATION`, `EASE`, `STAGGER`, `AMPLITUDE`, `MOTION_LIMITS`, `cssDuration`, `cssEase`, `transition`, `cubicBezier`, `easing` | The vocabulary |
+| `lib/motion/capability.ts` | `MOTION_QUERIES`, `MOTION_BREAKPOINTS`, `motionTier`, `readMotionCapability`, `subscribeMotionCapability` | Reduced motion, pointer capability, desktop/tablet/mobile tier, save-data |
+| `hooks/use-motion-capability.ts` | `useMotionCapability`, `useReducedMotion` | React access (`useSyncExternalStore`, SSR-safe `null`) |
+| `lib/motion/progress.ts` | `clamp01`, `progressBetween`, `scrollProgress`, `createScrollProgress` | Normalized scroll progress for in-flow sections, with cached geometry |
+| `lib/motion/disposables.ts` | `createDisposables` | Cleanup of listeners, frames, timers, observers, GSAP contexts/timelines, Three.js resources |
+| `lib/motion/pointer.ts` | `approach`, `createPointerFollower` | RAF pointer interpolation that settles and stops |
+
+```tsx
+const capability = useMotionCapability();
+useEffect(() => {
+  const element = ref.current;
+  // Static composition until the capability is known; desktop tier only.
+  if (!element || capability?.tier !== 'desktop') return;
+  const bag = createDisposables();
+  bag.add(
+    createPointerFollower(element, (x, y) => {
+      element.style.setProperty('--front-x', `${x * 6}px`);
+      element.style.setProperty('--front-y', `${y * 6}px`);
+    }),
+  );
+  return () => bag.dispose();
+}, [capability]);
+```
+
+`createScrollProgress` is for sections in normal document flow only. Anything
+inside the homepage sticky stage must read the master timeline's progress.

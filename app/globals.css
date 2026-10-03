@@ -39,6 +39,14 @@
   --section: 120px;
   --font-body: Manrope, Arial, sans-serif;
   --font-display: Cormorant, Georgia, serif;
+  /* TP3D motion tokens; mirrors lib/motion/tokens.ts (yarn check:motion). */
+  --motion-duration-micro: 220ms;
+  --motion-duration-fast: 400ms;
+  --motion-duration-normal: 650ms;
+  --motion-duration-cinematic: 1000ms;
+  --motion-duration-entrance: 1500ms;
+  --motion-ease-primary: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease-cinematic: cubic-bezier(0.76, 0, 0.24, 1);
 }
 * {
   box-sizing: border-box;

@@ -14,6 +14,7 @@ an inference, it is labelled as such.
 | Audit browser | Chrome 154.0.8037.59, headless, Windows 11, ANGLE/D3D11 on **NVIDIA RTX 3090** |
 | Supplied recordings | `Ghi Màn hình 2026-10-02 lúc 23.45.05.mov` (UNESCO reference) and `Tân Phong.mov` (current site), analysed in PASS 0/1 and **deleted from the repo root on 2026-10-03** (never committed); extracted frames remain in `work/pass0/reference/` (local, gitignored) |
 | Evidence folder | `work/pass0/` (gitignored, local only — see §29) |
+| TP3D PASS 00 (2026-10-03) | New pass series: design-system source of truth `docs/TP3D-DESIGN-SYSTEM.md`, audit `docs/TP3D-PASS-00-AUDIT.md`, motion tokens/utilities in `lib/motion/` (`yarn check:motion`). No homepage code or timing changed; this document remains the timeline reference. |
 | PASS 1 (2026-10-03) | Atmospheric auto-motion bridge — commit `a25d1ac` on `main`, **deployed to production on 2026-10-03** (Vercel deployment `dpl_AwoGMD2xWPoBP3U13nqD7Ey3fBf3`). Sections 4–6, 11–13, 15–18 and 28 describe the repository after PASS 1; §25 stays the PASS 0 live baseline. Details: §30 and `docs/HOME-ATMOSPHERIC-AUTO-MOTION.md`. |
 
 > Measurement caveat: performance figures come from one high-end desktop GPU in

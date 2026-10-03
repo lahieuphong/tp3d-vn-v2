@@ -40,7 +40,7 @@ The route check requires a running server; it crawls every linked content page, 
 - `/`: editorial discovery homepage
 - `/spaces` and `/spaces/[slug]`: five room types
 - `/projects` and `/projects/[slug]`: three residential studies
-- `/worlds`: four curated digital interiors linking to Sketchfab
+- `/worlds` and `/worlds/[slug]`: four curated digital interiors; detail pages load the Sketchfab viewer on request
 - `/collections` and `/collections/[slug]`: five style collections
 - `/products` and `/products/[slug]`: four furniture/object studies
 - `/materials` and `/materials/[slug]`: six materials
@@ -48,13 +48,13 @@ The route check requires a running server; it crawls every linked content page, 
 - `/about`, `/contact`
 - `/experience/[slug]`: dedicated future scene entry for each project
 
-This is 40 content routes. Unknown detail slugs return 404. Worlds intentionally has no detail route in this release.
+This is 44 content routes. Unknown detail slugs return 404.
 
 All relationships and content live in `data/`. Edit `data/projects.ts`, `spaces.ts`, `collections.ts`, `products.ts`, `materials.ts` and `journal.ts`. Each project stores `id`, `slug`, `title`, `location`, `year`, `style`, `area`, `description`, `coverImage`, `gallery`, `materials`, `products`, `spaces` and `threeScene`.
 
 `Project.spaces`, `Project.products` and `Project.materials` are the canonical slug relationships. `data/relationships.ts` derives the reverse Space/Product/Material project lists; do not duplicate project arrays on those objects. Collections curate `projects` in display order, and their objects/materials are derived from those projects. Related projects are ranked by shared style, rooms, materials and objects, limited to two. Optional sections guard the resolved content before rendering their heading; single-project sections reuse the alternating editorial layout. Explicit material selections show three images and link the rest of the palette.
 
-Shared layout is in `components/layout`; homepage sections in `components/sections`; detail templates in `components/project` and `components/space`; the experience integration in `components/experience`. Design tokens, grids, typography and responsive styles live in `app/globals.css`. The planning record is `docs/DESIGN-DIRECTION.md`.
+Shared layout is in `components/layout`; homepage sections in `components/sections`; detail templates in `components/project` and `components/space`; the experience integration in `components/experience`. Design tokens, grids, typography and responsive styles live in `app/globals.css`. The original planning record is `docs/DESIGN-DIRECTION.md`. The current source of truth for design and motion is [TP3D Design System](docs/TP3D-DESIGN-SYSTEM.md); motion tokens live in `lib/motion/tokens.ts` (mirrored as `--motion-*` in `app/globals.css`, verified by `yarn check:motion`).
 
 ## Replace photography
 
@@ -74,9 +74,9 @@ For individual digital objects, the existing product catalog also supports click
 
 ## Add Three.js later
 
-No model is supplied and Three.js is intentionally not installed. The current experience is an honest editorial placeholder, with no simulated tour, fake loading timer or WebGL allocation on the homepage.
+No model is supplied and no experience scene is registered, so each experience route is an honest editorial placeholder with no simulated tour or fake loading timer. Three.js is installed; today only the homepage atmospheric sky bridge imports it, lazily (see [Home motion context](docs/TANPHONG_HOME_MOTION_CONTEXT.md) §13). Rules for new 3D work are in the [design system](docs/TP3D-DESIGN-SYSTEM.md) §14.
 
-1. Add Three.js only when implementing an actual scene.
+1. Import Three.js only inside a scene module, never at module scope of shared code.
 2. Create a module under `components/experience/scenes/` exporting `createScene(context)` matching `SceneFactory` in `scene-registry.ts`.
 3. Register it behind a dynamic import: `'walnut-living': () => import('./scenes/walnut-living')`.
 4. Keep `threeScene: { enabled: false }` while a scene is unavailable (an optional `roomId` may reserve its key). This renders the static project preview and preparation copy immediately, without importing the viewer. After registering a real scene, set `threeScene: { enabled: true, roomId: 'walnut-living' }`. Only that experience route then imports the viewer and the selected scene module.

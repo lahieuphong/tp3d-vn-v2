@@ -20,7 +20,8 @@
     "check:intro": "node scripts/check-home-preloader.mjs && node scripts/check-intro-runtime.mjs && node scripts/check-intro-controller.mjs",
     "check:hero": "node scripts/check-spatial-hero.mjs",
     "check:home": "node scripts/check-atmospheric-sky.mjs && node scripts/check-room-discovery.mjs && node scripts/check-home-motion.mjs && node scripts/check-atmospheric-bridge.mjs && node scripts/check-home-chapters.mjs && node scripts/check-continuous-breeze.mjs && node scripts/check-scene-image.mjs",
-    "check:worlds": "node scripts/check-worlds.mjs"
+    "check:worlds": "node scripts/check-worlds.mjs",
+    "check:motion": "node scripts/check-motion-foundation.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
