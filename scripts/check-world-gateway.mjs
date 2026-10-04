@@ -34,9 +34,9 @@ const tokens = load('lib/motion/tokens.ts');
 const building = load('data/world-building.ts');
 const { worldRooms, WORLD_PATH, isWorldPath, PLANNED_ROOM_LABEL } = building;
 
-// 16–20. One building directory: five rooms, fixed taxonomy and order. Only
-// the Gallery opens today, onto its own room (TP3D PASS 06; it bridged to
-// /worlds in PASS 05); planned wings carry no link at all.
+// 16–20. One building directory: five rooms, fixed taxonomy and order. The
+// Gallery (TP3D PASS 06; it bridged to /worlds in PASS 05) and Objects
+// (TP3D PASS 10) open onto their own rooms; planned wings carry no link.
 assert.equal(WORLD_PATH, '/world');
 assert.deepEqual(
   [...worldRooms].map((room) => [room.number, room.id, room.name]),
@@ -51,9 +51,13 @@ assert.deepEqual(
 for (const room of worldRooms) {
   assert.equal(room.futurePath, `/world/${room.id}`);
   assert(room.summary && room.description && room.type);
-  if (room.id === 'gallery') {
+  if (room.id === 'gallery' || room.id === 'objects') {
     assert.equal(room.status, 'available');
-    assert.equal(room.href, '/world/gallery', 'Gallery opens its own room');
+    assert.equal(
+      room.href,
+      `/world/${room.id}`,
+      `${room.name} opens its own room`,
+    );
   } else {
     assert.equal(room.status, 'planned');
     assert.equal(room.href, null, 'planned wings are never links');
@@ -63,6 +67,7 @@ assert.match(PLANNED_ROOM_LABEL, /later/i);
 for (const [path, inside] of [
   ['/world', true],
   ['/world/gallery', true],
+  ['/world/objects', true],
   ['/worlds', false],
   ['/worlds/modern-bathroom', false],
   ['/', false],

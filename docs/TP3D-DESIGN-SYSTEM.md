@@ -15,6 +15,7 @@ changes a rule.
 - Gallery exhibit → live 3D record: [TP3D-PASS-07-EXHIBIT-EXPERIENCE.md](TP3D-PASS-07-EXHIBIT-EXPERIENCE.md)
 - Gallery detail World-shell record: [TP3D-PASS-08-WORLD-SHELL.md](TP3D-PASS-08-WORLD-SHELL.md)
 - World navigation and viewing-chamber UX record: [TP3D-PASS-09-WORLD-UX.md](TP3D-PASS-09-WORLD-UX.md)
+- Room 02 / Objects record: [TP3D-PASS-10-OBJECTS.md](TP3D-PASS-10-OBJECTS.md)
 - Homepage timeline internals (progress ranges, WebGL tiers, measured
   baselines): [TANPHONG_HOME_MOTION_CONTEXT.md](TANPHONG_HOME_MOTION_CONTEXT.md)
 - Motion tokens: `lib/motion/tokens.ts`, mirrored as `--motion-*` in
@@ -524,6 +525,26 @@ the full map.
     - Bringing a control into view never moves the page when the control
       is already visible.
     - `check-world-ux` enforces this (TP3D PASS 09).
+18. **Availability is truthful.**
+    - A room may open before every digital asset inside it is available.
+      Room 02 opened with four object studies and no available model.
+    - An unavailable 3D asset is a status in plain text, never a control:
+      no disabled button, no `aria-disabled` link, no viewer placeholder.
+    - Content and digital-asset availability are independent. The status
+      comes from the data alone (`asset.available`), and a photograph is
+      named for what it is (`imageRole`: reference study or model render).
+    - Never fabricate a viewer id, a model file, model metadata, a download
+      or a marketplace action to make a room look complete.
+    - `check-objects-room` enforces this (TP3D PASS 10).
+19. **Spaces and objects remain distinct content types.**
+    - A `World` is an environment or interior (Gallery, `/worlds`). A
+      `Product` is an individual object and its future asset (Objects,
+      `/products`).
+    - Both may come to use 3D, each through its own viewer and schema. Do
+      not merge them for that reason.
+    - Each room curates its own type by slugs only and reads every fact
+      from that type's single source.
+    - `check-objects-room` and `check-gallery` enforce this (TP3D PASS 10).
 
 ## 10. Image behavior
 
@@ -784,6 +805,9 @@ project's catalogue.
   chrome. Exhibits open the existing `/worlds/[slug]` viewer pages, which
   render inside the World shell for a validated Gallery visit (rule 15,
   TP3D PASS 08).
+- Room 02, `/world/objects` (TP3D PASS 10), is a cabinet of object studies
+  with no canvas and no viewer. Its studies open the editorial
+  `/products/[slug]` details, where any future object viewer lives.
 - No canvas persists across routes.
 - The homepage must not preload room scenes.
 

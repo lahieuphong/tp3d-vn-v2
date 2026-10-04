@@ -3,10 +3,14 @@
  * every room shares. A future GLB Lobby replaces only the visual layer;
  * routes, room IDs, order and statuses stay here.
  *
- * Rooms open their own route inside the World. Since TP3D PASS 06 the
- * Gallery is a real room (`/world/gallery`, curated in
- * `data/world-gallery.ts`); the full `/worlds` catalogue is reached from
- * inside it and keeps its own URLs.
+ * Rooms open their own route inside the World. Two are real rooms:
+ * - Room 01, the Gallery (`/world/gallery`, TP3D PASS 06): spaces, curated in
+ *   `data/world-gallery.ts`; the `/worlds` catalogue is reached from inside it
+ *   and keeps its own URLs.
+ * - Room 02, Objects (`/world/objects`, TP3D PASS 10): object studies,
+ *   curated in `data/world-objects.ts`; the editorial `/products` collection
+ *   is reached from inside it and keeps its own URLs.
+ * Archive, Lab and Studio are planned wings with no route yet.
  *
  * Not the homepage Atrium shortcuts: Living / Bedroom / Bathroom / Kitchen
  * (`data/home-chapters.ts`) are featured shortcuts into current content. The
@@ -73,8 +77,8 @@ export const worldRooms: readonly WorldRoom[] = [
     description:
       'Objects and models to study from every side, and later to collect.',
     type: 'collection',
-    status: 'planned',
-    href: null,
+    status: 'available',
+    href: '/world/objects',
     futurePath: '/world/objects',
   },
   {

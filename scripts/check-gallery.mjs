@@ -31,14 +31,14 @@ const { worldsEdition } = worldsModule;
 const { resolveGalleryExhibits } = gallery;
 const { isWorldPath, WORLD_PATH } = building;
 
-// 3, 10–11. Inside the World; the Gallery opens its own room; the other four
-// wings are untouched.
+// 3, 10–11. Inside the World; the Gallery opens its own room. Since TP3D
+// PASS 10 Objects opens its own room too; the other three wings stay planned.
 assert.equal(isWorldPath('/world/gallery'), true);
 assert.deepEqual(
   [...worldRooms].map(({ id, status, href }) => [id, status, href]),
   [
     ['gallery', 'available', '/world/gallery'],
-    ['objects', 'planned', null],
+    ['objects', 'available', '/world/objects'],
     ['archive', 'planned', null],
     ['lab', 'planned', null],
     ['studio', 'planned', null],
@@ -116,7 +116,7 @@ assert.equal(
     ['page.tsx'],
     'no /world/gallery/[slug] in this pass',
   );
-  for (const room of ['objects', 'archive', 'lab', 'studio'])
+  for (const room of ['archive', 'lab', 'studio'])
     assert(!existsSync(new URL(`app/world/${room}`, root)), `no ${room} page`);
 }
 
@@ -191,6 +191,11 @@ for (const [, id, status, body] of mapRooms) {
       '9',
     );
     assert.match(body, /You are here/);
+  } else if (id === 'objects') {
+    // TP3D PASS 10: Room 02 is open, a plain link here, never current.
+    assert.equal(status, 'available');
+    assert.match(body, /^<a href="\/world\/objects" class="wl-map-entry">/);
+    assert.doesNotMatch(body, /aria-current|You are here/);
   } else {
     assert.equal(status, 'planned');
     assert.doesNotMatch(body, /<a\b|aria-current/, `26. ${id} stays text`);
@@ -203,6 +208,7 @@ assert.deepEqual(hrefs, [
   '/',
   '/world',
   '/world/gallery',
+  '/world/objects',
   '/',
   // TP3D PASS 07: Gallery exhibits carry the room into the detail page.
   ...galleryExhibits.map((world) => `/worlds/${world.slug}?from=gallery`),
@@ -304,12 +310,17 @@ for (const name of ['gsap', 'lenis', '@studio-freight/lenis', 'framer-motion'])
 assert.equal(scripts['check:gallery'], 'node scripts/check-gallery.mjs');
 
 // 25. The Lobby is the PASS 05 Lobby: with the Gallery href mapped back to
-// its PASS 05 bridge, the shared chrome renders byte-identical markup.
+// its PASS 05 bridge and Objects back to a planned wing (it opened in TP3D
+// PASS 10), the shared chrome renders byte-identical markup.
 {
   const asPass05 = {
     ...building,
     worldRooms: worldRooms.map((r) =>
-      r.id === 'gallery' ? { ...r, href: '/worlds' } : r,
+      r.id === 'gallery'
+        ? { ...r, href: '/worlds' }
+        : r.id === 'objects'
+          ? { ...r, status: 'planned', href: null }
+          : r,
     ),
   };
   const lobbyFor = (buildingModule) =>
@@ -325,13 +336,38 @@ assert.equal(scripts['check:gallery'], 'node scripts/check-gallery.mjs');
     '33b98ff20947d884',
     'Lobby markup equals e55565e (PASS 05)',
   );
-  const lobby = render(lobbyFor(building).WorldLobby);
+  // PASS 06–09: only the Gallery destination changed.
+  const asPass09 = {
+    ...building,
+    worldRooms: worldRooms.map((r) =>
+      r.id === 'objects' ? { ...r, status: 'planned', href: null } : r,
+    ),
+  };
+  const pass09 = render(lobbyFor(asPass09).WorldLobby);
   assert.equal(
-    lobby,
+    pass09,
     pass05.replaceAll('href="/worlds"', 'href="/world/gallery"'),
     'only the Gallery destination changed',
   );
+  // TP3D PASS 10: Objects opens. Only its two entries (spatial directory and
+  // World map) and the open-room count change.
+  const lobby = render(lobbyFor(building).WorldLobby);
+  const withoutObjects = (markup) =>
+    markup
+      .replace(/<li\b[^>]*data-world-room="objects"[\s\S]*?<\/li>/g, '<li/>')
+      .replace(/\d(?:<!-- -->)? of (?:<!-- -->)?\d/, 'n of m');
+  assert.equal(
+    withoutObjects(lobby),
+    withoutObjects(pass09),
+    'only the Objects entries and the count changed',
+  );
   assert.equal((lobby.match(/href="\/world\/gallery"/g) ?? []).length, 2);
+  assert.equal((lobby.match(/href="\/world\/objects"/g) ?? []).length, 2);
+  assert.match(
+    lobby,
+    /2(?:<!-- -->)? of (?:<!-- -->)?5/,
+    'two of five rooms open',
+  );
   assert.match(
     read('app/world/page.tsx'),
     /<div data-world-page="lobby">\s*<WorldLobby \/>/,

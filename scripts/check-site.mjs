@@ -538,8 +538,11 @@ while (pending.length) {
       );
       for (const room of list) {
         if (room.status === 'available')
-          // TP3D PASS 06: the Gallery opens its own room.
-          assert.match(room.body, /<a\b[^>]*href="\/world\/gallery"/);
+          // TP3D PASS 06 / 10: the Gallery and Objects open their own rooms.
+          assert.match(
+            room.body,
+            new RegExp(`<a\\b[^>]*href="/world/${room.id}"`),
+          );
         else assert.doesNotMatch(room.body, /<a\b/, `${room.id}: no fake link`);
       }
     }
@@ -605,9 +608,14 @@ while (pending.length) {
       map,
       /<a\b[^>]*href="\/world\/gallery"[^>]*aria-current="page"/,
     );
+    // TP3D PASS 10: Objects is open too, a plain link here, never current.
+    assert.match(
+      map,
+      /<a\b(?=[^>]*\bhref="\/world\/objects")(?![^>]*aria-current)[^>]*>/,
+    );
     assert.equal(
       (map.match(/<a\b/g) ?? []).length,
-      1,
+      2,
       'planned rooms stay text',
     );
     assert.match(
@@ -618,6 +626,82 @@ while (pending.length) {
     assert.match(
       html,
       /<a\b(?=[^>]*\bclass="wg-catalogue")(?=[^>]*\bhref="\/worlds")/,
+    );
+  }
+  if (route === '/world/objects') {
+    // TP3D PASS 10: Room 02, complete as server HTML, inside the World.
+    assert.match(html, /<title>Objects — TP3D<\/title>/);
+    assert.equal((html.match(/<h1\b/g) ?? []).length, 1, 'Objects: one h1');
+    assert.equal(
+      (html.match(/<header\b/g) ?? []).length,
+      1,
+      'Objects: one header, the World chrome',
+    );
+    assert.doesNotMatch(
+      html,
+      /class="site-header|class="site-footer/,
+      'Objects: the editorial header and footer stay absent',
+    );
+    assert.doesNotMatch(
+      html,
+      /<canvas\b|<iframe\b|three\.module|sketchfab\.com|\bfab\.com|\.glb\b/i,
+      'Objects: no WebGL, no viewer, no model file, no marketplace',
+    );
+    assert.match(html, /<main\b[^>]*id="main"[^>]*data-world-objects/);
+    const specimens = [
+      ...html.matchAll(
+        /<article\b[^>]*data-object-specimen="([^"]+)"[^>]*>([\s\S]*?)<\/article>/g,
+      ),
+    ];
+    assert.deepEqual(
+      specimens.map(([, slug]) => slug),
+      [
+        'form-lounge-chair',
+        'line-sofa',
+        'round-coffee-table',
+        'copper-pendant',
+      ],
+      'Objects: the four curated object studies, in curation order',
+    );
+    for (const [index, [, slug, body]] of specimens.entries()) {
+      assert.match(body, new RegExp(`<a\\b[^>]*href="/products/${slug}"`));
+      assert.match(
+        html,
+        new RegExp(`<article\\b[^>]*\\bid="${slug}"[^>]*data-object-specimen`),
+      );
+      assert.match(html, new RegExp(`<a\\b[^>]*href="#${slug}"`));
+      assert.match(body, new RegExp(`0${index + 1} / 04`));
+      assert.match(body, /<h2\b/);
+      assert.match(body, /Digital model · in preparation/);
+      assert.doesNotMatch(body, /<button\b|aria-disabled|3D asset · available/);
+      assert.equal(
+        /fetchpriority="high"/i.test(body),
+        index === 0,
+        `${slug}: only the first study is priority-loaded`,
+      );
+    }
+    const map = html.match(/aria-label="World map"[\s\S]*?<\/ol>/)?.[0] ?? '';
+    assert.match(
+      map,
+      /<a\b[^>]*href="\/world\/objects"[^>]*aria-current="page"/,
+    );
+    assert.match(
+      map,
+      /<a\b(?=[^>]*\bhref="\/world\/gallery")(?![^>]*aria-current)[^>]*>/,
+    );
+    assert.equal(
+      (map.match(/<a\b/g) ?? []).length,
+      2,
+      'planned rooms stay text',
+    );
+    assert.match(
+      html,
+      /<a\b(?=[^>]*\bclass="wl-back")(?=[^>]*\bhref="\/world")/,
+    );
+    assert.match(html, /<a\b[^>]*href="\/"[^>]*>[\s\S]*?Exit/);
+    assert.match(
+      html,
+      /<a\b(?=[^>]*\bclass="wo-collection-link")(?=[^>]*\bhref="\/products")/,
     );
   }
   if (route === '/worlds') {
@@ -678,6 +762,7 @@ while (pending.length) {
 for (const route of [
   '/world',
   '/world/gallery',
+  '/world/objects',
   '/spaces',
   '/projects',
   '/collections',
@@ -799,7 +884,7 @@ const invalidRoutes = [
   '/journal/missing-article',
   '/worlds/missing-world',
   // Reserved World addresses stay unbuilt until their room exists.
-  '/world/objects',
+  '/world/archive',
   '/world/gallery/modern-kitchen',
 ];
 for (const route of invalidRoutes) {

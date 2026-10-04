@@ -512,11 +512,13 @@ for (const { selectors } of shellRules)
       'spaces/[slug]/page.tsx',
       'spaces/page.tsx',
       'world/gallery/page.tsx',
+      // TP3D PASS 10: Room 02, the one route added since PASS 08.
+      'world/objects/page.tsx',
       'world/page.tsx',
       'worlds/[slug]/page.tsx',
       'worlds/page.tsx',
     ],
-    '33. no route added',
+    '33. no route added by the World shell',
   );
   assert(!existsSync(new URL('app/world/gallery/[slug]', root)));
   for (const file of ['middleware.ts', 'middleware.js', 'proxy.ts'])
