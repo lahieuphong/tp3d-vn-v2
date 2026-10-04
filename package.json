@@ -23,6 +23,7 @@
     "check:worlds": "node scripts/check-worlds.mjs",
     "check:world": "node scripts/check-world-gateway.mjs",
     "check:gallery": "node scripts/check-gallery.mjs",
+    "check:exhibit": "node scripts/check-exhibit.mjs",
     "check:motion": "node scripts/check-motion-foundation.mjs"
   },
   "dependencies": {

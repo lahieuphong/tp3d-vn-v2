@@ -12,6 +12,7 @@ changes a rule.
 - Atmosphere → Worlds / Atrium record: [TP3D-PASS-04-ATMOSPHERE-WORLDS.md](TP3D-PASS-04-ATMOSPHERE-WORLDS.md)
 - Enter the World gateway and Lobby record: [TP3D-PASS-05-WORLD-GATEWAY.md](TP3D-PASS-05-WORLD-GATEWAY.md)
 - Room 01 / Gallery record: [TP3D-PASS-06-GALLERY.md](TP3D-PASS-06-GALLERY.md)
+- Gallery exhibit → live 3D record: [TP3D-PASS-07-EXHIBIT-EXPERIENCE.md](TP3D-PASS-07-EXHIBIT-EXPERIENCE.md)
 - Homepage timeline internals (progress ranges, WebGL tiers, measured
   baselines): [TANPHONG_HOME_MOTION_CONTEXT.md](TANPHONG_HOME_MOTION_CONTEXT.md)
 - Motion tokens: `lib/motion/tokens.ts`, mirrored as `--motion-*` in
@@ -467,6 +468,18 @@ the full map.
     - Both read the same data. A room's curation stores only IDs and order
       (`data/world-gallery.ts`), so the two can never disagree.
     - `check-gallery` enforces the Gallery's side (TP3D PASS 06).
+14. **Interactive 3D is explicit and reversible.**
+    - No viewer or model network before an intentional activation. Load,
+      hover, focus, scroll and idle time never start it.
+    - The poster stays until the live space has loaded. Loading copy is
+      truthful, with no invented progress. The live viewer takes the
+      pointer only after the poster yields.
+    - Every live viewer has one clear way back to its poster: one
+      toggle that keeps focus through enter, cancel and exit. Escape
+      closes the viewer before it ever leaves the page.
+    - Entering one exhibit never preloads or opens the next. Switching
+      always returns to the poster, and there is at most one live viewer.
+    - `check-exhibit` enforces this (TP3D PASS 07).
 
 ## 10. Image behavior
 
@@ -684,6 +697,8 @@ requires deliberate updates to those assertions.
 - `threeScene.enabled: false` renders the static preview immediately.
 - Load the viewer only on the experience route or on explicit intent. This is
   the same click-to-load pattern as the Sketchfab viewer.
+- On `/worlds/[slug]` the poster stays mounted while the Sketchfab embed
+  loads beneath it, then yields (rule 14, TP3D PASS 07).
 
 **Budgets**
 

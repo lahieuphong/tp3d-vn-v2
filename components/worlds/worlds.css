@@ -616,36 +616,43 @@
 .world-detail-stage::after {
   content: '';
   position: absolute;
+  z-index: 1;
   inset: 0;
   pointer-events: none;
   background: rgb(20 19 15 / 0.13);
+  transition: background-color var(--motion-duration-fast) var(--motion-ease-primary);
 }
 .world-detail-poster {
+  z-index: 1;
   width: 100%;
   height: 100%;
   aspect-ratio: auto;
   transform: translate(var(--stage-x, 0), var(--stage-y, 0)) scale(1.012);
-  transition: transform 500ms ease, opacity 260ms ease;
+  transition:
+    transform var(--motion-duration-normal) var(--motion-ease-primary),
+    opacity var(--motion-duration-fast) var(--motion-ease-primary);
 }
 .world-detail-poster img { object-fit: cover; transform: none; }
 .world-detail-stage-frame {
   position: absolute;
-  z-index: 1;
+  z-index: 2;
   inset: 7px;
   border: 1px solid rgb(247 245 240 / 0.35);
   transform: translate(var(--stage-front-x, 0), var(--stage-front-y, 0));
-  transition: transform 500ms ease;
+  transition:
+    transform var(--motion-duration-normal) var(--motion-ease-primary),
+    opacity var(--motion-duration-fast) var(--motion-ease-primary);
   pointer-events: none;
 }
 .world-detail-stage-intro,
 .world-detail-stage-count,
-.world-detail-stage-notes { position: absolute; z-index: 2; color: rgb(247 245 240 / .86); font-size: 8px; line-height: 2.2; letter-spacing: .18em; pointer-events: none; }
+.world-detail-stage-notes { position: absolute; z-index: 3; color: rgb(247 245 240 / .86); font-size: 8px; line-height: 2.2; letter-spacing: .18em; pointer-events: none; transition: opacity var(--motion-duration-fast) var(--motion-ease-primary); }
 .world-detail-stage-intro { top: 31px; left: 33px; transform: translate(var(--stage-front-x, 0), var(--stage-front-y, 0)); }
 .world-detail-stage-count { top: 31px; right: 33px; }
 .world-detail-stage-notes { bottom: 31px; left: 33px; transform: translate(var(--stage-front-x, 0), var(--stage-front-y, 0)); }
 .world-detail-explore {
   position: absolute;
-  z-index: 3;
+  z-index: 4;
   left: 50%;
   bottom: 28px;
   transform: translate(calc(-50% + var(--stage-front-x, 0px)), var(--stage-front-y, 0px));
@@ -660,18 +667,24 @@
   font-size: 9px;
   letter-spacing: 0.15em;
   transition:
-    background 250ms ease,
-    color 250ms ease,
-    transform 500ms ease;
+    background var(--motion-duration-micro) var(--motion-ease-primary),
+    color var(--motion-duration-micro) var(--motion-ease-primary),
+    transform var(--motion-duration-normal) var(--motion-ease-primary);
 }
 .world-detail-explore:hover {
   background: #292823;
   color: var(--background);
 }
+/* The live viewer loads beneath the poster (TP3D PASS 07), below a slim
+   band that holds the page's own controls, so nothing of ours ever sits on
+   Sketchfab's interface. */
+.world-detail-stage {
+  --viewer-band: 60px;
+}
 .world-sketchfab-viewer {
   position: absolute;
-  z-index: 3;
-  inset: 0;
+  z-index: 0;
+  inset: var(--viewer-band) 0 0;
   background: #27251f;
 }
 .world-sketchfab-viewer iframe {
@@ -681,15 +694,91 @@
   height: 100%;
   border: 0;
 }
-.world-viewer-loading {
+.world-detail-fullscreen { position: absolute; z-index: 4; right: 25px; bottom: 27px; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid rgb(247 245 240 / .55); color: #f7f5f0; background: rgb(39 37 31 / .2); font-size: 18px; }
+/* Truthful status, centred on the poster while the viewer opens. */
+.world-detail-status {
   position: absolute;
+  z-index: 3;
   top: 50%;
   left: 50%;
-  color: rgb(247 245 240 / 0.75);
+  margin: 0;
+  padding: 10px 16px;
+  color: #f7f5f0;
+  background: rgb(39 37 31 / 0.78);
   font-size: 9px;
+  letter-spacing: 0.18em;
+  white-space: nowrap;
   transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--motion-duration-fast) var(--motion-ease-primary);
 }
-.world-detail-fullscreen { position: absolute; z-index: 3; right: 25px; bottom: 27px; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid rgb(247 245 240 / .55); color: #f7f5f0; background: rgb(39 37 31 / .2); font-size: 18px; }
+.world-detail-status:empty {
+  padding: 0;
+}
+
+/* TP3D PASS 07 — POSTER → LOADING → LIVE. Loading: the annotations withdraw,
+   the poster dims slightly and stays, the viewer opens inert beneath it.
+   Live: the poster yields (`normal`), the viewer takes the pointer, and the
+   one toggle and fullscreen move into the band above the viewer, clear of
+   Sketchfab's own interface.
+   Back to the poster: the iframe is gone at once and the poster returns
+   (`fast`). Reduced motion turns every step into a cut. */
+.world-detail-stage:not([data-viewer='poster']) .world-detail-stage-frame,
+.world-detail-stage:not([data-viewer='poster']) .world-detail-stage-intro,
+.world-detail-stage:not([data-viewer='poster']) .world-detail-stage-count,
+.world-detail-stage:not([data-viewer='poster']) .world-detail-stage-notes {
+  opacity: 0;
+}
+.world-detail-stage[data-viewer='loading']::after {
+  background: rgb(20 19 15 / 0.3);
+}
+.world-detail-stage[data-viewer='loading'] .world-detail-status {
+  opacity: 1;
+}
+.world-detail-stage[data-viewer='loading'] .world-sketchfab-viewer {
+  pointer-events: none;
+}
+.world-detail-stage[data-viewer='live']::after {
+  background: transparent;
+}
+.world-detail-stage[data-viewer='live'] .world-detail-poster {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-duration-normal) var(--motion-ease-primary);
+}
+.world-detail-stage[data-viewer='live'] .world-detail-explore {
+  top: calc((var(--viewer-band) - 44px) / 2);
+  left: calc((var(--viewer-band) - 44px) / 2);
+  bottom: auto;
+  gap: 14px;
+  min-height: 44px;
+  padding: 8px 18px;
+  color: #f7f5f0;
+  border-color: rgb(247 245 240 / 0.55);
+  background: transparent;
+  transform: none;
+  /* Clears the fixed site header when it is brought into view. */
+  scroll-margin-top: 112px;
+  animation: world-control-in var(--motion-duration-fast) var(--motion-ease-primary) both;
+}
+.world-detail-stage[data-viewer='live'] .world-detail-explore:hover {
+  background: rgb(247 245 240 / 0.12);
+}
+.world-detail-stage[data-viewer='live'] .world-detail-fullscreen {
+  top: calc((var(--viewer-band) - 44px) / 2);
+  right: calc((var(--viewer-band) - 44px) / 2);
+  bottom: auto;
+  animation: world-control-in var(--motion-duration-fast) var(--motion-ease-primary) both;
+}
+@keyframes world-control-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 .world-detail-info {
   min-width: 0;
   overflow-y: auto;

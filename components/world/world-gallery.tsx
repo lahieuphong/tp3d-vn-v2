@@ -4,6 +4,7 @@ import { worldsEdition } from '@/data/worlds';
 import { galleryExhibits } from '@/data/world-gallery';
 import { WORLD_PATH, worldRooms } from '@/data/world-building';
 import { EditorialImage } from '@/components/shared/editorial-image';
+import { galleryExhibitHref } from '@/lib/world-detail-context';
 import { WorldChrome } from './world-chrome';
 import { GalleryDepth } from './gallery-depth';
 import { GalleryReveal } from './gallery-reveal';
@@ -47,6 +48,8 @@ function GalleryExhibit({
   ].filter(Boolean);
   return (
     <article
+      // The fragment the detail page returns to: /world/gallery#<slug>.
+      id={world.slug}
       className="wg-exhibit"
       data-placement={placement}
       data-layout={world.layout ?? 'landscape'}
@@ -81,7 +84,8 @@ function GalleryExhibit({
           {world.available ? (
             // A document navigation, like the catalogue's cards: the 3D world
             // opens at its top, and Back returns to this place in the room.
-            <a className="wg-enter" href={`/worlds/${world.slug}`}>
+            // `?from=gallery` carries the room into the detail page (PASS 07).
+            <a className="wg-enter" href={galleryExhibitHref(world.slug)}>
               <span>
                 Enter exhibit<span className="wg-hidden">: {world.title}</span>
               </span>

@@ -504,7 +504,8 @@ Screenshots stay local (scratchpad) and are not committed.
 
 1. **The detail page does not know the Gallery.** Its breadcrumb "3D WORLDS"
    and Escape lead to the catalogue, not back to the Gallery; browser Back
-   does return. PASS 07 owns the exhibit relationship.
+   does return. PASS 07 owns the exhibit relationship. (Resolved in TP3D
+   PASS 07: see `TP3D-PASS-07-EXHIBIT-EXPERIENCE.md`.)
 2. **Leaving the World uses the editorial chrome.** `/worlds` and
    `/worlds/[slug]` carry the editorial header and footer, by design.
 3. **Two homepage requests.** Two small shared chunks (+1,567 B) now load on

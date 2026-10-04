@@ -100,6 +100,8 @@
    link sits in the label and also covers the photograph. */
 .wg-exhibit {
   position: relative;
+  /* Returning to /world/gallery#<slug> lands with a margin of wall above. */
+  scroll-margin-top: clamp(24px, 6svh, 72px);
 }
 .wg-frame {
   position: relative;

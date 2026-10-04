@@ -1,20 +1,27 @@
 'use client';
 
-import { useState } from 'react';
-
-/** Deliberately mounted only after an explicit request to explore the model. */
-export function SketchfabViewer({ uid, title }: { uid: string; title: string }) {
-  const [loaded, setLoaded] = useState(false);
-
+/** Deliberately mounted only after an explicit request to explore the model.
+ * It sits beneath the poster and stays inert (no pointer, no focus) until the
+ * stage hands over; `onReady` reports the iframe's load. */
+export function SketchfabViewer({
+  uid,
+  title,
+  interactive,
+  onReady,
+}: {
+  uid: string;
+  title: string;
+  interactive: boolean;
+  onReady: () => void;
+}) {
   return (
-    <div className="world-sketchfab-viewer">
-      {!loaded && <p className="world-viewer-loading eyebrow">LOADING 3D VIEW</p>}
+    <div className="world-sketchfab-viewer" inert={!interactive}>
       <iframe
         src={`https://sketchfab.com/models/${uid}/embed?autostart=1&ui_infos=0&ui_stop=0`}
         title={`${title} — interactive 3D view`}
         allow="autoplay; fullscreen; xr-spatial-tracking"
         allowFullScreen
-        onLoad={() => setLoaded(true)}
+        onLoad={onReady}
       />
     </div>
   );

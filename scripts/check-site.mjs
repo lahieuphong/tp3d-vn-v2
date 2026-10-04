@@ -581,7 +581,13 @@ while (pending.length) {
       'Gallery: the four curated worlds, in curation order',
     );
     for (const [index, [, slug, body]] of exhibits.entries()) {
-      assert.match(body, new RegExp(`href="/worlds/${slug}"`));
+      // TP3D PASS 07: the exhibit carries the room into the detail page, and
+      // the article is the fragment the detail page returns to.
+      assert.match(body, new RegExp(`href="/worlds/${slug}\\?from=gallery"`));
+      assert.match(
+        html,
+        new RegExp(`<article\\b[^>]*\\bid="${slug}"[^>]*data-gallery-exhibit`),
+      );
       assert.match(body, new RegExp(`0${index + 1} / 04`));
       assert.match(body, /<h2\b/);
       assert.match(
@@ -696,6 +702,70 @@ await Promise.all(
     );
   }),
 );
+// TP3D PASS 07: one detail route, two contexts. The crawl drops queries, so
+// each context is requested explicitly. Neither renders a viewer.
+{
+  const detail = async (path) => {
+    const r = await fetch(new URL(path, origin));
+    assert.equal(r.status, 200, `${path}: HTTP ${r.status}`);
+    return r.text();
+  };
+  const crumb = (html) =>
+    html.match(/<p class="world-detail-crumb[^"]*">([\s\S]*?)<\/p>/)?.[1] ?? '';
+  const rail = (html) =>
+    [
+      ...(
+        html.match(/aria-label="Other worlds"[\s\S]*?<\/nav>/)?.[0] ?? ''
+      ).matchAll(/aria-label="Open ([^"]+)"/g),
+    ].map(([, title]) => title);
+  const order = [
+    'Modern Kitchen',
+    'White Modern Living Room',
+    'Minimalistic Modern Bedroom',
+    'Modern Bathroom',
+  ];
+  for (const slug of ['modern-kitchen', 'modern-bathroom']) {
+    const gallery = await detail(`/worlds/${slug}?from=gallery`);
+    assert.match(
+      crumb(gallery),
+      new RegExp(
+        `<a href="/world/gallery#${slug}"><span class="sr-only">Back to </span>ROOM 01 / GALLERY</a>`,
+      ),
+      `${slug}: Gallery context returns to its exhibit`,
+    );
+    assert.deepEqual(rail(gallery), order, 'Gallery browses its curation');
+    const catalogue = await detail(`/worlds/${slug}`);
+    assert.match(
+      crumb(catalogue),
+      new RegExp(`<a href="/worlds#${slug}">3D WORLDS</a>`),
+      `${slug}: catalogue context unchanged`,
+    );
+    assert.deepEqual(
+      rail(catalogue),
+      order,
+      'the catalogue browses all worlds',
+    );
+    for (const from of ['lobby', 'GALLERY', '', 'gallery&from=gallery'])
+      assert.match(
+        crumb(await detail(`/worlds/${slug}?from=${from}`)),
+        new RegExp(`href="/worlds#${slug}"`),
+        `${slug}?from=${from}: falls back to the catalogue`,
+      );
+    for (const html of [gallery, catalogue]) {
+      assert.equal((html.match(/<h1\b/g) ?? []).length, 1);
+      assert.match(html, /data-viewer="poster"/);
+      assert.match(
+        html,
+        /class="world-detail-explore eyebrow"[^>]*>[\s\S]*?ENTER 3D WORLD/,
+      );
+      assert.doesNotMatch(
+        html,
+        /<iframe\b|sketchfab\.com\/models/,
+        'no viewer before ENTER 3D WORLD',
+      );
+    }
+  }
+}
 const invalidRoutes = [
   '/projects/missing-project',
   '/spaces/missing-space',

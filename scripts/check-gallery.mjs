@@ -141,6 +141,7 @@ const room = load('components/world/world-gallery.tsx', {
   './world-chrome': chrome,
   './gallery-depth': { GalleryDepth: nullComponent },
   './gallery-reveal': { GalleryReveal: nullComponent },
+  '@/lib/world-detail-context': load('lib/world-detail-context.ts'),
 });
 const html = render(room.WorldGallery);
 const attrs = (tag) =>
@@ -195,7 +196,8 @@ assert.deepEqual(hrefs, [
   '/world',
   '/world/gallery',
   '/',
-  ...galleryExhibits.map((world) => `/worlds/${world.slug}`),
+  // TP3D PASS 07: Gallery exhibits carry the room into the detail page.
+  ...galleryExhibits.map((world) => `/worlds/${world.slug}?from=gallery`),
   '/worlds',
   '/world',
 ]);
@@ -217,6 +219,11 @@ exhibits.forEach((exhibit, index) => {
   const world = galleryExhibits[index];
   const { body } = exhibit;
   assert.equal(exhibit['aria-labelledby'], `exhibit-${world.slug}`);
+  assert.equal(
+    exhibit.id,
+    world.slug,
+    'the fragment the detail page returns to',
+  );
   assert.equal(exhibit['data-layout'], world.layout);
   assert.match(body, new RegExp(`<p class="wg-number">0${index + 1} / 04</p>`));
   assert.match(
@@ -231,7 +238,7 @@ exhibits.forEach((exhibit, index) => {
   assert.match(
     body,
     new RegExp(
-      `<a class="wg-enter" href="/worlds/${world.slug}"><span>Enter exhibit<span class="wg-hidden">: ${world.title}</span></span>`,
+      `<a class="wg-enter" href="/worlds/${world.slug}\\?from=gallery"><span>Enter exhibit<span class="wg-hidden">: ${world.title}</span></span>`,
     ),
   );
   // 33. Every photograph carries its alt and intrinsic size.
@@ -376,15 +383,17 @@ assert.equal(scripts['check:gallery'], 'node scripts/check-gallery.mjs');
   assert.match(list, /for \(const key of \['category', 'q', 'sort'\]\)/);
   assert.match(list, /<WorldsCatalog\s+worlds=\{worlds\}/);
   const detail = read('app/worlds/[slug]/page.tsx');
+  // TP3D PASS 07: one detail route, two contexts; check-exhibit owns the
+  // context, browse-set and viewer behaviour.
   assert.match(
     detail,
-    /<WorldDetail initialWorld=\{world\} worlds=\{worlds\} \/>/,
+    /<WorldDetail\s+initialWorld=\{world\}\s+worlds=\{context\.kind === 'gallery' \? galleryExhibits : worlds\}\s+context=\{context\}\s+\/>/,
   );
-  assert.match(detail, /generateStaticParams = \(\) => worlds\.map/);
+  assert.match(detail, /generateStaticParams = \(\) =>\s*worlds\.map/);
   assert.match(
     read('components/worlds/world-detail.tsx'),
-    /window\.location\.assign\(`\/worlds#\$\{active\.slug\}`\)/,
-    'Escape still returns to the catalogue (unchanged in PASS 06)',
+    /window\.location\.assign\(worldReturnHref\(active\.slug, context\)\)/,
+    'Escape on the poster returns to the visitor’s context',
   );
 }
 
