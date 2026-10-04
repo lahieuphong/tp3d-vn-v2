@@ -1,8 +1,10 @@
 /* TP3D World — the shell every World page shares: tokens, focus, the reduced
-   chrome and the World map (TP3D PASS 05, shared since PASS 06). */
+   chrome and the World map (TP3D PASS 05, shared since PASS 06; a Gallery
+   exhibit's chamber joins in PASS 08). */
 .wl-chrome,
 .world-lobby,
-.world-gallery {
+.world-gallery,
+.world-chamber {
   --wl-serif: 'Cormorant Spatial', Cormorant, Georgia, serif;
   --wl-sans: 'Manrope Spatial', Manrope, Arial, sans-serif;
   --wl-ivory: #f3e9d6;
@@ -12,13 +14,15 @@
 }
 .wl-chrome a,
 .world-lobby a,
-.world-gallery a {
+.world-gallery a,
+.world-chamber a {
   color: inherit;
   text-decoration: none;
 }
 .wl-chrome :focus-visible,
 .world-lobby :focus-visible,
-.world-gallery :focus-visible {
+.world-gallery :focus-visible,
+.world-chamber :focus-visible {
   outline: 1px solid currentColor;
   outline-offset: 6px;
 }

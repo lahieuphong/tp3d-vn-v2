@@ -13,6 +13,7 @@ changes a rule.
 - Enter the World gateway and Lobby record: [TP3D-PASS-05-WORLD-GATEWAY.md](TP3D-PASS-05-WORLD-GATEWAY.md)
 - Room 01 / Gallery record: [TP3D-PASS-06-GALLERY.md](TP3D-PASS-06-GALLERY.md)
 - Gallery exhibit → live 3D record: [TP3D-PASS-07-EXHIBIT-EXPERIENCE.md](TP3D-PASS-07-EXHIBIT-EXPERIENCE.md)
+- Gallery detail World-shell record: [TP3D-PASS-08-WORLD-SHELL.md](TP3D-PASS-08-WORLD-SHELL.md)
 - Homepage timeline internals (progress ranges, WebGL tiers, measured
   baselines): [TANPHONG_HOME_MOTION_CONTEXT.md](TANPHONG_HOME_MOTION_CONTEXT.md)
 - Motion tokens: `lib/motion/tokens.ts`, mirrored as `--motion-*` in
@@ -480,6 +481,22 @@ the full map.
     - Entering one exhibit never preloads or opens the next. Switching
       always returns to the poster, and there is at most one live viewer.
     - `check-exhibit` enforces this (TP3D PASS 07).
+15. **Context controls the shell; content identity stays stable.**
+    - One exhibit has one content route. It may be entered from a room or
+      from the catalogue. The visitor's server-validated context picks the
+      shell around it; never a second route or a redirect.
+    - A Gallery visit (`/worlds/[slug]?from=gallery`, validated against the
+      curation) renders inside the World: `WorldChrome` with the room
+      current, the World ground and type from the first paint, and the
+      editorial header and footer `display: none` under a server-rendered
+      marker. Every other visit, invalid contexts included, keeps the
+      catalogue page exactly as it was.
+    - The shell is decided on the server, scoped by its marker and right
+      from the first paint: no client effect, observer or post-mount DOM
+      mutation, and nothing hidden yet focusable.
+    - What is inside stays the same in both shells: the detail markup, the
+      viewer, model information, credits and metadata.
+    - `check-world-shell` enforces this (TP3D PASS 08).
 
 ## 10. Image behavior
 
@@ -728,7 +745,9 @@ project's catalogue.
   `WorldChrome`. Room 01, `/world/gallery` (TP3D PASS 06), is a 2.5D
   exhibition with no canvas. A future Gallery environment replaces its
   hanging (frames and placement), not its curation, labels, routes or
-  chrome. Exhibits open the existing `/worlds/[slug]` viewer pages.
+  chrome. Exhibits open the existing `/worlds/[slug]` viewer pages, which
+  render inside the World shell for a validated Gallery visit (rule 15,
+  TP3D PASS 08).
 - No canvas persists across routes.
 - The homepage must not preload room scenes.
 

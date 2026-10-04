@@ -745,11 +745,34 @@ await Promise.all(
       order,
       'the catalogue browses all worlds',
     );
-    for (const from of ['lobby', 'GALLERY', '', 'gallery&from=gallery'])
+    const invalid = [];
+    for (const from of ['lobby', 'GALLERY', '', 'gallery&from=gallery']) {
+      const html = await detail(`/worlds/${slug}?from=${from}`);
       assert.match(
-        crumb(await detail(`/worlds/${slug}?from=${from}`)),
+        crumb(html),
         new RegExp(`href="/worlds#${slug}"`),
         `${slug}?from=${from}: falls back to the catalogue`,
+      );
+      invalid.push(html);
+    }
+    // TP3D PASS 08: only the validated Gallery visit is served in the World
+    // shell; the catalogue and every invalid context keep the editorial page.
+    assert.equal(
+      (gallery.match(/data-world-detail-shell="gallery"/g) ?? []).length,
+      1,
+      `${slug}: Gallery shell marker`,
+    );
+    assert.equal(
+      (gallery.match(/<header class="wl-chrome wl-chrome--room">/g) ?? [])
+        .length,
+      1,
+      `${slug}: one World chrome`,
+    );
+    for (const html of [catalogue, ...invalid])
+      assert.doesNotMatch(
+        html,
+        /data-world-detail-shell|class="wl-chrome/,
+        `${slug}: no World shell outside the Gallery context`,
       );
     for (const html of [gallery, catalogue]) {
       assert.equal((html.match(/<h1\b/g) ?? []).length, 1);
