@@ -95,7 +95,19 @@ for (const [path, inside] of [
   assert.equal((lobby.match(/<h1\b/g) ?? []).length, 1, 'one h1');
   assert.match(chrome, /aria-label="World map"/);
   assert.match(lobby, /aria-label="Lobby rooms"/);
-  assert.match(chrome, /<details>/, 'native disclosure, no custom modal');
+  // TP3D PASS 09: the native <details> is rendered by the World map's Escape
+  // island; the summary and every room stay in the server-rendered chrome.
+  assert.match(
+    chrome,
+    /<WorldMapDisclosure>\s*<summary>/,
+    'native disclosure, no custom modal',
+  );
+  const disclosure = read('components/world/world-map-disclosure.tsx');
+  assert.match(
+    disclosure,
+    /return <details ref=\{ref\}>\{children\}<\/details>;/,
+  );
+  assert.doesNotMatch(disclosure + chrome, /role="dialog"|aria-modal|<dialog/);
   assert.match(chrome, /href="\/"[\s\S]*Exit/, 'Exit to website links home');
   assert.match(lobby, /id="main"/, 'skip link target');
   const page = read('app/world/page.tsx');

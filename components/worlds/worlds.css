@@ -586,8 +586,10 @@
 .world-detail-switcher button {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 38px;
+  /* A 44px target in the original 30 × 38 footprint (TP3D PASS 09). */
+  width: 44px;
+  height: 44px;
+  margin: -3px -7px;
   padding: 0;
   border: 0;
   background: none;
@@ -598,10 +600,16 @@
 .world-detail-switcher button:hover:first-child { transform: translateX(-3px); }
 .world-detail-switcher button:hover:last-child { transform: translateX(3px); }
 .world-detail-switcher .eyebrow { color: var(--muted-foreground); font-size: 9px; }
+/* TP3D PASS 09: a definite height from the viewport left below the page's
+   top (header clearance + context row). A min-height alone let the row grow
+   to the information column's content and pushed ENTER 3D WORLD below the
+   fold; the column scrolls instead, as designed. */
 .world-detail-layout {
-  min-height: min(740px, calc(100svh - 166px));
+  --detail-top: 166px;
+  height: clamp(400px, calc(100svh - var(--detail-top)), 740px);
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(292px, 25vw) 76px;
+  grid-template-rows: minmax(0, 1fr);
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
 }
@@ -674,6 +682,17 @@
 .world-detail-explore:hover {
   background: #292823;
   color: var(--background);
+}
+/* TP3D PASS 09: controls over the image, and the dark rail, keep a visible
+   focus whatever the poster's luminance — an ink ring on a paper mat. One
+   of the two always contrasts; walnut is too mid-toned to do it over the
+   posters' grey floors. */
+.world-detail-explore:focus-visible,
+.world-detail-fullscreen:focus-visible,
+.world-thumbnail:focus-visible {
+  outline: 2px solid var(--foreground);
+  outline-offset: 4px;
+  box-shadow: 0 0 0 4px var(--background);
 }
 /* The live viewer loads beneath the poster (TP3D PASS 07), below a slim
    band that holds the page's own controls, so nothing of ours ever sits on
@@ -758,8 +777,11 @@
   border-color: rgb(247 245 240 / 0.55);
   background: transparent;
   transform: none;
-  /* Clears the fixed site header when it is brought into view. */
-  scroll-margin-top: 112px;
+  /* Clears the fixed site header when it is brought into view: 112px with
+     the page's 100px scroll-padding (globals.css). TP3D PASS 09: the margin
+     alone used to be 112px, which doubled the clearance and scrolled the
+     page even when EXIT 3D VIEW was already in view. */
+  scroll-margin-top: 12px;
   animation: world-control-in var(--motion-duration-fast) var(--motion-ease-primary) both;
 }
 .world-detail-stage[data-viewer='live'] .world-detail-explore:hover {
@@ -1002,6 +1024,14 @@
   .worlds-search {
     width: 190px;
   }
+  .world-detail-header {
+    position: absolute;
+  }
+}
+/* The detail stacks on narrow screens and, since TP3D PASS 09, in short
+   landscape as well, where the stage needs the full width more than the
+   information column needs the side. */
+@media (max-width: 820px), (max-width: 1199px) and (max-height: 540px) and (orientation: landscape) {
   .world-detail-layout {
     height: auto;
     min-height: 100dvh;
@@ -1031,9 +1061,6 @@
     order: 3;
     overflow: visible;
     padding: 42px var(--gutter) 64px;
-  }
-  .world-detail-header {
-    position: absolute;
   }
 }
 @media (max-width: 600px) {
@@ -1090,6 +1117,31 @@
   }
   .world-detail-header-note {
     display: none;
+  }
+}
+/* TP3D PASS 09 — short landscape is interaction-first. Below a compact
+   context row the stage takes exactly the height that is left, so ENTER 3D
+   WORLD, CANCEL OPENING, EXIT 3D VIEW and fullscreen are all on screen
+   without scrolling. The decorative notes give way to the action, and the
+   live band tightens around its 44px controls. */
+@media (max-width: 1199px) and (max-height: 540px) and (orientation: landscape) {
+  .world-detail-context {
+    min-height: 44px;
+  }
+  .world-detail-layout {
+    --detail-top: 146px;
+  }
+  .world-detail-stage {
+    --viewer-band: 52px;
+    height: calc(100svh - var(--detail-top) - 1px);
+    min-height: 200px;
+  }
+  .world-detail-stage-notes {
+    display: none;
+  }
+  .world-detail-explore,
+  .world-detail-fullscreen {
+    bottom: 16px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

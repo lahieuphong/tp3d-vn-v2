@@ -14,6 +14,7 @@ changes a rule.
 - Room 01 / Gallery record: [TP3D-PASS-06-GALLERY.md](TP3D-PASS-06-GALLERY.md)
 - Gallery exhibit → live 3D record: [TP3D-PASS-07-EXHIBIT-EXPERIENCE.md](TP3D-PASS-07-EXHIBIT-EXPERIENCE.md)
 - Gallery detail World-shell record: [TP3D-PASS-08-WORLD-SHELL.md](TP3D-PASS-08-WORLD-SHELL.md)
+- World navigation and viewing-chamber UX record: [TP3D-PASS-09-WORLD-UX.md](TP3D-PASS-09-WORLD-UX.md)
 - Homepage timeline internals (progress ranges, WebGL tiers, measured
   baselines): [TANPHONG_HOME_MOTION_CONTEXT.md](TANPHONG_HOME_MOTION_CONTEXT.md)
 - Motion tokens: `lib/motion/tokens.ts`, mirrored as `--motion-*` in
@@ -497,6 +498,32 @@ the full map.
     - What is inside stays the same in both shells: the detail markup, the
       viewer, model information, credits and metadata.
     - `check-world-shell` enforces this (TP3D PASS 08).
+16. **Escape closes the nearest open interaction.**
+    - The order is: an open disclosure (the World map), then a local
+      immersive state (a loading or live viewer), then navigation (the
+      return to the room or the catalogue).
+    - The topmost layer the visitor opened takes Escape before any page
+      handler, listens only while it is open, and never navigates. Closing
+      it returns focus to its own control when focus was inside it, without
+      scrolling.
+    - With nothing open, a page without its own Escape does nothing (the
+      Lobby and the Gallery).
+    - Disclosures stay native `<details>`; no custom modal.
+    - Keys inside a cross-origin viewer belong to that viewer. The page's
+      own EXIT control stays on screen.
+    - `check-world-ux` enforces this (TP3D PASS 09).
+17. **The primary immersive action stays discoverable.**
+    - At rest, ENTER 3D WORLD is on screen without scrolling at laptop
+      heights (720px and up) and in short landscape. Once the viewer opens,
+      so are CANCEL OPENING / EXIT 3D VIEW and fullscreen.
+    - Detail heights are definite and derived from the viewport left below
+      what actually sits above them. Secondary columns scroll; they never
+      grow the stage.
+    - In short landscape the stage stacks at full width, and decorative
+      notes give way first. Controls never shrink below 44px.
+    - Bringing a control into view never moves the page when the control
+      is already visible.
+    - `check-world-ux` enforces this (TP3D PASS 09).
 
 ## 10. Image behavior
 
@@ -576,6 +603,15 @@ the full map.
 
 - Global: 2px solid `--walnut`, offset 5px.
 - Homepage photo contexts use `#514332`, or 1px `currentColor` at offset 7px.
+- The World: 1px `currentColor` (ivory on the ground), offset 6px.
+- Controls over imagery or a dark rail use an explicit ring on a mat, never
+  `currentColor` alone (TP3D PASS 09):
+  - the editorial site: 2px `--foreground` on a 4px `--background` mat
+    (walnut is too mid-toned: under 3:1 against the posters' grey floors);
+  - the World: 2px `--wl-ivory` on a 4px `--world-ground` mat.
+
+  One very dark and one very light layer: whatever the poster's luminance,
+  one of them contrasts by 3:1 or more.
 
 **Touch targets:** at least 44px.
 

@@ -6,6 +6,7 @@ import {
   type WorldRoom,
   type WorldRoomId,
 } from '@/data/world-building';
+import { WorldMapDisclosure } from './world-map-disclosure';
 import './world-chrome.css';
 
 /** One room, for the Lobby's spatial directory and the World map alike: open
@@ -70,9 +71,10 @@ export function WorldChrome({ currentRoom }: { currentRoom?: WorldRoomId }) {
             </span>
           </Link>
         )}
-        {/* Fast navigation: every room without walking through a space. */}
+        {/* Fast navigation: every room without walking through a space. A
+            native disclosure; Escape closes it first (TP3D PASS 09). */}
         <nav className="wl-map" aria-label="World map">
-          <details>
+          <WorldMapDisclosure>
             <summary>
               <span>
                 <span className="wl-wide">World </span>map
@@ -99,7 +101,7 @@ export function WorldChrome({ currentRoom }: { currentRoom?: WorldRoomId }) {
                 </li>
               ))}
             </ol>
-          </details>
+          </WorldMapDisclosure>
         </nav>
         <Link className="wl-exit" href="/" prefetch={false}>
           <span>

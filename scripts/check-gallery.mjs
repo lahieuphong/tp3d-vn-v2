@@ -6,6 +6,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import {
   load,
   read,
@@ -126,10 +127,17 @@ const images = load('data/images.ts', {
 const editorialImage = load('components/shared/editorial-image.tsx', {
   '@/data/images': images,
 });
+// TP3D PASS 09: the World map's Escape island renders the same native
+// <details>, so the chrome's markup (and the Lobby digest) is unchanged.
+const worldMapDisclosure = load('components/world/world-map-disclosure.tsx', {
+  react: createRequire(import.meta.url)('react'),
+  './world-map-escape': load('components/world/world-map-escape.ts'),
+});
 const chromeFor = (buildingModule) =>
   load('components/world/world-chrome.tsx', {
     'next/link': linkModule,
     '@/data/world-building': buildingModule,
+    './world-map-disclosure': worldMapDisclosure,
   });
 const chrome = chromeFor(building);
 const room = load('components/world/world-gallery.tsx', {

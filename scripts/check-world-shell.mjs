@@ -76,6 +76,13 @@ const shellModule = load('components/world/world-detail-shell.tsx', {
   './world-chrome': load('components/world/world-chrome.tsx', {
     'next/link': linkModule,
     '@/data/world-building': building,
+    './world-map-disclosure': load(
+      'components/world/world-map-disclosure.tsx',
+      {
+        react,
+        './world-map-escape': load('components/world/world-map-escape.ts'),
+      },
+    ),
   }),
 });
 const NOT_FOUND = 'NEXT_NOT_FOUND';
@@ -270,22 +277,26 @@ for (const { slug, title, description } of worlds) {
 // 22–28. The viewer is PASS 07's, unchanged: same files, same state model,
 // zero Sketchfab before ENTER, a live viewer that stays interactive inside
 // the chamber, Exit 3D View, fullscreen, and Escape closing the viewer first.
-const PASS_07 = {
+// Locked files. PASS 09 deliberately revised two of them (the detail's
+// definite height, short-landscape stack, 44px switcher targets and focus
+// mat in worlds.css; the World map's Escape island in world-chrome.tsx);
+// every other file is still PASS 07's.
+const LOCKED = {
   'components/worlds/world-detail.tsx': 'b91f4b1cd4481de0',
   'components/worlds/world-detail-stage.tsx': 'f356d911214f6601',
   'components/worlds/sketchfab-viewer.tsx': '6db839abf80c3b6e',
   'components/worlds/world-viewer-state.ts': 'e5d787ade1dd6ab2',
   'components/worlds/world-detail-info.tsx': 'f7eaf1e43da3db6a',
   'components/worlds/world-thumbnail-rail.tsx': '46501161a369eb47',
-  'components/worlds/worlds.css': '888cf2ab3979566f',
+  'components/worlds/worlds.css': 'afb4346cb0916ff6',
   'lib/world-detail-context.ts': 'a7f91f21ecd0538a',
-  'components/world/world-chrome.tsx': '77aafb3c4b3b914b',
+  'components/world/world-chrome.tsx': '3a37f3c5c372903f',
   'app/layout.tsx': 'd1f018f9f20b3294',
   'components/layout/site-header.tsx': 'dfcfe66f79f370b1',
   'components/layout/site-footer.tsx': '8e4ed9e15415afcf',
 };
-for (const [path, hash] of Object.entries(PASS_07))
-  assert.equal(digest(path), hash, `${path} is PASS 07's`);
+for (const [path, hash] of Object.entries(LOCKED))
+  assert.equal(digest(path), hash, `${path} is locked`);
 {
   const { nextViewerState: next, detailKeyAction } = viewer;
   assert.equal(next('poster', 'enter'), 'loading');
