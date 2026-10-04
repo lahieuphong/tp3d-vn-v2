@@ -16,6 +16,7 @@ changes a rule.
 - Gallery detail World-shell record: [TP3D-PASS-08-WORLD-SHELL.md](TP3D-PASS-08-WORLD-SHELL.md)
 - World navigation and viewing-chamber UX record: [TP3D-PASS-09-WORLD-UX.md](TP3D-PASS-09-WORLD-UX.md)
 - Room 02 / Objects record: [TP3D-PASS-10-OBJECTS.md](TP3D-PASS-10-OBJECTS.md)
+- Object study World-shell record: [TP3D-PASS-11-OBJECT-STUDY-SHELL.md](TP3D-PASS-11-OBJECT-STUDY-SHELL.md)
 - Homepage timeline internals (progress ranges, WebGL tiers, measured
   baselines): [TANPHONG_HOME_MOTION_CONTEXT.md](TANPHONG_HOME_MOTION_CONTEXT.md)
 - Motion tokens: `lib/motion/tokens.ts`, mirrored as `--motion-*` in
@@ -484,21 +485,33 @@ the full map.
       always returns to the poster, and there is at most one live viewer.
     - `check-exhibit` enforces this (TP3D PASS 07).
 15. **Context controls the shell; content identity stays stable.**
-    - One exhibit has one content route. It may be entered from a room or
-      from the catalogue. The visitor's server-validated context picks the
-      shell around it; never a second route or a redirect.
-    - A Gallery visit (`/worlds/[slug]?from=gallery`, validated against the
-      curation) renders inside the World: `WorldChrome` with the room
+    - One piece of content has one content route. It may be entered from a
+      room or from its catalogue. The visitor's server-validated context
+      picks the shell around it; never a second route or a redirect.
+    - It holds for both rooms:
+      - Gallery → World details: `/worlds/[slug]?from=gallery` (TP3D
+        PASS 08);
+      - Objects → Product studies: `/products/[slug]?from=objects` (TP3D
+        PASS 11).
+    - A context is one exact query value, validated against the room's
+      curation. Inside the World it renders `WorldChrome` with the room
       current, the World ground and type from the first paint, and the
       editorial header and footer `display: none` under a server-rendered
-      marker. Every other visit, invalid contexts included, keeps the
-      catalogue page exactly as it was.
+      marker. Every other visit, invalid contexts and uncurated content
+      included, keeps the catalogue page exactly as it was.
     - The shell is decided on the server, scoped by its marker and right
       from the first paint: no client effect, observer or post-mount DOM
       mutation, and nothing hidden yet focusable.
-    - What is inside stays the same in both shells: the detail markup, the
-      viewer, model information, credits and metadata.
-    - `check-world-shell` enforces this (TP3D PASS 08).
+    - What is inside stays the same in both shells: the detail markup, any
+      viewer, model information, credits, disclosures and metadata. The
+      context may change only the way back (to the room, at the content's
+      own fragment), the room's own labels, and which links keep the
+      context (only to content the room curates).
+    - Reading the query makes the route render per request: vinext cannot
+      prerender a page that reads it. Add a context only where a room needs
+      it.
+    - `check-world-shell` (TP3D PASS 08) and `check-object-study` (TP3D
+      PASS 11) enforce this.
 16. **Escape closes the nearest open interaction.**
     - The order is: an open disclosure (the World map), then a local
       immersive state (a loading or live viewer), then navigation (the
@@ -545,6 +558,15 @@ the full map.
     - Each room curates its own type by slugs only and reads every fact
       from that type's single source.
     - `check-objects-room` and `check-gallery` enforce this (TP3D PASS 10).
+20. **World rooms contextualize existing content; they do not duplicate it.**
+    - A room links to the content's own route with its context. There is no
+      room-only copy of a detail page (no `/world/objects/[slug]`) and no
+      second detail component.
+    - Whatever a room says about an item comes from the same source as
+      the catalogue: the facts from the data, the relationships derived
+      from shared data and filtered to the room's curation, and the room's
+      labels from one shared helper (`imageRoleLabel`, `assetStatusLabel`).
+    - `check-object-study` enforces this (TP3D PASS 11).
 
 ## 10. Image behavior
 
@@ -806,8 +828,9 @@ project's catalogue.
   render inside the World shell for a validated Gallery visit (rule 15,
   TP3D PASS 08).
 - Room 02, `/world/objects` (TP3D PASS 10), is a cabinet of object studies
-  with no canvas and no viewer. Its studies open the editorial
-  `/products/[slug]` details, where any future object viewer lives.
+  with no canvas and no viewer. Its studies open the `/products/[slug]`
+  details, where any future object viewer lives. They render inside the
+  World shell for a validated Room 02 visit (rule 15, TP3D PASS 11).
 - No canvas persists across routes.
 - The homepage must not preload room scenes.
 

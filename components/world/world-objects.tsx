@@ -2,6 +2,11 @@ import Link from 'next/link';
 import type { Product } from '@/data/types';
 import { objectStudies } from '@/data/world-objects';
 import { WORLD_PATH, worldRooms } from '@/data/world-building';
+import { assetStatusLabel, imageRoleLabel } from '@/lib/product-assets';
+import {
+  objectsContext,
+  productDetailHref,
+} from '@/lib/product-detail-context';
 import { EditorialImage } from '@/components/shared/editorial-image';
 import { WorldChrome } from './world-chrome';
 import { GalleryDepth } from './gallery-depth';
@@ -11,6 +16,12 @@ import './world-objects.css';
 
 const room = worldRooms.find(({ id }) => id === 'objects') ?? worldRooms[1];
 const pad = (value: number) => String(value).padStart(2, '0');
+/** A study opened from the room stays in the room: `/products/[slug]?from=objects`,
+ * the same content route as the collection's (TP3D PASS 11). */
+const studyContext = objectsContext(
+  room,
+  objectStudies.map(({ slug }) => slug),
+);
 
 /** Where a study rests comes from its place in the curation, never from the
  * data: the first stands alone on the plinth, the second lies along a long
@@ -26,18 +37,6 @@ const imageSizes: Record<Setting, string> = {
     '(max-width: 767px) calc(100vw - 44px), (max-width: 1199px) 84vw, 58vw',
   pair: '(max-width: 767px) calc(100vw - 44px), (max-width: 1199px) 44vw, 30vw',
 };
-
-/** What the photograph is, from the data: reference photography stays
- * named as such until a model render is supplied. */
-const plateNote = (product: Product) =>
-  product.imageRole === 'model-render' ? 'Model render' : 'Reference study';
-
-/** The digital asset's state, from the data alone. Plain text either way:
- * there is nothing to activate in the room. */
-const assetStatus = (product: Product) =>
-  product.asset.available
-    ? '3D asset · available'
-    : 'Digital model · in preparation';
 
 /** One object study, like a drawer of the cabinet: a ruled edge carrying its
  * number and what the photograph is, the plate, and a documentation label.
@@ -66,7 +65,7 @@ function ObjectSpecimen({
     >
       <p className="wo-drawer">
         <span className="wo-number">{`${pad(index + 1)} / ${pad(total)}`}</span>
-        <span className="wo-plate-note">{plateNote(product)}</span>
+        <span className="wo-plate-note">{imageRoleLabel(product)}</span>
       </p>
       <div className="wo-plate">
         <EditorialImage
@@ -104,11 +103,14 @@ function ObjectSpecimen({
             product.asset.available ? 'available' : 'in-preparation'
           }
         >
-          {assetStatus(product)}
+          {assetStatusLabel(product.asset)}
         </p>
         {/* A document navigation: the object study opens at its top, and
             Back returns to this place in the room. */}
-        <a className="wo-study" href={`/products/${product.slug}`}>
+        <a
+          className="wo-study"
+          href={productDetailHref(product.slug, studyContext)}
+        >
           <span>
             View object study
             <span className="wo-hidden">: {product.title}</span>

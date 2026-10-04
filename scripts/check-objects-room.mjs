@@ -59,6 +59,10 @@ const roomFor = (curationModule = curation) =>
     'next/link': linkModule,
     '@/data/world-objects': curationModule,
     '@/data/world-building': building,
+    // TP3D PASS 11: the photograph and status labels are shared with the
+    // object studies, and studies open in the Objects context.
+    '@/lib/product-assets': load('lib/product-assets.ts'),
+    '@/lib/product-detail-context': load('lib/product-detail-context.ts'),
     '@/components/shared/editorial-image': editorialImage,
     './world-chrome': chromeFor(building),
     './gallery-depth': { GalleryDepth: nullComponent },
@@ -291,7 +295,9 @@ const css = read('components/world/world-objects.css');
     const slug = ids[index];
     assert.deepEqual(
       [...body.matchAll(/<a\b[^>]*href="([^"]+)"/g)].map(([, h]) => h),
-      [`/products/${slug}`],
+      // TP3D PASS 11: the study opens in the Objects context, on the same
+      // content route.
+      [`/products/${slug}?from=objects`],
       `23. ${slug}: one real link to its object study`,
     );
     assert.match(
@@ -362,10 +368,20 @@ const css = read('components/world/world-objects.css');
     'app/world/objects/page.tsx',
   ]) {
     // Code only: the comments may say what the room deliberately is not.
-    const source = read(file).replace(
-      /\/\*[\s\S]*?\*\/|\/\/[^\n]*|\{\/\*[\s\S]*?\*\/\}/g,
-      '',
-    );
+    // TP3D PASS 11: the room shares exactly two plain-text labels with its
+    // object studies (what the photograph is, the digital model's status);
+    // nothing else of the asset system may enter it.
+    const labels =
+      "import { assetStatusLabel, imageRoleLabel } from '@/lib/product-assets';";
+    if (file === 'components/world/world-objects.tsx')
+      assert.equal(
+        read(file).split(labels).length,
+        2,
+        '35. the two labels only',
+      );
+    const source = read(file)
+      .replace(labels, '')
+      .replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*|\{\/\*[\s\S]*?\*\/\}/g, '');
     assert.doesNotMatch(
       source,
       /from ['"]three['"]|import\(|<canvas|<iframe|getContext|webgl/i,
@@ -519,23 +535,29 @@ const css = read('components/world/world-objects.css');
 // 46–56. The product system is untouched; no route, redirect or dependency
 // beyond the room; the existing commands stay wired.
 {
+  // TP3D PASS 11 deliberately revised four of them for the Objects context:
+  // the study's context prop (product-detail.tsx), context-aware related
+  // links (object-selection.tsx), the shared photograph and status labels
+  // (product-assets.ts) and the server-validated shell (the [slug] page).
+  // Every other file is still PASS 10's; check:object-study locks the
+  // editorial markup itself.
   const PRODUCT = {
-    'components/product/product-detail.tsx': 'ba6c61ef68e717b3',
+    'components/product/product-detail.tsx': '785f3fb044d54e96',
     'components/product/product-asset-sections.tsx': '12b733211f966b05',
     'components/product/sketchfab-viewer.tsx': '0bda9996a13c3b02',
     'components/product/asset-availability.tsx': '9afabeb2c8683aeb',
     'components/product/model-information.tsx': '5c7dc7ecc01512e2',
     'components/product/product-assets.css': '0d5227758a98f8fe',
-    'lib/product-assets.ts': 'ee6d7b479f646c6b',
+    'lib/product-assets.ts': 'dd5606b65228a9e8',
     'data/products.ts': '458f6a1e2163ef89',
     'data/relationships.ts': '0d3ee58a0ec101f3',
     'data/types.ts': 'defd33c83b08986c',
     'app/products/page.tsx': '2257cc689fdfa941',
-    'app/products/[slug]/page.tsx': '4b4e5cf75c5eeea3',
-    'components/sections/object-selection.tsx': '337ed35c92092c71',
+    'app/products/[slug]/page.tsx': 'f5515aa35568c5dc',
+    'components/sections/object-selection.tsx': '5b25053501b24a75',
   };
   for (const [path, hash] of Object.entries(PRODUCT))
-    assert.equal(digest(path), hash, `51–52. ${path} is unchanged`);
+    assert.equal(digest(path), hash, `51–52. ${path} is locked`);
   const pages = readdirSync(new URL('app/', root), { recursive: true })
     .map((file) => file.replace(/\\/g, '/'))
     .filter((file) => /(?:^|\/)(?:page|route)\.(?:tsx?|jsx?)$/.test(file));
@@ -585,5 +607,5 @@ const css = read('components/world/world-objects.css');
 }
 
 console.log(
-  'Objects room passed: /world/objects inside the World chrome with Objects current; the building has two open rooms (Gallery, Objects) and three planned wings, and the Lobby opens Objects from the data; the curation is four slugs resolved against data/products.ts in order, with every title, category, collection, dimension, material, image and asset fact from the product; each study links its /products/[slug] object study, the Object Index lands on stable fragments, and the room leads to /products; digital models read as plain status from asset.available (none available today); no viewer, iframe, canvas, Three.js, model file or marketplace; 44px targets, one-column phones, a clear short-landscape title, a reduced-motion cut and one desktop-only depth; the product system and routes are otherwise untouched.',
+  'Objects room passed: /world/objects inside the World chrome with Objects current; the building has two open rooms (Gallery, Objects) and three planned wings, and the Lobby opens Objects from the data; the curation is four slugs resolved against data/products.ts in order, with every title, category, collection, dimension, material, image and asset fact from the product; each study links its /products/[slug]?from=objects object study, the Object Index lands on stable fragments, and the room leads to /products; digital models read as plain status from asset.available (none available today); no viewer, iframe, canvas, Three.js, model file or marketplace; 44px targets, one-column phones, a clear short-landscape title, a reduced-motion cut and one desktop-only depth; the product system and routes are otherwise untouched.',
 );

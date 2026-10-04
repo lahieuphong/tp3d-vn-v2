@@ -1,0 +1,315 @@
+/* TP3D PASS 11 — an object study inside Room 02: a study taken out of the
+   cabinet and set down on a larger examination table. Every rule here is
+   scoped to the server-rendered marker (object-study-shell.tsx), which the
+   product route emits only for a validated Room 02 context: the editorial
+   object study never matches a rule in this file. The study inside is the
+   editorial ProductDetail; this is a shell, not a second product page.
+   Tokens, focus and the chrome come from world-chrome.css. */
+
+/* First paint: the World ground and no editorial chrome. This stylesheet
+   arrives in <head> with the server HTML, so the first frame already
+   matches; nothing waits for script. */
+:root:has([data-product-detail-shell='objects']),
+:root:has([data-product-detail-shell='objects']) body {
+  background: var(--world-ground);
+  color-scheme: dark;
+}
+/* No fixed header to clear: the World chrome scrolls with the page. */
+:root:has([data-product-detail-shell='objects']) {
+  scroll-padding-top: 0;
+}
+/* Out of sight, out of the tab order and out of the accessibility tree
+   (display: none, never opacity). The World chrome is the one page header. */
+:root:has([data-product-detail-shell='objects']) .site-header,
+:root:has([data-product-detail-shell='objects']) .site-footer {
+  display: none;
+}
+
+/* The chamber re-tones the editorial tokens it passes down, so the shared
+   study, its sections and any future 3D-asset section read on the World
+   ground in the World's type without restyling each component. */
+.world-object-study {
+  --background: var(--world-ground);
+  --foreground: var(--wl-ivory);
+  --muted-foreground: rgb(243 233 214 / 78%);
+  --border: rgb(243 233 214 / 22%);
+  /* Room 02's mount: behind a photograph until it decodes, stone, never
+     paper. */
+  --paper: #2a221b;
+  --font-body: var(--wl-sans);
+  --font-display: var(--wl-serif);
+  --os-chrome: clamp(78px, 9.2svh, 108px);
+  position: relative;
+  min-height: 100svh;
+  background: var(--world-ground);
+  font-family: var(--font-body);
+}
+.world-object-study > main {
+  padding-bottom: clamp(64px, 11svh, 136px);
+}
+/* Aligned with the World chrome's gutter, not the editorial one. */
+.world-object-study .container {
+  width: calc(100% - var(--wl-gutter) * 2);
+}
+.world-object-study .editorial-image {
+  background: var(--paper);
+}
+
+/* The examination table: the way back, then the plate beside its label. */
+.world-object-study .object-detail {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  grid-template-areas:
+    'return return'
+    'plate copy';
+  column-gap: clamp(36px, 5.6vw, 104px);
+  row-gap: clamp(8px, 1.4svh, 18px);
+  align-items: start;
+  padding-top: calc(var(--os-chrome) + clamp(4px, 1.2svh, 16px));
+}
+.world-object-study .object-detail > .back-link {
+  grid-area: return;
+  justify-self: start;
+  margin: 0;
+  color: var(--wl-ivory);
+  font: 500 11px/1.6 var(--wl-sans);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+.world-object-study .object-study-plate {
+  grid-area: plate;
+  margin: 0;
+}
+.world-object-study .object-detail-copy {
+  grid-area: copy;
+}
+
+/* Both columns start on the drawer's edge, as in the room: where the study
+   comes from and what the photograph is, beside its category. */
+.world-object-study .object-study-drawer,
+.world-object-study .object-detail-copy {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.world-object-study .object-study-drawer {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: clamp(14px, 2.2svh, 26px);
+}
+.world-object-study .object-study-drawer > span {
+  white-space: nowrap;
+}
+.world-object-study .object-study-drawer,
+.world-object-study .object-detail-copy .eyebrow,
+.world-object-study .detail-specs dt,
+.world-object-study .object-detail-copy > .object-study-status {
+  color: var(--muted-foreground);
+  font: 500 11px/1.6 var(--wl-sans);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+/* The reference photograph rests on the mount at its own proportion: never
+   cropped, cut out, tinted or shadowed. A pale studio plate stays pale, like
+   museum paper in a dark cabinet. */
+.world-object-study .object-study-plate .editorial-image {
+  aspect-ratio: auto;
+  padding: clamp(14px, 2.2vw, 36px);
+}
+.world-object-study .object-study-plate .editorial-image img {
+  width: 100%;
+  height: auto;
+  max-height: max(320px, calc(100svh - var(--os-chrome) - 232px));
+  object-fit: contain;
+}
+
+/* The label: documentation, not a card. */
+.world-object-study .object-detail-copy .eyebrow {
+  margin-bottom: clamp(16px, 2.6svh, 28px);
+}
+.world-object-study .object-detail-copy h1 {
+  font: 400 clamp(46px, 4.4vw, 80px) / 0.92 var(--wl-serif);
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+/* The collection in the room's italic. The editorial rule sets its size and
+   margin with !important, which only an !important can answer. */
+.world-object-study .object-detail-copy .object-collection {
+  margin-top: 14px !important;
+  color: var(--muted-foreground);
+  font-family: var(--wl-serif);
+  font-size: clamp(19px, 1.45vw, 24px) !important;
+  font-style: italic;
+  line-height: 1.2;
+}
+.world-object-study .object-detail-copy > p:not([class]) {
+  max-width: 40ch;
+  margin-top: clamp(18px, 2.8svh, 30px);
+  color: var(--wl-ivory);
+  font: 400 15px/1.65 var(--wl-sans);
+  text-wrap: pretty;
+}
+/* Form, material and size, set out on rules like a data sheet. */
+.world-object-study .detail-specs {
+  margin-top: clamp(20px, 3.2svh, 36px);
+}
+.world-object-study .detail-specs > div {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.42fr) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 16px;
+  padding-block: 11px;
+}
+.world-object-study .detail-specs dd {
+  margin: 0;
+  color: var(--wl-ivory);
+  font: 400 14px/1.5 var(--wl-sans);
+  font-variant-numeric: tabular-nums;
+}
+/* The digital model's state: plain text, never a control. */
+.world-object-study .object-detail-copy > .object-study-status {
+  max-width: none;
+  margin-top: 16px;
+}
+.world-object-study
+  .object-detail-copy
+  > .object-study-status[data-asset-status='available'] {
+  color: var(--wl-ivory);
+}
+.world-object-study .object-detail-copy > .content-note {
+  max-width: 52ch;
+  margin-top: clamp(20px, 3.2svh, 34px);
+}
+
+/* In context and related studies: further drawers of the same room, each
+   opened on one fine rule. */
+.world-object-study main > .section {
+  margin-top: clamp(80px, 13svh, 160px);
+  padding-block: clamp(24px, 3.5svh, 40px) 0;
+  border-top: 1px solid var(--wl-rule);
+}
+.world-object-study .section-heading {
+  margin-bottom: clamp(32px, 5svh, 52px);
+}
+.world-object-study .section-heading .eyebrow {
+  margin-bottom: 18px;
+  font: 500 11px/1.6 var(--wl-sans);
+  letter-spacing: 0.24em;
+}
+.world-object-study .section-heading h2 {
+  font-size: clamp(36px, 3.6vw, 60px);
+  letter-spacing: -0.035em;
+}
+.world-object-study .image-link {
+  display: block;
+}
+/* Focus over a photograph, whatever its luminance (TP3D PASS 09): an ivory
+   line on a mat of World ground. */
+.world-object-study .image-link:focus-visible {
+  outline: 2px solid var(--wl-ivory);
+  outline-offset: 4px;
+  box-shadow: 0 0 0 4px var(--world-ground);
+}
+
+/* A future 3D asset (none is available today): the product system's own
+   poster-first viewer, model information and listing, on the World ground.
+   Only surfaces and ink change. */
+.world-object-study .asset-viewer-frame,
+.world-object-study .asset-viewer-poster > .editorial-image {
+  background: var(--paper);
+}
+.world-object-study .asset-viewer-message {
+  color: var(--wl-ivory);
+}
+.world-object-study .asset-model-specs dd,
+.world-object-study .asset-acquisition h2 {
+  color: var(--wl-ivory);
+}
+.world-object-study .asset-acquisition {
+  border-top-color: var(--wl-rule);
+}
+
+/* Three related studies sit in one row on wide screens; narrower screens
+   keep the collection's own grid. */
+@media (min-width: 1200px) {
+  .world-object-study .objects-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(24px, 2.4vw, 40px);
+  }
+}
+
+/* Tablet portrait: one column, the plate still large; no hover needed. */
+@media (min-width: 768px) and (max-width: 1199px) and (orientation: portrait) {
+  .world-object-study .object-detail {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'return'
+      'plate'
+      'copy';
+  }
+  .world-object-study .object-study-plate .editorial-image img {
+    max-height: 56svh;
+  }
+  .world-object-study .object-detail-copy {
+    margin-top: 28px;
+  }
+}
+
+/* Phones: one vertical study in reading order — the way back, the plate,
+   the label, then the room's further drawers. */
+@media (max-width: 767px) {
+  .world-object-study {
+    --os-chrome: 76px;
+  }
+  .world-object-study .object-detail {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'return'
+      'plate'
+      'copy';
+    row-gap: 8px;
+  }
+  .world-object-study .object-study-plate .editorial-image img {
+    max-height: 64svh;
+  }
+  .world-object-study .object-detail-copy {
+    margin-top: 22px;
+  }
+  .world-object-study .object-detail-copy h1 {
+    font-size: clamp(40px, 12vw, 52px);
+  }
+  .world-object-study .section-heading h2 {
+    font-size: clamp(32px, 9vw, 40px);
+  }
+}
+
+/* Short landscape: the plate keeps the left half at full height and the
+   way back heads the label, so the title is in the first view. */
+@media (max-width: 1199px) and (max-height: 540px) and (orientation: landscape) {
+  .world-object-study {
+    --os-chrome: 68px;
+  }
+  .world-object-study .object-detail {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'plate return'
+      'plate copy';
+    grid-template-rows: auto 1fr;
+    row-gap: 4px;
+    padding-top: calc(var(--os-chrome) + 4px);
+  }
+  .world-object-study .object-study-drawer {
+    gap: 12px;
+    margin-bottom: 10px;
+    letter-spacing: 0.16em;
+  }
+  .world-object-study .object-study-plate .editorial-image {
+    padding: 10px;
+  }
+  .world-object-study .object-study-plate .editorial-image img {
+    max-height: calc(100svh - var(--os-chrome) - 92px);
+  }
+  .world-object-study .object-detail-copy h1 {
+    font-size: clamp(36px, 5vw, 48px);
+  }
+}

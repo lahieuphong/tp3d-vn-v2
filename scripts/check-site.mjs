@@ -664,7 +664,11 @@ while (pending.length) {
       'Objects: the four curated object studies, in curation order',
     );
     for (const [index, [, slug, body]] of specimens.entries()) {
-      assert.match(body, new RegExp(`<a\\b[^>]*href="/products/${slug}"`));
+      // TP3D PASS 11: a study opens in the Objects context, same route.
+      assert.match(
+        body,
+        new RegExp(`<a\\b[^>]*href="/products/${slug}\\?from=objects"`),
+      );
       assert.match(
         html,
         new RegExp(`<article\\b[^>]*\\bid="${slug}"[^>]*data-object-specimen`),
@@ -874,6 +878,74 @@ await Promise.all(
     }
   }
 }
+// TP3D PASS 11: an object study opened from Room 02 is served inside the
+// World on the same product route; the collection's study and every invalid
+// context keep the editorial page. Neither renders a viewer.
+{
+  const study = async (path) => {
+    const r = await fetch(new URL(path, origin));
+    assert.equal(r.status, 200, `${path}: HTTP ${r.status}`);
+    return r.text();
+  };
+  const back = (html) =>
+    html.match(/<a\b(?=[^>]*\bclass="back-link")[^>]*\bhref="([^"]*)"/)?.[1];
+  for (const slug of ['form-lounge-chair', 'copper-pendant']) {
+    const room = await study(`/products/${slug}?from=objects`);
+    assert.equal(
+      (room.match(/data-product-detail-shell="objects"/g) ?? []).length,
+      1,
+      `${slug}: Objects shell marker`,
+    );
+    assert.equal(
+      (room.match(/<header class="wl-chrome wl-chrome--room">/g) ?? []).length,
+      1,
+      `${slug}: one World chrome`,
+    );
+    assert.equal(back(room), `/world/objects#${slug}`, `${slug}: way back`);
+    assert.match(room, />← Back to Objects</);
+    assert.match(
+      room,
+      /<a\b(?=[^>]*\bclass="wl-map-entry")(?=[^>]*\bhref="\/world\/objects")[^>]*aria-current="page"/,
+      `${slug}: Objects is the current room`,
+    );
+    assert.match(room, /Digital model · in preparation/);
+    const related = [
+      ...room
+        .slice(room.indexOf('objects-section'))
+        .matchAll(/<a\b(?=[^>]*\bclass="image-link")[^>]*\bhref="([^"]*)"/g),
+    ].map(([, h]) => h);
+    assert.ok(
+      related.length > 0 && related.every((h) => h.endsWith('?from=objects')),
+      `${slug}: related studies keep the Objects context`,
+    );
+    const editorial = await study(`/products/${slug}`);
+    const invalid = [];
+    for (const query of [
+      '?from=OBJECTS',
+      '?from=gallery',
+      '?from=objects&from=foo',
+      '?from=',
+    ])
+      invalid.push(await study(`/products/${slug}${query}`));
+    for (const html of [editorial, ...invalid]) {
+      assert.doesNotMatch(
+        html,
+        /data-product-detail-shell|class="wl-chrome/,
+        `${slug}: no World shell outside the Objects context`,
+      );
+      assert.equal(back(html), '/products', `${slug}: ← All objects`);
+      assert.doesNotMatch(html, /\?from=objects/);
+    }
+    for (const html of [room, editorial]) {
+      assert.equal((html.match(/<h1\b/g) ?? []).length, 1);
+      assert.doesNotMatch(
+        html,
+        /<iframe\b|<canvas\b|sketchfab\.com|\bfab\.com|three\.module|\.glb\b/i,
+        `${slug}: no viewer, model or marketplace`,
+      );
+    }
+  }
+}
 const invalidRoutes = [
   '/projects/missing-project',
   '/spaces/missing-space',
@@ -886,6 +958,8 @@ const invalidRoutes = [
   // Reserved World addresses stay unbuilt until their room exists.
   '/world/archive',
   '/world/gallery/modern-kitchen',
+  // TP3D PASS 11: object studies stay on /products/[slug].
+  '/world/objects/form-lounge-chair',
 ];
 for (const route of invalidRoutes) {
   const r = await fetch(new URL(route, origin));

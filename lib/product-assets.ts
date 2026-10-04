@@ -108,3 +108,15 @@ export function productDisclosure(product: Product) {
   }
   return 'A concept object with reference photography. Specifications are illustrative and are not a manufacturer’s product listing.';
 }
+
+/** What a product photograph is, from the data (TP3D PASS 10): reference
+ * photography stays named as such until a model render is supplied. Room 02
+ * and an object study inside it say the same thing. */
+export const imageRoleLabel = (product: Pick<Product, 'imageRole'>) =>
+  product.imageRole === 'model-render' ? 'Model render' : 'Reference study';
+
+/** The digital asset's state in plain words, from `asset.available` alone
+ * (TP3D PASS 10): a status, never a control. Shared by Room 02 and its
+ * object studies (TP3D PASS 11). */
+export const assetStatusLabel = (asset: Pick<ProductAsset, 'available'>) =>
+  asset.available ? '3D asset · available' : 'Digital model · in preparation';

@@ -384,14 +384,20 @@ for (const { selectors } of shellRules)
     readdirSync(new URL(dir, root), { recursive: true })
       .filter((file) => file.endsWith('.css'))
       .map((file) => `${dir}${file.replace(/\\/g, '/')}`);
+  // TP3D PASS 11 adds the one other server marker that may do this: an
+  // object study opened from Room 02 (check:object-study covers it).
+  const markers = {
+    'components/world/world-detail-shell.css': ROOT,
+    'components/world/object-study-shell.css':
+      ":root:has([data-product-detail-shell='objects'])",
+  };
   for (const file of [...cssFiles('app/'), ...cssFiles('components/')])
     for (const { selectors, body } of rules(read(file)))
       if (/display:\s*none/.test(body))
         for (const selector of selectors)
           if (/\.site-(?:header|footer)$/.test(selector))
             assert(
-              file === 'components/world/world-detail-shell.css' &&
-                selector.startsWith(ROOT),
+              file in markers && selector.startsWith(markers[file]),
               `${file}: ${selector}`,
             );
   const layout = read('app/layout.tsx');

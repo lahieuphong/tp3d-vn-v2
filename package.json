@@ -27,6 +27,7 @@
     "check:world-shell": "node scripts/check-world-shell.mjs",
     "check:world-ux": "node scripts/check-world-ux.mjs",
     "check:objects-room": "node scripts/check-objects-room.mjs",
+    "check:object-study": "node scripts/check-object-study.mjs",
     "check:motion": "node scripts/check-motion-foundation.mjs"
   },
   "dependencies": {
