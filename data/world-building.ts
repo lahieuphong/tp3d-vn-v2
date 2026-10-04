@@ -1,7 +1,12 @@
 /** TP3D's World: one building entered from the homepage Atrium. This is the
- * single source of truth for the Lobby's spatial directory and its fast World
- * map. A future GLB Lobby replaces only the visual layer; routes, room IDs,
- * order and statuses stay here.
+ * single source of truth for the Lobby's spatial directory and the World map
+ * every room shares. A future GLB Lobby replaces only the visual layer;
+ * routes, room IDs, order and statuses stay here.
+ *
+ * Rooms open their own route inside the World. Since TP3D PASS 06 the
+ * Gallery is a real room (`/world/gallery`, curated in
+ * `data/world-gallery.ts`); the full `/worlds` catalogue is reached from
+ * inside it and keeps its own URLs.
  *
  * Not the homepage Atrium shortcuts: Living / Bedroom / Bathroom / Kitchen
  * (`data/home-chapters.ts`) are featured shortcuts into current content. The
@@ -38,7 +43,7 @@ type WorldRoomBase = {
 export type WorldRoom =
   | (WorldRoomBase & {
       status: 'available';
-      /** Where the room opens today. */
+      /** The room's own route inside the World. */
       href: string;
     })
   | (WorldRoomBase & {
@@ -54,10 +59,10 @@ export const worldRooms: readonly WorldRoom[] = [
     name: 'Gallery',
     summary: 'Spatial exhibitions',
     description:
-      'Interiors to walk through in 3D. For now the Gallery opens onto the current 3D Worlds catalogue.',
+      'A curated exhibition of digital interiors, each one open to explore in 3D.',
     type: 'exhibition',
     status: 'available',
-    href: '/worlds',
+    href: '/world/gallery',
     futurePath: '/world/gallery',
   },
   {

@@ -35,8 +35,8 @@ const building = load('data/world-building.ts');
 const { worldRooms, WORLD_PATH, isWorldPath, PLANNED_ROOM_LABEL } = building;
 
 // 16–20. One building directory: five rooms, fixed taxonomy and order. Only
-// the Gallery opens today, onto the existing /worlds catalogue; planned wings
-// carry no link at all.
+// the Gallery opens today, onto its own room (TP3D PASS 06; it bridged to
+// /worlds in PASS 05); planned wings carry no link at all.
 assert.equal(WORLD_PATH, '/world');
 assert.deepEqual(
   [...worldRooms].map((room) => [room.number, room.id, room.name]),
@@ -53,7 +53,7 @@ for (const room of worldRooms) {
   assert(room.summary && room.description && room.type);
   if (room.id === 'gallery') {
     assert.equal(room.status, 'available');
-    assert.equal(room.href, '/worlds', 'Gallery bridges to the catalogue');
+    assert.equal(room.href, '/world/gallery', 'Gallery opens its own room');
   } else {
     assert.equal(room.status, 'planned');
     assert.equal(room.href, null, 'planned wings are never links');
@@ -70,31 +70,44 @@ for (const [path, inside] of [
 ])
   assert.equal(isWorldPath(path), inside, `isWorldPath(${path})`);
 
-// The Lobby reads both navigation modes from that one source.
+// The Lobby reads both navigation modes from that one source: its spatial
+// directory, and the World map in the chrome every World page shares.
 {
   const lobby = read('components/world/world-lobby.tsx');
+  const chrome = read('components/world/world-chrome.tsx');
   assert.equal(
     (lobby.match(/worldRooms\.map\(/g) ?? []).length,
-    2,
-    'spatial directory and World map map the same rooms',
+    1,
+    'the spatial directory maps the rooms',
   );
-  for (const name of ['Gallery', 'Objects', 'Archive', 'Studio'])
-    assert(!lobby.includes(`>${name}<`), `no hard-coded ${name}`);
-  assert.doesNotMatch(lobby, /href=["']#/, 'no fake anchors');
+  assert.equal(
+    (chrome.match(/worldRooms\.map\(/g) ?? []).length,
+    1,
+    'the World map maps the same rooms',
+  );
+  assert.match(lobby, /<WorldChrome \/>/, 'the Lobby uses the shared chrome');
+  for (const source of [lobby, chrome]) {
+    for (const name of ['Gallery', 'Objects', 'Archive', 'Studio'])
+      assert(!source.includes(`>${name}<`), `no hard-coded ${name}`);
+    assert.doesNotMatch(source, /href=["']#/, 'no fake anchors');
+  }
   assert.match(lobby, /<h1\b/);
   assert.equal((lobby.match(/<h1\b/g) ?? []).length, 1, 'one h1');
-  assert.match(lobby, /aria-label="World map"/);
+  assert.match(chrome, /aria-label="World map"/);
   assert.match(lobby, /aria-label="Lobby rooms"/);
-  assert.match(lobby, /<details>/, 'native disclosure, no custom modal');
-  assert.match(lobby, /href="\/"[\s\S]*Exit/, 'Exit to website links home');
+  assert.match(chrome, /<details>/, 'native disclosure, no custom modal');
+  assert.match(chrome, /href="\/"[\s\S]*Exit/, 'Exit to website links home');
   assert.match(lobby, /id="main"/, 'skip link target');
   const page = read('app/world/page.tsx');
   assert.match(page, /absolute: 'The Lobby — TP3D'/);
 }
 
-// 23–24. No WebGL in the Lobby: no Three.js, no canvas, no atmosphere code.
+// 23–24. No WebGL in the World: no Three.js, no canvas, no atmosphere code,
+// no RAF of its own (pointer depth uses the shared, self-stopping follower).
 for (const directory of ['components/world/', 'app/world/'])
-  for (const file of readdirSync(new URL(directory, root))) {
+  for (const file of readdirSync(new URL(directory, root), { recursive: true })
+    .map((name) => name.replaceAll('\\', '/'))
+    .filter((name) => /\.(tsx?|css)$/.test(name))) {
     const source = read(directory + file);
     assert.doesNotMatch(source, /from ['"]three['"]|import\(['"]three/);
     assert.doesNotMatch(
@@ -143,10 +156,12 @@ for (const directory of ['components/world/', 'app/world/'])
 
 // 22. Touch targets: every interactive Lobby element reserves at least 44px.
 {
-  const css = read('components/world/world-lobby.css');
+  const css =
+    read('components/world/world-chrome.css') +
+    read('components/world/world-lobby.css');
   for (const selector of [
     '.wl-wordmark',
-    '.wl-map summary,\n.wl-exit',
+    '.wl-map summary,\n.wl-exit,\n.wl-back',
     '.wl-map-entry',
     '.wl-room-body',
   ]) {

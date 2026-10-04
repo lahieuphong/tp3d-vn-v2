@@ -1,124 +1,12 @@
 /* TP3D PASS 05 — The Lobby. A quiet, dark architectural place: the Atrium
-   plate reframed under a calm exposure, one identity, a directory of rooms
-   and a fast World map. The plate layer is the only part a future GLB
-   environment replaces. */
+   plate reframed under a calm exposure, one identity and a directory of
+   rooms. The chrome and World map are shared (world-chrome.css). The plate
+   layer is the only part a future GLB environment replaces. */
 :root:has(main[data-world-lobby]),
 :root:has(main[data-world-lobby]) body {
   /* The first paint already matches the PORTAL cover. */
   background: var(--world-ground);
   color-scheme: dark;
-}
-.world-lobby,
-.wl-chrome {
-  --wl-serif: 'Cormorant Spatial', Cormorant, Georgia, serif;
-  --wl-sans: 'Manrope Spatial', Manrope, Arial, sans-serif;
-  --wl-ivory: #f3e9d6;
-  --wl-rule: rgb(243 233 214 / 32%);
-  --wl-gutter: clamp(22px, 5.4vw, 80px);
-  color: var(--wl-ivory);
-}
-.world-lobby a,
-.wl-chrome a {
-  color: inherit;
-  text-decoration: none;
-}
-.world-lobby :focus-visible,
-.wl-chrome :focus-visible {
-  outline: 1px solid currentColor;
-  outline-offset: 6px;
-}
-
-/* Reduced chrome: identity, World map and a clear exit. Always present. */
-.wl-chrome {
-  position: absolute;
-  inset: 0 0 auto;
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  height: clamp(78px, 9.2svh, 108px);
-  padding-inline: var(--wl-gutter);
-}
-.wl-wordmark {
-  display: inline-flex;
-  flex-direction: column;
-  min-height: 44px;
-  justify-content: center;
-  font: 400 clamp(32px, 2.7vw, 46px) / 0.9 var(--wl-serif);
-  letter-spacing: -0.045em;
-}
-.wl-wordmark span {
-  margin-top: 7px;
-  font: 500 clamp(6px, 0.5vw, 8px) / 1 var(--wl-sans);
-  letter-spacing: 0.27em;
-  text-transform: uppercase;
-  opacity: 0.78;
-}
-.wl-controls {
-  display: flex;
-  align-items: center;
-  gap: clamp(18px, 2.6vw, 44px);
-}
-.wl-map summary,
-.wl-exit {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  font: 500 10px/1 var(--wl-sans);
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-.wl-map summary {
-  list-style: none;
-}
-.wl-map summary::-webkit-details-marker {
-  display: none;
-}
-/* A 1px plus that becomes a minus when the map is open. */
-.wl-map summary::after {
-  content: '';
-  width: 9px;
-  height: 9px;
-  background:
-    linear-gradient(currentColor, currentColor) center / 9px 1px no-repeat,
-    linear-gradient(currentColor, currentColor) center / 1px 9px no-repeat;
-}
-.wl-map details[open] summary::after {
-  background: linear-gradient(currentColor, currentColor) center / 9px 1px
-    no-repeat;
-}
-.wl-map-list {
-  /* Anchored to the chrome, so it always stays inside the viewport. */
-  position: absolute;
-  top: calc(100% - 6px);
-  right: var(--wl-gutter);
-  width: min(330px, calc(100vw - 2 * var(--wl-gutter)));
-  margin: 0;
-  padding: 6px 22px;
-  list-style: none;
-  background: rgb(28 23 18 / 96%);
-  border: 1px solid rgb(243 233 214 / 18%);
-}
-.wl-map-list li + li {
-  border-top: 1px solid rgb(243 233 214 / 10%);
-}
-.wl-map-entry {
-  display: grid;
-  grid-template-columns: 32px 1fr auto;
-  align-items: baseline;
-  gap: 12px;
-  min-height: 48px;
-  padding: 13px 0;
-}
-.wl-map-name {
-  font: 400 24px/1 var(--wl-serif);
-  letter-spacing: -0.02em;
-}
-.wl-map [data-status='planned'] .wl-map-entry {
-  color: rgb(243 233 214 / 78%);
 }
 
 /* The place. */
@@ -222,26 +110,14 @@
   padding: 18px 0 6px;
   border-top: 1px solid var(--wl-rule);
 }
-.wl-number,
-.wl-summary,
-.wl-status {
+.wl-summary {
   font: 500 9px/1.6 var(--wl-sans);
   letter-spacing: 0.22em;
   text-transform: uppercase;
 }
-.wl-number {
-  font-size: 10px;
-}
 .wl-name {
   font: 400 clamp(28px, 2.6vw, 48px) / 1 var(--wl-serif);
   letter-spacing: -0.025em;
-}
-.wl-status {
-  margin-top: 4px;
-}
-.wl-status > span {
-  display: inline-block;
-  transition: transform var(--motion-duration-micro) var(--motion-ease-primary);
 }
 .wl-room[data-status='available'] .wl-room-body {
   border-top-color: rgb(243 233 214 / 72%);
@@ -252,13 +128,11 @@
   color: rgb(243 233 214 / 78%);
   border-top-color: rgb(243 233 214 / 16%);
 }
-.wl-room-body:focus-visible .wl-status > span,
-.wl-map-entry:focus-visible .wl-status > span {
+.wl-room-body:focus-visible .wl-status > span {
   transform: translate(3px, -3px);
 }
 @media (hover: hover) and (pointer: fine) {
-  a.wl-room-body:hover .wl-status > span,
-  a.wl-map-entry:hover .wl-status > span {
+  a.wl-room-body:hover .wl-status > span {
     transform: translate(3px, -3px);
   }
 }
@@ -331,23 +205,6 @@
 
 /* Phones: the directory is the fast path; one readable column. */
 @media (max-width: 767px) {
-  .wl-chrome {
-    height: 76px;
-  }
-  .wl-wordmark {
-    font-size: 32px;
-  }
-  .wl-controls {
-    gap: 18px;
-  }
-  .wl-wide {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
   .world-lobby {
     grid-template-rows: auto auto auto;
     align-content: start;
@@ -441,9 +298,6 @@
 /* Short landscape (shared with the Atrium's rule): identity left, the
    directory as a compact list on the right. */
 @media (max-width: 1199px) and (max-height: 540px) and (orientation: landscape) {
-  .wl-chrome {
-    height: 68px;
-  }
   .world-lobby {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
     grid-template-rows: 1fr auto;

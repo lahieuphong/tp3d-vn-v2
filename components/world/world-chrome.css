@@ -1,0 +1,192 @@
+/* TP3D World — the shell every World page shares: tokens, focus, the reduced
+   chrome and the World map (TP3D PASS 05, shared since PASS 06). */
+.wl-chrome,
+.world-lobby,
+.world-gallery {
+  --wl-serif: 'Cormorant Spatial', Cormorant, Georgia, serif;
+  --wl-sans: 'Manrope Spatial', Manrope, Arial, sans-serif;
+  --wl-ivory: #f3e9d6;
+  --wl-rule: rgb(243 233 214 / 32%);
+  --wl-gutter: clamp(22px, 5.4vw, 80px);
+  color: var(--wl-ivory);
+}
+.wl-chrome a,
+.world-lobby a,
+.world-gallery a {
+  color: inherit;
+  text-decoration: none;
+}
+.wl-chrome :focus-visible,
+.world-lobby :focus-visible,
+.world-gallery :focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 6px;
+}
+
+/* Reduced chrome: identity, World map and a clear exit, always present.
+   Inside a room it adds the way back to the Lobby. */
+.wl-chrome {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  height: clamp(78px, 9.2svh, 108px);
+  padding-inline: var(--wl-gutter);
+}
+.wl-wordmark {
+  display: inline-flex;
+  flex-direction: column;
+  min-height: 44px;
+  justify-content: center;
+  font: 400 clamp(32px, 2.7vw, 46px) / 0.9 var(--wl-serif);
+  letter-spacing: -0.045em;
+}
+.wl-wordmark span {
+  margin-top: 7px;
+  font: 500 clamp(6px, 0.5vw, 8px) / 1 var(--wl-sans);
+  letter-spacing: 0.27em;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+.wl-controls {
+  display: flex;
+  align-items: center;
+  gap: clamp(18px, 2.6vw, 44px);
+}
+.wl-map summary,
+.wl-exit,
+.wl-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font: 500 10px/1 var(--wl-sans);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.wl-map summary {
+  list-style: none;
+}
+.wl-map summary::-webkit-details-marker {
+  display: none;
+}
+/* A 1px plus that becomes a minus when the map is open. */
+.wl-map summary::after {
+  content: '';
+  width: 9px;
+  height: 9px;
+  background:
+    linear-gradient(currentColor, currentColor) center / 9px 1px no-repeat,
+    linear-gradient(currentColor, currentColor) center / 1px 9px no-repeat;
+}
+.wl-map details[open] summary::after {
+  background: linear-gradient(currentColor, currentColor) center / 9px 1px
+    no-repeat;
+}
+.wl-map-list {
+  /* Anchored to the chrome, so it always stays inside the viewport. */
+  position: absolute;
+  top: calc(100% - 6px);
+  right: var(--wl-gutter);
+  width: min(330px, calc(100vw - 2 * var(--wl-gutter)));
+  margin: 0;
+  padding: 6px 22px;
+  list-style: none;
+  background: rgb(28 23 18 / 96%);
+  border: 1px solid rgb(243 233 214 / 18%);
+}
+.wl-map-list li + li {
+  border-top: 1px solid rgb(243 233 214 / 10%);
+}
+.wl-map-entry {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  align-items: baseline;
+  gap: 12px;
+  min-height: 48px;
+  padding: 13px 0;
+}
+.wl-map-name {
+  font: 400 24px/1 var(--wl-serif);
+  letter-spacing: -0.02em;
+}
+.wl-map [data-status='planned'] .wl-map-entry {
+  color: rgb(243 233 214 / 78%);
+}
+.wl-map-entry[aria-current='page'] .wl-map-name {
+  font-style: italic;
+}
+
+/* Labels shared by the World map and the Lobby directory. */
+.wl-number,
+.wl-status {
+  font: 500 9px/1.6 var(--wl-sans);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.wl-number {
+  font-size: 10px;
+}
+.wl-status {
+  margin-top: 4px;
+}
+.wl-status > span,
+.wl-back > span:first-child {
+  display: inline-block;
+  transition: transform var(--motion-duration-micro) var(--motion-ease-primary);
+}
+.wl-map-entry:focus-visible .wl-status > span {
+  transform: translate(3px, -3px);
+}
+.wl-back:focus-visible > span:first-child {
+  transform: translateX(-3px);
+}
+@media (hover: hover) and (pointer: fine) {
+  a.wl-map-entry:hover .wl-status > span {
+    transform: translate(3px, -3px);
+  }
+  .wl-back:hover > span:first-child {
+    transform: translateX(-3px);
+  }
+}
+
+@media (max-width: 767px) {
+  .wl-chrome {
+    height: 76px;
+  }
+  .wl-wordmark {
+    font-size: 32px;
+  }
+  .wl-controls {
+    gap: 18px;
+  }
+  .wl-wide {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  /* A room's chrome carries one more control (the way back to the Lobby):
+     the wordmark scales with the width and never wraps. */
+  .wl-chrome--room {
+    gap: 16px;
+  }
+  .wl-chrome--room .wl-wordmark {
+    font-size: clamp(26px, 8vw, 32px);
+    white-space: nowrap;
+  }
+  .wl-chrome--room .wl-controls {
+    gap: 14px;
+  }
+}
+@media (max-width: 1199px) and (max-height: 540px) and (orientation: landscape) {
+  .wl-chrome {
+    height: 68px;
+  }
+}

@@ -538,11 +538,81 @@ while (pending.length) {
       );
       for (const room of list) {
         if (room.status === 'available')
-          assert.match(room.body, /<a\b[^>]*href="\/worlds"/);
+          // TP3D PASS 06: the Gallery opens its own room.
+          assert.match(room.body, /<a\b[^>]*href="\/world\/gallery"/);
         else assert.doesNotMatch(room.body, /<a\b/, `${room.id}: no fake link`);
       }
     }
     assert.match(html, /<a\b[^>]*href="\/"[^>]*>[\s\S]*?Exit/);
+  }
+  if (route === '/world/gallery') {
+    // TP3D PASS 06: Room 01, complete as server HTML, inside the World.
+    assert.match(html, /<title>Gallery — TP3D<\/title>/);
+    assert.equal((html.match(/<h1\b/g) ?? []).length, 1, 'Gallery: one h1');
+    assert.equal(
+      (html.match(/<header\b/g) ?? []).length,
+      1,
+      'Gallery: one header, the World chrome',
+    );
+    assert.doesNotMatch(
+      html,
+      /class="site-header|class="site-footer/,
+      'Gallery: the editorial header and footer stay absent',
+    );
+    assert.doesNotMatch(
+      html,
+      /<canvas\b|<iframe\b|three\.module|atmospheric-sky|sketchfab\.com\/models/,
+      'Gallery: no WebGL, no viewer, no Sketchfab',
+    );
+    assert.match(html, /<main\b[^>]*id="main"[^>]*data-world-gallery/);
+    const exhibits = [
+      ...html.matchAll(
+        /<article\b[^>]*data-gallery-exhibit="([^"]+)"[^>]*>([\s\S]*?)<\/article>/g,
+      ),
+    ];
+    assert.deepEqual(
+      exhibits.map(([, slug]) => slug),
+      [
+        'modern-kitchen',
+        'white-modern-living-room',
+        'minimalistic-modern-bedroom',
+        'modern-bathroom',
+      ],
+      'Gallery: the four curated worlds, in curation order',
+    );
+    for (const [index, [, slug, body]] of exhibits.entries()) {
+      assert.match(body, new RegExp(`href="/worlds/${slug}"`));
+      assert.match(body, new RegExp(`0${index + 1} / 04`));
+      assert.match(body, /<h2\b/);
+      assert.match(
+        body,
+        /\bwidth="1600"[^>]*\bheight="900"|\bheight="900"[^>]*\bwidth="1600"/,
+      );
+      assert.equal(
+        /fetchpriority="high"/i.test(body),
+        index === 0,
+        `${slug}: only the first exhibit is priority-loaded`,
+      );
+    }
+    const map = html.match(/aria-label="World map"[\s\S]*?<\/ol>/)?.[0] ?? '';
+    assert.match(
+      map,
+      /<a\b[^>]*href="\/world\/gallery"[^>]*aria-current="page"/,
+    );
+    assert.equal(
+      (map.match(/<a\b/g) ?? []).length,
+      1,
+      'planned rooms stay text',
+    );
+    assert.match(
+      html,
+      /<a\b(?=[^>]*\bclass="wl-back")(?=[^>]*\bhref="\/world")/,
+    );
+    assert.match(html, /<a\b[^>]*href="\/"[^>]*>[\s\S]*?Exit/);
+    assert.match(
+      html,
+      /<a\b(?=[^>]*\bclass="wg-catalogue")(?=[^>]*\bhref="\/worlds")/,
+    );
   }
   if (route === '/worlds') {
     assert.equal(
@@ -601,6 +671,7 @@ while (pending.length) {
 }
 for (const route of [
   '/world',
+  '/world/gallery',
   '/spaces',
   '/projects',
   '/collections',
@@ -634,6 +705,9 @@ const invalidRoutes = [
   '/materials/missing-material',
   '/journal/missing-article',
   '/worlds/missing-world',
+  // Reserved World addresses stay unbuilt until their room exists.
+  '/world/objects',
+  '/world/gallery/modern-kitchen',
 ];
 for (const route of invalidRoutes) {
   const r = await fetch(new URL(route, origin));

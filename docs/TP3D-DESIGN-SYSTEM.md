@@ -11,6 +11,7 @@ changes a rule.
 - Perspective → Atmosphere record: [TP3D-PASS-03-PERSPECTIVE-ATMOSPHERE.md](TP3D-PASS-03-PERSPECTIVE-ATMOSPHERE.md)
 - Atmosphere → Worlds / Atrium record: [TP3D-PASS-04-ATMOSPHERE-WORLDS.md](TP3D-PASS-04-ATMOSPHERE-WORLDS.md)
 - Enter the World gateway and Lobby record: [TP3D-PASS-05-WORLD-GATEWAY.md](TP3D-PASS-05-WORLD-GATEWAY.md)
+- Room 01 / Gallery record: [TP3D-PASS-06-GALLERY.md](TP3D-PASS-06-GALLERY.md)
 - Homepage timeline internals (progress ranges, WebGL tiers, measured
   baselines): [TANPHONG_HOME_MOTION_CONTEXT.md](TANPHONG_HOME_MOTION_CONTEXT.md)
 - Motion tokens: `lib/motion/tokens.ts`, mirrored as `--motion-*` in
@@ -36,7 +37,7 @@ website.
 | --- | --- | --- |
 | Website | Editorial gallery / portfolio | All routes; the homepage story |
 | Enter The World | Immersive digital building | Atrium CTA "ENTER THE WORLD" → PORTAL → `/world`, the Lobby (TP3D PASS 05) |
-| Rooms | Different spatial experiences | The building directory: five Lobby rooms in `data/world-building.ts` (01 Gallery open → `/worlds`; 02 Objects, 03 Archive, 04 Lab, 05 Studio planned). The Atrium openings (Living, Bedroom, Bathroom, Kitchen → `/spaces/*`, `/worlds/*`) are featured shortcuts, not the directory. Future `/experience/[slug]` |
+| Rooms | Different spatial experiences | The building directory: five Lobby rooms in `data/world-building.ts` (01 Gallery open → its room, `/world/gallery`, since TP3D PASS 06; 02 Objects, 03 Archive, 04 Lab, 05 Studio planned). The Atrium openings (Living, Bedroom, Bathroom, Kitchen → `/spaces/*`, `/worlds/*`) are featured shortcuts, not the directory. Future `/experience/[slug]` |
 | GLB models | Exhibits | Not yet supplied. `/worlds/[slug]` shows Sketchfab scenes after a click (click-to-load) |
 | Three.js | Exhibition engine | `/experience/[slug]` registry (empty). The homepage sky bridge is the only current use (§14) |
 
@@ -453,6 +454,19 @@ the full map.
     Every interrupted crossing (back, restore, resize, a stalled route)
     removes the cover and leaves nothing locked. `check-world-gateway`
     enforces this (TP3D PASS 05).
+13. **World rooms are experiential; catalogues are utilities.**
+    - **A room** inside `/world` is a composed place. It hangs a chosen
+      selection in the World chrome (Back to Lobby, World map, Exit), with
+      numbered exhibits and exhibition labels. It grows by curation, never
+      automatically with the data.
+    - **A catalogue** (`/worlds`) is the tool for finding everything:
+      search, filters, sorting, pagination and stable URLs, in the
+      editorial chrome.
+    - A room ends with a quiet, secondary way to its catalogue. A catalogue
+      never restyles into a room, and a room never grows filters.
+    - Both read the same data. A room's curation stores only IDs and order
+      (`data/world-gallery.ts`), so the two can never disagree.
+    - `check-gallery` enforces the Gallery's side (TP3D PASS 06).
 
 ## 10. Image behavior
 
@@ -695,6 +709,11 @@ project's catalogue.
   `--world-ground` (`components/world/world-portal.ts`, TP3D PASS 05). The
   Lobby is a 2.5D shell with no canvas. Its plate layer is what a future GLB
   Lobby replaces; room IDs, routes and both navigation modes stay.
+- Rooms are routes under `/world/`, and every World page shares
+  `WorldChrome`. Room 01, `/world/gallery` (TP3D PASS 06), is a 2.5D
+  exhibition with no canvas. A future Gallery environment replaces its
+  hanging (frames and placement), not its curation, labels, routes or
+  chrome. Exhibits open the existing `/worlds/[slug]` viewer pages.
 - No canvas persists across routes.
 - The homepage must not preload room scenes.
 
