@@ -35,8 +35,9 @@ const building = load('data/world-building.ts');
 const { worldRooms, WORLD_PATH, isWorldPath, PLANNED_ROOM_LABEL } = building;
 
 // 16–20. One building directory: five rooms, fixed taxonomy and order. The
-// Gallery (TP3D PASS 06; it bridged to /worlds in PASS 05) and Objects
-// (TP3D PASS 10) open onto their own rooms; planned wings carry no link.
+// Gallery (TP3D PASS 06; it bridged to /worlds in PASS 05), Objects
+// (TP3D PASS 10) and the Archive (TP3D PASS 13) open onto their own rooms;
+// Lab and Studio are planned wings and carry no link.
 assert.equal(WORLD_PATH, '/world');
 assert.deepEqual(
   [...worldRooms].map((room) => [room.number, room.id, room.name]),
@@ -51,7 +52,7 @@ assert.deepEqual(
 for (const room of worldRooms) {
   assert.equal(room.futurePath, `/world/${room.id}`);
   assert(room.summary && room.description && room.type);
-  if (room.id === 'gallery' || room.id === 'objects') {
+  if (['gallery', 'objects', 'archive'].includes(room.id)) {
     assert.equal(room.status, 'available');
     assert.equal(
       room.href,
@@ -68,6 +69,7 @@ for (const [path, inside] of [
   ['/world', true],
   ['/world/gallery', true],
   ['/world/objects', true],
+  ['/world/archive', true],
   ['/worlds', false],
   ['/worlds/modern-bathroom', false],
   ['/', false],

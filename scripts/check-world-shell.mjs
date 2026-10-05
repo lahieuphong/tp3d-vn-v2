@@ -523,7 +523,12 @@ for (const { selectors } of shellRules)
       'world/page.tsx',
       'worlds/[slug]/page.tsx',
       'worlds/page.tsx',
-    ],
+    ]
+      .concat(
+        // TP3D PASS 13: Room 03, the second room route added since PASS 08.
+        ['world/archive/page.tsx'],
+      )
+      .sort(byCodeUnit),
     '33. no route added by the World shell',
   );
   assert(!existsSync(new URL('app/world/gallery/[slug]', root)));

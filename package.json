@@ -29,6 +29,7 @@
     "check:objects-room": "node scripts/check-objects-room.mjs",
     "check:object-study": "node scripts/check-object-study.mjs",
     "check:product-navigation": "node scripts/check-product-navigation.mjs",
+    "check:archive": "node scripts/check-archive.mjs",
     "check:motion": "node scripts/check-motion-foundation.mjs"
   },
   "dependencies": {

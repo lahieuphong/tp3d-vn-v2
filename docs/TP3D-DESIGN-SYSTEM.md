@@ -18,6 +18,7 @@ changes a rule.
 - Room 02 / Objects record: [TP3D-PASS-10-OBJECTS.md](TP3D-PASS-10-OBJECTS.md)
 - Object study World-shell record: [TP3D-PASS-11-OBJECT-STUDY-SHELL.md](TP3D-PASS-11-OBJECT-STUDY-SHELL.md)
 - Product navigation and prefetch record: [TP3D-PASS-12-PRODUCT-NAVIGATION.md](TP3D-PASS-12-PRODUCT-NAVIGATION.md)
+- Room 03 / Archive record: [TP3D-PASS-13-ARCHIVE.md](TP3D-PASS-13-ARCHIVE.md)
 - Homepage timeline internals (progress ranges, WebGL tiers, measured
   baselines): [TANPHONG_HOME_MOTION_CONTEXT.md](TANPHONG_HOME_MOTION_CONTEXT.md)
 - Motion tokens: `lib/motion/tokens.ts`, mirrored as `--motion-*` in
@@ -584,6 +585,19 @@ the full map.
       destination actually chosen. No manual prefetch replaces the
       automatic one.
     - `check-product-navigation` enforces this (TP3D PASS 12).
+22. **The Archive begins with provenance.**
+    - Every Archive record names its source collection and opens its source
+      record, in plain sight, never behind hover.
+    - The Archive curates sources by reference; each source collection stays
+      the canonical owner of its records. Presentation never outruns the
+      source: no invented date, no ageing or scan treatment, no label the
+      source does not support ("material study", not "artefact").
+    - An external cultural record enters only with a named source, a stable
+      source reference, a credit line and a documented publication basis
+      for the specific reproduction. Rights are never inferred from age,
+      aesthetics or availability online, and the underlying work and its
+      digital reproduction are not assumed to share a rights status.
+    - `check-archive` enforces this (TP3D PASS 13).
 
 ## 10. Image behavior
 
@@ -849,6 +863,10 @@ project's catalogue.
   with no canvas and no viewer. Its studies open the `/products/[slug]`
   details, where any future object viewer lives. They render inside the
   World shell for a validated Room 02 visit (rule 15, TP3D PASS 11).
+- Room 03, `/world/archive` (TP3D PASS 13), is a reading room of records
+  with no canvas and no client code of its own. Each record opens its
+  editorial source (Material Library, Journal) as a document navigation;
+  the sources keep their own shell.
 - No canvas persists across routes.
 - The homepage must not preload room scenes.
 

@@ -1,13 +1,14 @@
 /* TP3D World — the shell every World page shares: tokens, focus, the reduced
    chrome and the World map (TP3D PASS 05, shared since PASS 06; a Gallery
    exhibit's chamber joins in PASS 08, Room 02 in PASS 10, an object study
-   inside Room 02 in PASS 11). */
+   inside Room 02 in PASS 11, Room 03 in PASS 13). */
 .wl-chrome,
 .world-lobby,
 .world-gallery,
 .world-chamber,
 .world-objects,
-.world-object-study {
+.world-object-study,
+.world-archive {
   --wl-serif: 'Cormorant Spatial', Cormorant, Georgia, serif;
   --wl-sans: 'Manrope Spatial', Manrope, Arial, sans-serif;
   --wl-ivory: #f3e9d6;
@@ -20,7 +21,8 @@
 .world-gallery a,
 .world-chamber a,
 .world-objects a,
-.world-object-study a {
+.world-object-study a,
+.world-archive a {
   color: inherit;
   text-decoration: none;
 }
@@ -29,7 +31,8 @@
 .world-gallery :focus-visible,
 .world-chamber :focus-visible,
 .world-objects :focus-visible,
-.world-object-study :focus-visible {
+.world-object-study :focus-visible,
+.world-archive :focus-visible {
   outline: 1px solid currentColor;
   outline-offset: 6px;
 }

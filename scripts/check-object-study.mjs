@@ -115,14 +115,28 @@ const detailFor = (source) =>
     './product-asset-sections': assetSections,
   });
 const detailModule = detailFor(productsModule);
-const chrome = load('components/world/world-chrome.tsx', {
-  'next/link': linkModule,
-  '@/data/world-building': building,
-  './world-map-disclosure': load('components/world/world-map-disclosure.tsx', {
-    react,
-    './world-map-escape': load('components/world/world-map-escape.ts'),
-  }),
-});
+const chromeFor = (buildingModule) =>
+  load('components/world/world-chrome.tsx', {
+    'next/link': linkModule,
+    '@/data/world-building': buildingModule,
+    './world-map-disclosure': load(
+      'components/world/world-map-disclosure.tsx',
+      {
+        react,
+        './world-map-escape': load('components/world/world-map-escape.ts'),
+      },
+    ),
+  });
+const chrome = chromeFor(building);
+// The building as it stood before TP3D PASS 13 opened the Archive: the
+// markup locks below compare against it, and the live map adds only the
+// Archive's entry.
+const beforeArchive = {
+  ...building,
+  worldRooms: worldRooms.map((r) =>
+    r.id === 'archive' ? { ...r, status: 'planned', href: null } : r,
+  ),
+};
 const shellModule = load('components/world/object-study-shell.tsx', {
   './world-chrome': chrome,
 });
@@ -149,15 +163,15 @@ const visit = async (slug, searchParams = {}, page = route) =>
       searchParams: Promise.resolve(searchParams),
     }),
   );
-const roomFor = () =>
+const roomFor = (buildingModule = building) =>
   load('components/world/world-objects.tsx', {
     'next/link': linkModule,
     '@/data/world-objects': curation,
-    '@/data/world-building': building,
+    '@/data/world-building': buildingModule,
     '@/lib/product-assets': assets,
     '@/lib/product-detail-context': context,
     '@/components/shared/editorial-image': editorialImage,
-    './world-chrome': chrome,
+    './world-chrome': chromeFor(buildingModule),
     './gallery-depth': { GalleryDepth: nullComponent },
     './gallery-reveal': { GalleryReveal: nullComponent },
   });
@@ -658,12 +672,27 @@ assert.doesNotMatch(
   );
 }
 
-// 40. Room 02 is PASS 10's room; only the studies' hrefs gained the context.
-assert.equal(
-  hash(room.replaceAll('?from=objects"', '"')),
-  PASS10.room,
-  '40. Room 02 unchanged apart from ?from=objects',
-);
+// 40. Room 02 is PASS 10's room; only the studies' hrefs gained the context
+// (and, since TP3D PASS 13, the World map's Archive entry, now a link).
+{
+  const roomBeforeArchive = render(roomFor(beforeArchive).WorldObjects);
+  assert.equal(
+    hash(roomBeforeArchive.replaceAll('?from=objects"', '"')),
+    PASS10.room,
+    '40. Room 02 unchanged apart from ?from=objects',
+  );
+  const withoutArchive = (markup) =>
+    markup.replace(
+      /<li\b[^>]*data-world-room="archive"[\s\S]*?<\/li>/,
+      '<li/>',
+    );
+  assert.equal(
+    withoutArchive(room),
+    withoutArchive(roomBeforeArchive),
+    '40. only the map entry of the Archive changed',
+  );
+  assert.match(room, /<a href="\/world\/archive" class="wl-map-entry">/);
+}
 assert.equal(
   (room.match(/\?from=objects"/g) ?? []).length,
   curatedSlugs.length,
@@ -856,6 +885,8 @@ for (const { selectors } of shellRules)
     [
       'products/[slug]/page.tsx',
       'products/page.tsx',
+      // TP3D PASS 13: Room 03.
+      'world/archive/page.tsx',
       'world/gallery/page.tsx',
       'world/objects/page.tsx',
       'world/page.tsx',
@@ -895,7 +926,8 @@ for (const { selectors } of shellRules)
     'components/world/world-objects.css': '038f31c72e212ffb',
     'app/world/objects/page.tsx': 'f5796bf6efe8f086',
     'data/world-objects.ts': '881f4e2816f5def9',
-    'data/world-building.ts': '04a894eb2c6c96ca',
+    // TP3D PASS 13 opened the Archive (status, href, a truthful description).
+    'data/world-building.ts': '1ab2fcc20806a054',
     'components/world/world-chrome.tsx': '3a37f3c5c372903f',
     // 44, 46–47. The collection, the homepage, the World catalogue.
     'app/products/page.tsx': '2257cc689fdfa941',

@@ -110,8 +110,8 @@ const css = read('components/world/world-objects.css');
   );
 }
 
-// 7–12. The building directory: two open rooms, three planned wings, and the
-// Lobby deriving Objects from it.
+// 7–12. The building directory (three open rooms and two planned wings since
+// TP3D PASS 13), and the Lobby deriving Objects from it.
 {
   const byId = Object.fromEntries(worldRooms.map((r) => [r.id, r]));
   assert.deepEqual(
@@ -124,13 +124,20 @@ const css = read('components/world/world-objects.css');
     ['available', '/world/gallery'],
     '8',
   );
-  for (const id of ['archive', 'lab', 'studio'])
+  // TP3D PASS 13: the Archive opened as Room 03; Lab and Studio stay
+  // planned (check:archive covers the Archive itself).
+  assert.deepEqual(
+    [byId.archive.status, byId.archive.href],
+    ['available', '/world/archive'],
+    '9. archive',
+  );
+  for (const id of ['lab', 'studio'])
     assert.deepEqual(
       [byId[id].status, byId[id].href],
       ['planned', null],
-      `9–11. ${id}`,
+      `10–11. ${id}`,
     );
-  assert(!existsSync(new URL('app/world/archive', root)));
+  assert(existsSync(new URL('app/world/archive/page.tsx', root)));
   assert(!existsSync(new URL('app/world/lab', root)));
   assert(!existsSync(new URL('app/world/studio', root)));
   const lobbyFor = (buildingModule) =>
@@ -565,7 +572,13 @@ const css = read('components/world/world-objects.css');
   assert(pages.includes('world/objects/page.tsx'));
   assert.deepEqual(
     pages.filter((p) => p.startsWith('world/')).sort(byCodeUnit),
-    ['world/gallery/page.tsx', 'world/objects/page.tsx', 'world/page.tsx'],
+    [
+      // TP3D PASS 13 added Room 03; nothing else under /world.
+      'world/archive/page.tsx',
+      'world/gallery/page.tsx',
+      'world/objects/page.tsx',
+      'world/page.tsx',
+    ],
     'one new room route, nothing else under /world',
   );
   for (const file of ['middleware.ts', 'middleware.js', 'proxy.ts'])
@@ -608,5 +621,5 @@ const css = read('components/world/world-objects.css');
 }
 
 console.log(
-  'Objects room passed: /world/objects inside the World chrome with Objects current; the building has two open rooms (Gallery, Objects) and three planned wings, and the Lobby opens Objects from the data; the curation is four slugs resolved against data/products.ts in order, with every title, category, collection, dimension, material, image and asset fact from the product; each study links its /products/[slug]?from=objects object study, the Object Index lands on stable fragments, and the room leads to /products; digital models read as plain status from asset.available (none available today); no viewer, iframe, canvas, Three.js, model file or marketplace; 44px targets, one-column phones, a clear short-landscape title, a reduced-motion cut and one desktop-only depth; the product system and routes are otherwise untouched.',
+  'Objects room passed: /world/objects inside the World chrome with Objects current; the building has three open rooms (Gallery, Objects and, since PASS 13, the Archive) and two planned wings, and the Lobby opens Objects from the data; the curation is four slugs resolved against data/products.ts in order, with every title, category, collection, dimension, material, image and asset fact from the product; each study links its /products/[slug]?from=objects object study, the Object Index lands on stable fragments, and the room leads to /products; digital models read as plain status from asset.available (none available today); no viewer, iframe, canvas, Three.js, model file or marketplace; 44px targets, one-column phones, a clear short-landscape title, a reduced-motion cut and one desktop-only depth; the product system and routes are otherwise untouched.',
 );

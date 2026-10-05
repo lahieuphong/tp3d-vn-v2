@@ -536,9 +536,15 @@ while (pending.length) {
         ['gallery', 'objects', 'archive', 'lab', 'studio'],
         'Lobby: both navigation modes list the same rooms in order',
       );
+      // TP3D PASS 06 / 10 / 13: the Gallery, Objects and the Archive open
+      // their own rooms; Lab and Studio stay planned.
+      assert.deepEqual(
+        list.filter((room) => room.status === 'available').map((r) => r.id),
+        ['gallery', 'objects', 'archive'],
+        'Lobby: three open rooms',
+      );
       for (const room of list) {
         if (room.status === 'available')
-          // TP3D PASS 06 / 10: the Gallery and Objects open their own rooms.
           assert.match(
             room.body,
             new RegExp(`<a\\b[^>]*href="/world/${room.id}"`),
@@ -546,6 +552,99 @@ while (pending.length) {
         else assert.doesNotMatch(room.body, /<a\b/, `${room.id}: no fake link`);
       }
     }
+    assert.match(html, /<a\b[^>]*href="\/"[^>]*>[\s\S]*?Exit/);
+  }
+  if (route === '/world/archive') {
+    // TP3D PASS 13: Room 03, a reading room of records, complete as server
+    // HTML, inside the World; every record names and opens its source.
+    assert.match(html, /<title>Archive — TP3D<\/title>/);
+    assert.equal((html.match(/<h1\b/g) ?? []).length, 1, 'Archive: one h1');
+    assert.equal(
+      (html.match(/<header\b/g) ?? []).length,
+      1,
+      'Archive: one header, the World chrome',
+    );
+    assert.doesNotMatch(
+      html,
+      /class="site-header|class="site-footer/,
+      'Archive: the editorial header and footer stay absent',
+    );
+    assert.doesNotMatch(
+      html,
+      /<canvas\b|<iframe\b|three\.module|sketchfab\.com|\bfab\.com|\.glb\b/i,
+      'Archive: no WebGL, no viewer, no model file',
+    );
+    assert.match(html, /<main\b[^>]*id="main"[^>]*data-world-archive/);
+    const records = [
+      ...html.matchAll(
+        /<article\b[^>]*\bid="([^"]+)"[^>]*data-archive-record="([^"]+)"[^>]*>([\s\S]*?)<\/article>/g,
+      ),
+    ];
+    assert.deepEqual(
+      records.map(([, id]) => id),
+      [
+        'material-natural-oak',
+        'material-travertine',
+        'material-linen',
+        'journal-light-texture-and-material',
+      ],
+      'Archive: four records in accession order',
+    );
+    const sources = {
+      'material-natural-oak': ['/materials/natural-oak', 'Material Library'],
+      'material-travertine': ['/materials/travertine', 'Material Library'],
+      'material-linen': ['/materials/linen', 'Material Library'],
+      'journal-light-texture-and-material': [
+        '/journal/light-texture-and-material',
+        'Journal',
+      ],
+    };
+    for (const [index, [, id, , body]] of records.entries()) {
+      const [href, collection] = sources[id];
+      assert.match(body, new RegExp(`AR–00${index + 1}`));
+      assert.match(body, /<h2\b/);
+      assert.match(body, new RegExp(`>${collection}<`), `${id}: source named`);
+      assert.match(
+        body,
+        new RegExp(`<a\\b(?=[^>]*\\bclass="wa-source")[^>]*href="${href}"`),
+        `${id}: opens its source record`,
+      );
+      assert.match(html, new RegExp(`<a\\b[^>]*href="#${id}"`), `${id}: index`);
+    }
+    assert.match(records[3][3], /<time\b[^>]*dateTime="2026-06-12"/i);
+    for (const [, , , body] of records.slice(0, 3))
+      assert.doesNotMatch(body, /<time\b/, 'materials are undated');
+    assert.match(html, /Existing TP3D project content/);
+    assert.match(
+      html,
+      /require a documented source, credit and publication basis/,
+    );
+    assert.doesNotMatch(
+      html.match(/<main\b[\s\S]*<\/main>/)?.[0] ?? '',
+      /href="https?:|public domain|all rights reserved/i,
+      'Archive: no external record, no rights claim',
+    );
+    const map = html.match(/aria-label="World map"[\s\S]*?<\/ol>/)?.[0] ?? '';
+    assert.match(
+      map,
+      /<a\b[^>]*href="\/world\/archive"[^>]*aria-current="page"/,
+    );
+    for (const room of ['gallery', 'objects'])
+      assert.match(
+        map,
+        new RegExp(
+          `<a\\b(?=[^>]*\\bhref="/world/${room}")(?![^>]*aria-current)[^>]*>`,
+        ),
+      );
+    assert.equal(
+      (map.match(/<a\b/g) ?? []).length,
+      3,
+      'planned rooms stay text',
+    );
+    assert.match(
+      html,
+      /<a\b(?=[^>]*\bclass="wl-back")(?=[^>]*\bhref="\/world")/,
+    );
     assert.match(html, /<a\b[^>]*href="\/"[^>]*>[\s\S]*?Exit/);
   }
   if (route === '/world/gallery') {
@@ -608,14 +707,18 @@ while (pending.length) {
       map,
       /<a\b[^>]*href="\/world\/gallery"[^>]*aria-current="page"/,
     );
-    // TP3D PASS 10: Objects is open too, a plain link here, never current.
-    assert.match(
-      map,
-      /<a\b(?=[^>]*\bhref="\/world\/objects")(?![^>]*aria-current)[^>]*>/,
-    );
+    // TP3D PASS 10 / 13: Objects and the Archive are open too, plain links
+    // here, never current.
+    for (const room of ['objects', 'archive'])
+      assert.match(
+        map,
+        new RegExp(
+          `<a\\b(?=[^>]*\\bhref="/world/${room}")(?![^>]*aria-current)[^>]*>`,
+        ),
+      );
     assert.equal(
       (map.match(/<a\b/g) ?? []).length,
-      2,
+      3,
       'planned rooms stay text',
     );
     assert.match(
@@ -689,13 +792,16 @@ while (pending.length) {
       map,
       /<a\b[^>]*href="\/world\/objects"[^>]*aria-current="page"/,
     );
-    assert.match(
-      map,
-      /<a\b(?=[^>]*\bhref="\/world\/gallery")(?![^>]*aria-current)[^>]*>/,
-    );
+    for (const room of ['gallery', 'archive'])
+      assert.match(
+        map,
+        new RegExp(
+          `<a\\b(?=[^>]*\\bhref="/world/${room}")(?![^>]*aria-current)[^>]*>`,
+        ),
+      );
     assert.equal(
       (map.match(/<a\b/g) ?? []).length,
-      2,
+      3,
       'planned rooms stay text',
     );
     assert.match(
@@ -955,8 +1061,10 @@ const invalidRoutes = [
   '/materials/missing-material',
   '/journal/missing-article',
   '/worlds/missing-world',
-  // Reserved World addresses stay unbuilt until their room exists.
-  '/world/archive',
+  // Reserved World addresses stay unbuilt until their room exists (the
+  // Archive opened in TP3D PASS 13; its records stay on their sources).
+  '/world/lab',
+  '/world/archive/material-natural-oak',
   '/world/gallery/modern-kitchen',
   // TP3D PASS 11: object studies stay on /products/[slug].
   '/world/objects/form-lounge-chair',

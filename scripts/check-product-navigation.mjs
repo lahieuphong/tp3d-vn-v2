@@ -72,7 +72,7 @@ const objects = context.objectsContext(objectsRoom, curatedSlugs);
 const editorialImage = load('components/shared/editorial-image.tsx', {
   '@/data/images': images,
 });
-const wiring = (link) => {
+const wiring = (link, buildingModule = building) => {
   const textLink = load('components/shared/text-link.tsx', {
     'next/link': link,
   });
@@ -132,7 +132,7 @@ const wiring = (link) => {
   });
   const chrome = load('components/world/world-chrome.tsx', {
     'next/link': link,
-    '@/data/world-building': building,
+    '@/data/world-building': buildingModule,
     './world-map-disclosure': load('components/world/world-map-disclosure.tsx', {
       react,
       './world-map-escape': load('components/world/world-map-escape.ts'),
@@ -149,7 +149,7 @@ const wiring = (link) => {
     },
     '@/data/products': productsModule,
     '@/data/world-objects': curation,
-    '@/data/world-building': building,
+    '@/data/world-building': buildingModule,
     '@/lib/product-detail-context': context,
     '@/components/product/product-detail': detail,
     '@/components/world/object-study-shell': shell,
@@ -157,7 +157,7 @@ const wiring = (link) => {
   const room = load('components/world/world-objects.tsx', {
     'next/link': link,
     '@/data/world-objects': curation,
-    '@/data/world-building': building,
+    '@/data/world-building': buildingModule,
     '@/lib/product-assets': assets,
     '@/lib/product-detail-context': context,
     '@/components/shared/editorial-image': editorialImage,
@@ -175,7 +175,15 @@ const wiring = (link) => {
   return { selection, visit, room };
 };
 const recorded = wiring(recordingLink);
-const plain = wiring(linkModule);
+// Markup locks compare with the building as it stood before TP3D PASS 13
+// opened the Archive (the World map's only change).
+const beforeArchive = {
+  ...building,
+  worldRooms: worldRooms.map((r) =>
+    r.id === 'archive' ? { ...r, status: 'planned', href: null } : r,
+  ),
+};
+const plain = wiring(linkModule, beforeArchive);
 
 /** Every anchor whose href is a Product detail, with its recorded policy. */
 const productDetailAnchors = (html) =>
@@ -408,7 +416,8 @@ for (const { slug } of products) {
     'components/world/object-study-shell.css': '7743c1aecaa2449a',
     'components/world/world-objects.tsx': '4a565398c1e36def',
     'components/world/world-chrome.tsx': '3a37f3c5c372903f',
-    'components/world/world-chrome.css': 'd03d97df0620fadb',
+    // TP3D PASS 13 shares the World tokens with the Archive.
+    'components/world/world-chrome.css': '1b8b7848e86a9684',
     'lib/product-assets.ts': 'dd5606b65228a9e8',
     'components/shared/section-heading.tsx': '983439f27e3defa5',
     'components/shared/text-link.tsx': '837e8edb721aa951',
@@ -446,6 +455,8 @@ for (const { slug } of products) {
     [
       'products/[slug]/page.tsx',
       'products/page.tsx',
+      // TP3D PASS 13: Room 03.
+      'world/archive/page.tsx',
       'world/gallery/page.tsx',
       'world/objects/page.tsx',
       'world/page.tsx',

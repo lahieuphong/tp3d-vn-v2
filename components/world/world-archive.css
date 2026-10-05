@@ -1,0 +1,705 @@
+/* TP3D PASS 13 — Room 03, Archive. A quiet reading room: catalogue sheets
+   with an accession line, the source's own photograph on a plain mount and a
+   label that always names its source; a reading table for the first two
+   records, a register for the rest, an index and a note on what may enter.
+   No ageing, grain, stamps or scan borders: the photographs stay what they
+   are. Tokens, focus and the chrome come from world-chrome.css. */
+:root:has(main[data-world-archive]),
+:root:has(main[data-world-archive]) body {
+  /* The same ground as every World room and the PORTAL cover. */
+  background: var(--world-ground);
+  color-scheme: dark;
+}
+:root:has(main[data-world-archive]) {
+  /* Native scroll, unsmoothed: the room opens at its top at once. */
+  scroll-behavior: auto;
+}
+.world-archive {
+  /* Behind a photograph until it decodes: stone, never paper. */
+  --wa-mount: #2a221b;
+  --wa-quiet: rgb(243 233 214 / 78%);
+  /* A sheet's edge, finer than the World rule. */
+  --wa-edge: rgb(243 233 214 / 22%);
+  position: relative;
+  overflow-x: clip;
+  padding-bottom: clamp(40px, 7svh, 88px);
+  background: var(--world-ground);
+}
+.wa-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* Class-level spacing below always wins over this reset (0,1,0, earlier). */
+.world-archive :where(p, dl, dd, ol) {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Record type: one serif for names, one sans for facts. */
+.wa-room-number,
+.wa-count,
+.wa-section-title,
+.wa-collection,
+.wa-accession,
+.wa-category,
+.wa-facts dt,
+.wa-source,
+.wa-index-number,
+.wa-index-kind,
+.wa-basis dt,
+.wa-collection-link,
+.wa-lobby {
+  font: 500 11px/1.6 var(--wl-sans);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+.wa-room-number,
+.wa-count,
+.wa-section-title,
+.wa-collection,
+.wa-accession,
+.wa-category,
+.wa-facts dt,
+.wa-index-kind,
+.wa-basis dt {
+  color: var(--wa-quiet);
+}
+
+/* Entry: the room's number and name. */
+.wa-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  column-gap: clamp(32px, 5vw, 96px);
+  padding: calc(clamp(78px, 9.2svh, 108px) + clamp(16px, 3svh, 40px))
+    var(--wl-gutter) clamp(28px, 4.5svh, 56px);
+}
+.wa-room-number {
+  grid-column: 1;
+  margin-bottom: 14px;
+}
+.world-archive h1 {
+  grid-column: 1;
+  margin: 0;
+  max-width: none;
+  font: 400 clamp(72px, 7.4vw, 136px) / 0.84 var(--wl-serif);
+  letter-spacing: -0.05em;
+}
+.wa-statement {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  max-width: 17ch;
+  padding-bottom: 6px;
+  text-align: right;
+  font: 400 clamp(22px, 1.8vw, 32px) / 1.12 var(--wl-serif);
+  letter-spacing: -0.02em;
+}
+.wa-statement em,
+.wa-summary,
+.wa-note-line em {
+  font-style: italic;
+}
+.wa-count {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  margin-bottom: 14px;
+}
+
+/* The reading table: one line across the room, then the first two records
+   facing each other across it. */
+.wa-table {
+  padding-inline: var(--wl-gutter);
+}
+.wa-table-edge {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding-top: 14px;
+}
+.wa-table-edge::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: var(--wl-rule);
+  transform-origin: left center;
+}
+.wa-wall-text {
+  max-width: 46ch;
+  margin: clamp(20px, 3svh, 32px) 0 clamp(36px, 6svh, 72px);
+  color: var(--wa-quiet);
+  font: 400 15px/1.65 var(--wl-sans);
+}
+
+/* A record: the accession line, the plate, the label. */
+.wa-record {
+  position: relative;
+  display: grid;
+  /* Landing on /world/archive#<record> leaves a margin of room above. */
+  scroll-margin-top: clamp(24px, 6svh, 72px);
+}
+.wa-accession {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  grid-column: 1 / -1;
+  padding-top: 12px;
+  margin-bottom: clamp(16px, 2.4svh, 28px);
+  border-top: 1px solid var(--wa-edge);
+}
+.wa-number {
+  color: var(--wl-ivory);
+}
+/* A plain mount: the photograph as it is, no scan border or ageing. */
+.wa-plate {
+  background: var(--wa-mount);
+  padding: clamp(10px, 1.2vw, 20px);
+}
+.wa-plate .editorial-image {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  background: var(--wa-mount);
+}
+.wa-plate .editorial-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: none;
+}
+
+/* The label: documentation, not a card. */
+.wa-label {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 12px;
+}
+.wa-title {
+  margin: 0;
+  max-width: none;
+  font: 400 clamp(32px, 2.7vw, 48px) / 1 var(--wl-serif);
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+.wa-summary {
+  max-width: 30ch;
+  color: var(--wa-quiet);
+  font: 400 clamp(19px, 1.45vw, 23px) / 1.25 var(--wl-serif);
+  font-style: italic;
+}
+.world-archive .wa-excerpt {
+  max-width: 40ch;
+  margin-top: 4px;
+  font: 400 15px/1.65 var(--wl-sans);
+  text-wrap: pretty;
+}
+/* Source and date, set out on rules like an accession sheet. */
+.wa-facts {
+  justify-self: stretch;
+  display: grid;
+  margin-top: 6px;
+  border-bottom: 1px solid var(--wa-edge);
+}
+.wa-facts > div {
+  display: grid;
+  grid-template-columns: minmax(84px, 0.36fr) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 16px;
+  padding: 11px 0;
+  border-top: 1px solid var(--wa-edge);
+}
+.wa-facts dd {
+  font: 400 14px/1.5 var(--wl-sans);
+  font-variant-numeric: tabular-nums;
+}
+.wa-source,
+.wa-collection-link,
+.wa-lobby {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+}
+.wa-source,
+.wa-collection-link {
+  box-shadow: inset 0 -1px 0 rgb(243 233 214 / 50%);
+}
+.wa-source > span:last-child,
+.wa-collection-link > span:last-child,
+.wa-lobby > span:first-child {
+  display: inline-block;
+  transition: transform var(--motion-duration-micro) var(--motion-ease-primary);
+}
+.wa-source:focus-visible > span:last-child,
+.wa-collection-link:focus-visible > span:last-child {
+  transform: translate(3px, -3px);
+}
+.wa-lobby:focus-visible > span:first-child {
+  transform: translateX(-3px);
+}
+@media (hover: hover) and (pointer: fine) {
+  .wa-source:hover > span:last-child,
+  .wa-collection-link:hover > span:last-child {
+    transform: translate(3px, -3px);
+  }
+  .wa-lobby:hover > span:first-child {
+    transform: translateX(-3px);
+  }
+}
+
+/* The first record lies open on the table: a large plate, its label and the
+   source's longer text beside it. */
+.wa-record[data-placement='table'] {
+  grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  column-gap: clamp(32px, 5vw, 96px);
+  align-items: end;
+}
+.wa-record[data-placement='table'] .wa-plate {
+  /* Large, but never taller than the first view can hold. */
+  width: min(100%, calc((100svh - 140px) * 0.8));
+}
+.wa-record[data-placement='table'] .wa-title {
+  font-size: clamp(40px, 3.6vw, 64px);
+}
+/* The second faces it from the other side of the table, smaller and
+   lower. */
+.wa-record[data-placement='facing'] {
+  grid-template-columns: minmax(0, 4fr) minmax(0, 1fr) minmax(0, 4fr) minmax(
+      0,
+      2fr
+    );
+  align-items: end;
+  margin-top: clamp(96px, 16svh, 184px);
+}
+.wa-record[data-placement='facing'] .wa-label {
+  grid-column: 1;
+  grid-row: 2;
+}
+.wa-record[data-placement='facing'] .wa-plate {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+/* The register: the remaining records entered as ledger rows. */
+.wa-register {
+  margin: clamp(104px, 17svh, 200px) var(--wl-gutter) 0;
+}
+.wa-register > .wa-section-title {
+  padding-top: 14px;
+  border-top: 1px solid var(--wl-rule);
+}
+.wa-record[data-placement='register'] {
+  grid-template-columns: minmax(96px, 1fr) minmax(96px, 1fr) minmax(
+      0,
+      4fr
+    ) minmax(0, 3fr);
+  column-gap: clamp(20px, 2.4vw, 40px);
+  align-items: start;
+  padding-block: clamp(22px, 3.4svh, 32px);
+  border-bottom: 1px solid var(--wa-edge);
+}
+.wa-record[data-placement='register'] .wa-accession {
+  grid-column: 1;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.wa-record[data-placement='register'] .wa-plate {
+  grid-column: 2;
+  padding: 6px;
+}
+.wa-record[data-placement='register'] .wa-plate .editorial-image {
+  aspect-ratio: 2 / 3;
+}
+.wa-record[data-placement='register'] .wa-label {
+  grid-column: 3 / -1;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 3fr);
+  grid-template-areas:
+    'title facts'
+    'category facts'
+    'summary source';
+  column-gap: clamp(20px, 2.4vw, 40px);
+}
+.wa-record[data-placement='register'] .wa-title {
+  grid-area: title;
+}
+.wa-record[data-placement='register'] .wa-category {
+  grid-area: category;
+}
+.wa-record[data-placement='register'] .wa-summary {
+  grid-area: summary;
+}
+.wa-record[data-placement='register'] .wa-facts {
+  grid-area: facts;
+  margin: 0;
+}
+.wa-record[data-placement='register'] .wa-source {
+  grid-area: source;
+  justify-self: start;
+  align-self: end;
+}
+
+/* Fast navigation inside the room: every record, one step away. */
+.wa-index {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 9fr);
+  column-gap: clamp(32px, 4vw, 72px);
+  margin: clamp(104px, 17svh, 200px) var(--wl-gutter) 0;
+  padding-top: clamp(24px, 3.5svh, 40px);
+  border-top: 1px solid var(--wl-rule);
+}
+.wa-index ol {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: clamp(32px, 4vw, 72px);
+  list-style: none;
+}
+.wa-index li {
+  border-bottom: 1px solid var(--wa-edge);
+}
+.wa-index a {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 16px;
+  min-height: 56px;
+  padding: 14px 0;
+}
+.wa-index-number {
+  color: var(--wl-ivory);
+}
+.wa-index-name {
+  font: 400 clamp(22px, 1.8vw, 30px) / 1.1 var(--wl-serif);
+  letter-spacing: -0.02em;
+}
+.wa-index-kind {
+  grid-column: 2;
+  margin-top: 6px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .wa-index a:hover .wa-index-name {
+    font-style: italic;
+  }
+}
+.wa-index a:focus-visible .wa-index-name {
+  font-style: italic;
+}
+
+/* The note: what the Archive is built on, and what it asks of anything that
+   enters later. Quiet, not terms and conditions. */
+.wa-note {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  column-gap: clamp(32px, 5vw, 96px);
+  row-gap: 18px;
+  margin: clamp(88px, 14svh, 168px) var(--wl-gutter) 0;
+  padding-top: clamp(24px, 3.5svh, 40px);
+  border-top: 1px solid var(--wl-rule);
+}
+.wa-note > .wa-section-title,
+.wa-note-line {
+  grid-column: 1;
+}
+.wa-note-line {
+  font: 400 clamp(30px, 2.8vw, 48px) / 1.05 var(--wl-serif);
+  letter-spacing: -0.025em;
+}
+.wa-basis {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  display: grid;
+  align-content: start;
+  border-bottom: 1px solid var(--wa-edge);
+}
+.wa-basis > div {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.42fr) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--wa-edge);
+}
+.wa-basis dd {
+  max-width: 46ch;
+  font: 400 15px/1.6 var(--wl-sans);
+}
+.wa-note-links {
+  grid-column: 1;
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+/* Arrival (LOW): the room's number, its name, the reading-table line, then
+   the first record settles. Then stillness. Reduced motion shows the
+   composed room at once (global kill switch). */
+@keyframes wa-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes wa-line {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: none;
+  }
+}
+.wa-room-number {
+  animation: wa-rise var(--motion-duration-fast) var(--motion-ease-primary) 80ms
+    both;
+}
+.world-archive h1 {
+  animation: wa-rise var(--motion-duration-normal) var(--motion-ease-primary)
+    160ms both;
+}
+.wa-statement,
+.wa-count {
+  animation: wa-rise var(--motion-duration-fast) var(--motion-ease-primary)
+    320ms both;
+}
+.wa-table-edge::before {
+  animation: wa-line var(--motion-duration-cinematic) var(--motion-ease-primary)
+    380ms both;
+}
+.wa-table-edge > p,
+.wa-wall-text {
+  animation: wa-rise var(--motion-duration-fast) var(--motion-ease-primary)
+    520ms both;
+}
+.wa-record[data-placement='table'] {
+  animation: wa-rise var(--motion-duration-normal) var(--motion-ease-primary)
+    640ms both;
+}
+
+/* Tablet portrait: the table stays asymmetric; no hover needed. */
+@media (min-width: 768px) and (max-width: 1199px) and (orientation: portrait) {
+  .wa-entry {
+    grid-template-columns: 1fr;
+    padding-top: calc(108px + 32px);
+  }
+  .wa-statement,
+  .wa-count {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+    text-align: left;
+  }
+  .wa-statement {
+    max-width: none;
+    margin-top: 28px;
+  }
+  .wa-count {
+    margin: 12px 0 0;
+  }
+  .world-archive h1 {
+    font-size: clamp(96px, 15vw, 144px);
+  }
+  .wa-record[data-placement='table'] {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    column-gap: 32px;
+  }
+  .wa-record[data-placement='table'] .wa-plate {
+    width: 100%;
+  }
+  .wa-record[data-placement='facing'] {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 1fr) minmax(0, 6fr);
+  }
+  .wa-record[data-placement='register'] {
+    grid-template-columns: minmax(84px, 1fr) minmax(96px, 1.2fr) minmax(0, 5fr);
+  }
+  .wa-record[data-placement='register'] .wa-label {
+    grid-column: 3;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'title'
+      'category'
+      'summary'
+      'facts'
+      'source';
+  }
+  .wa-record[data-placement='register'] .wa-facts {
+    margin-top: 6px;
+  }
+  .wa-index,
+  .wa-note {
+    grid-template-columns: 1fr;
+    row-gap: 14px;
+  }
+  .wa-basis {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}
+
+/* Phones: one reading column in the order of the room. */
+@media (max-width: 767px) {
+  .wa-entry {
+    grid-template-columns: 1fr;
+    padding: calc(76px + 28px) var(--wl-gutter) 32px;
+  }
+  .wa-statement,
+  .wa-count {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+    text-align: left;
+  }
+  .wa-statement {
+    max-width: none;
+    margin-top: 22px;
+    font-size: 24px;
+  }
+  .wa-count {
+    margin: 10px 0 0;
+  }
+  .world-archive h1 {
+    font-size: clamp(64px, 20vw, 92px);
+  }
+  .wa-table-edge {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .wa-wall-text {
+    margin-block: 18px 32px;
+  }
+  .wa-record[data-placement='table'],
+  .wa-record[data-placement='facing'] {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 22px;
+  }
+  .wa-record[data-placement='table'] .wa-plate,
+  .wa-record[data-placement='facing'] .wa-plate,
+  .wa-record[data-placement='facing'] .wa-label {
+    grid-column: 1;
+    grid-row: auto;
+    width: 100%;
+  }
+  .wa-record[data-placement='facing'] {
+    margin-top: 72px;
+  }
+  .wa-record[data-placement='table'] .wa-title {
+    font-size: clamp(38px, 11vw, 48px);
+  }
+  .wa-register {
+    margin-top: 80px;
+  }
+  .wa-record[data-placement='register'] {
+    grid-template-columns: minmax(84px, 30%) minmax(0, 1fr);
+    row-gap: 14px;
+  }
+  .wa-record[data-placement='register'] .wa-accession {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+  .wa-record[data-placement='register'] .wa-plate {
+    grid-column: 1;
+  }
+  .wa-record[data-placement='register'] .wa-label {
+    grid-column: 2;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'title'
+      'category'
+      'summary';
+  }
+  .wa-record[data-placement='register'] .wa-facts,
+  .wa-record[data-placement='register'] .wa-source {
+    grid-area: auto;
+  }
+  .wa-record[data-placement='register'] .wa-label > .wa-facts,
+  .wa-record[data-placement='register'] .wa-label > .wa-source {
+    grid-column: 1;
+  }
+  .wa-index {
+    grid-template-columns: 1fr;
+    row-gap: 12px;
+    margin-top: 80px;
+  }
+  .wa-index ol {
+    grid-template-columns: 1fr;
+  }
+  .wa-index a {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+  .wa-note {
+    grid-template-columns: 1fr;
+    row-gap: 14px;
+    margin-top: 72px;
+  }
+  .wa-basis {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .wa-basis > div {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}
+
+/* Short landscape: the title clears the 68px chrome; the first plate keeps
+   to the height of the view. */
+@media (max-width: 1199px) and (max-height: 540px) and (orientation: landscape) {
+  .wa-entry {
+    padding-top: calc(68px + 20px);
+    padding-bottom: 24px;
+  }
+  .world-archive h1 {
+    font-size: clamp(56px, 9vw, 84px);
+  }
+  .wa-wall-text {
+    margin-block: 14px 28px;
+  }
+  /* The reading table keeps its two sides at every short-landscape width:
+     the plate beside its label (the second record mirrored), both from the
+     top of the sheet. */
+  .wa-record[data-placement='table'],
+  .wa-record[data-placement='facing'] {
+    column-gap: clamp(24px, 4vw, 48px);
+    row-gap: 0;
+    align-items: start;
+  }
+  .wa-record[data-placement='table'] {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  }
+  .wa-record[data-placement='facing'] {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    margin-top: 64px;
+  }
+  .wa-record[data-placement='table'] .wa-plate,
+  .wa-record[data-placement='facing'] .wa-label {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .wa-record[data-placement='table'] .wa-label,
+  .wa-record[data-placement='facing'] .wa-plate {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .wa-record[data-placement='table'] .wa-plate {
+    width: min(100%, calc((100svh - 96px) * 0.8));
+  }
+  .wa-record[data-placement='facing'] .wa-plate {
+    width: 100%;
+  }
+}
