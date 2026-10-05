@@ -17,6 +17,7 @@ changes a rule.
 - World navigation and viewing-chamber UX record: [TP3D-PASS-09-WORLD-UX.md](TP3D-PASS-09-WORLD-UX.md)
 - Room 02 / Objects record: [TP3D-PASS-10-OBJECTS.md](TP3D-PASS-10-OBJECTS.md)
 - Object study World-shell record: [TP3D-PASS-11-OBJECT-STUDY-SHELL.md](TP3D-PASS-11-OBJECT-STUDY-SHELL.md)
+- Product navigation and prefetch record: [TP3D-PASS-12-PRODUCT-NAVIGATION.md](TP3D-PASS-12-PRODUCT-NAVIGATION.md)
 - Homepage timeline internals (progress ranges, WebGL tiers, measured
   baselines): [TANPHONG_HOME_MOTION_CONTEXT.md](TANPHONG_HOME_MOTION_CONTEXT.md)
 - Motion tokens: `lib/motion/tokens.ts`, mirrored as `--motion-*` in
@@ -567,6 +568,22 @@ the full map.
       from shared data and filtered to the room's curation, and the room's
       labels from one shared helper (`imageRoleLabel`, `assetStatusLabel`).
     - `check-object-study` enforces this (TP3D PASS 11).
+21. **Prefetch according to cacheability, not habit.**
+    - A destination that is static or usefully cacheable may prefetch, as
+      each link already decides.
+    - A destination that renders per request does not prefetch
+      automatically. Today that is every Product detail
+      (`/products/[slug]`, either context), served `no-store`. vinext
+      discards a completed `no-store` prefetch; a click only gains when it
+      lands while that prefetch is still in flight (measured: a ~300 ms
+      window on production).
+    - Viewport entry, hover and focus never create throwaway navigation
+      work. A prefetched page also fetches its priority image, so a wasted
+      prefetch costs more than its payload.
+    - The link stays a real link. A click makes one request for the
+      destination actually chosen. No manual prefetch replaces the
+      automatic one.
+    - `check-product-navigation` enforces this (TP3D PASS 12).
 
 ## 10. Image behavior
 
@@ -666,7 +683,8 @@ the full map.
 
 **Prefetch:** homepage links use `prefetch={false}` so bandwidth stays with the
 story. The World gateway prefetches the `/world` route only on intent
-(pointer enter, focus, touch start), and never anything 3D.
+(pointer enter, focus, touch start), and never anything 3D. Product-detail
+links never prefetch: the route renders per request (rule 21, TP3D PASS 12).
 
 **Scroll**
 

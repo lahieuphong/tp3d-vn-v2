@@ -69,8 +69,14 @@ export function ExperienceShell({
             {products.length > 0 && (
               <div>
                 <h3>Objects</h3>
+                {/* Product details render per request: no speculative
+                    prefetch (TP3D PASS 12). */}
                 {products.map((p) => (
-                  <Link key={p.slug} href={`/products/${p.slug}`}>
+                  <Link
+                    key={p.slug}
+                    href={`/products/${p.slug}`}
+                    prefetch={false}
+                  >
                     {p.title}
                     <span aria-hidden="true">↗</span>
                   </Link>
@@ -106,6 +112,7 @@ export function ExperienceShell({
               <Link
                 className="text-link"
                 href={`/${selection?.kind === 'product' ? 'products' : 'materials'}/${item.slug}`}
+                prefetch={selection?.kind === 'product' ? false : undefined}
               >
                 View details <span aria-hidden="true">↗</span>
               </Link>

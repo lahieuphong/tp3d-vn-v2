@@ -37,9 +37,15 @@ export function ObjectSelection({
       <div className="objects-grid">
         {selected.map((p) => (
           <article key={p.slug}>
+            {/* TP3D PASS 12: a Product detail renders per request (its shell
+                is read from the query) and vinext serves it no-store, so a
+                prefetched payload is discarded unless the click lands while
+                it is still in flight. Cards never prefetch; a real click
+                makes one request for the object chosen. */}
             <Link
               className="image-link"
               href={productDetailHref(p.slug, context)}
+              prefetch={false}
             >
               <EditorialImage
                 src={p.image.src}

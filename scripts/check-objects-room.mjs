@@ -539,8 +539,9 @@ const css = read('components/world/world-objects.css');
   // the study's context prop (product-detail.tsx), context-aware related
   // links (object-selection.tsx), the shared photograph and status labels
   // (product-assets.ts) and the server-validated shell (the [slug] page).
-  // Every other file is still PASS 10's; check:object-study locks the
-  // editorial markup itself.
+  // TP3D PASS 12 revised object-selection.tsx once more: its cards never
+  // prefetch (check:product-navigation). Every other file is still PASS
+  // 10's; check:object-study locks the editorial markup itself.
   const PRODUCT = {
     'components/product/product-detail.tsx': '785f3fb044d54e96',
     'components/product/product-asset-sections.tsx': '12b733211f966b05',
@@ -554,7 +555,7 @@ const css = read('components/world/world-objects.css');
     'data/types.ts': 'defd33c83b08986c',
     'app/products/page.tsx': '2257cc689fdfa941',
     'app/products/[slug]/page.tsx': 'f5515aa35568c5dc',
-    'components/sections/object-selection.tsx': '5b25053501b24a75',
+    'components/sections/object-selection.tsx': 'a59b00fb9dbc215b',
   };
   for (const [path, hash] of Object.entries(PRODUCT))
     assert.equal(digest(path), hash, `51–52. ${path} is locked`);
