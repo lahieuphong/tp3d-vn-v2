@@ -21,6 +21,7 @@ changes a rule.
 - Room 03 / Archive record: [TP3D-PASS-13-ARCHIVE.md](TP3D-PASS-13-ARCHIVE.md)
 - Room 04 / Lab record: [TP3D-PASS-14-LAB.md](TP3D-PASS-14-LAB.md)
 - Room 05 / Studio record: [TP3D-PASS-15-STUDIO.md](TP3D-PASS-15-STUDIO.md)
+- Atrium orbit record: [TP3D-PASS-16-ATRIUM-ORBIT.md](TP3D-PASS-16-ATRIUM-ORBIT.md)
 - Homepage timeline internals (progress ranges, WebGL tiers, measured
   baselines): [TANPHONG_HOME_MOTION_CONTEXT.md](TANPHONG_HOME_MOTION_CONTEXT.md)
 - Motion tokens: `lib/motion/tokens.ts`, mirrored as `--motion-*` in
@@ -389,7 +390,9 @@ the full map.
 3. Every HIGH moment ends in stillness: a hold where nothing moves before the
    next section takes over. The Atrium's hold is 0.085 of the story span
    (0.915–1.0: 199px on desktop, 129px on a 390×844 phone; TP3D PASS 04). It
-   is still short, and is bounded by the unchanged story height.
+   is still short, and is bounded by the unchanged story height. Since TP3D
+   PASS 16 that span is the base journey: the Atrium orbit appends its own
+   span after it (rule 28) and ends on its own overview hold.
 4. Amplitudes scale by tier (`AMPLITUDE`: desktop 1, tablet 0.75, mobile 0.5,
    reduced 0). Durations do not scale.
 5. Upper bounds (`MOTION_LIMITS`, taken from the existing system):
@@ -643,6 +646,35 @@ the full map.
     - World presentation never converts concept work into commissions,
       clients, testimonials, metrics or team claims.
     - `check-studio` enforces this (TP3D PASS 15).
+
+27. **The Atrium orbits a pivot, not a carousel.**
+    - Room focus is derived from one architectural plate: a pan and a scale
+      of at most 4% about the central island's measured source point, mapped
+      through the plate's own `object-fit: cover` geometry, never viewport
+      percentages, crossfades or enlarged thumbnails.
+    - The island remains the perceptual anchor: its projected drift stays
+      within 2.5 vw / 2 vh on desktop, no plate edge is ever exposed, and
+      roll is 0 unless measured QA proves otherwise.
+    - Scroll position owns the camera deterministically: one pure frame per
+      progress, no direction, no queue, no timers; reverse equals forward.
+      While it owns room focus, decorative hover yields; keyboard focus never
+      does.
+    - Each room settles before its typography takes authority (title only
+      over a camera below 40% of its leg's peak speed, fully readable in the
+      hold).
+    - The sequence ends by returning the whole architecture to view, where
+      the World copy and the gateway regain full authority. Scroll never
+      enters the World.
+    - `check-worlds-orbit` enforces this (TP3D PASS 16).
+
+28. **Appended choreography must not retime approved scenes.**
+    - A new scroll chapter appends its own physical span after the approved
+      one (`--story-base-height` + `--story-orbit-height`) and samples its own
+      progress; it never stretches an existing progress 0 → 1.
+    - The approved journey keeps its measured span, and its writes stay
+      provably identical (a digest against the approved timeline).
+    - Reduced motion gets no appended spacer.
+    - `check-worlds-orbit` enforces this (TP3D PASS 16).
 
 ## 10. Image behavior
 
@@ -925,6 +957,10 @@ project's catalogue.
   `/projects/[slug]` pages and the conversation hands off to `/contact`, as
   document navigations. The `planned` status and its label stay supported
   for future wings.
+- The homepage Atrium orbit (TP3D PASS 16) is a 2.5D illusion on one plate
+  (rule 27). When a real Atrium environment exists, its room order, pivot,
+  holds and pacing may become the camera blueprint; the photographic
+  transforms are then replaced, not stacked under the real camera.
 - No canvas persists across routes.
 - The homepage must not preload room scenes.
 

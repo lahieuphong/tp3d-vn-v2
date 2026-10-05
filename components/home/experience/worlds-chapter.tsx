@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { worldsChapterOptions } from '@/data/home-chapters';
 import { ChapterImage } from './chapter-image';
 import { WorldGatewayLink } from '@/components/world/world-gateway-link';
+import { ORBIT_CAPTIONS, ORBIT_ROOMS } from './worlds-orbit-frame';
 import './worlds-chapter.css';
 
 export function WorldsChapter() {
@@ -25,15 +26,33 @@ export function WorldsChapter() {
           />
         </div>
       </div>
+      {/* TP3D PASS 16: peripheral exposure on the side the orbit turns away
+          from. Opacity only, written by the story timeline. */}
+      <div className="hc-orbit-shade" aria-hidden="true">
+        <span data-orbit-shade="left" />
+        <span data-orbit-shade="right" />
+      </div>
       <div className="hc-atrium-copy">
         <p className="hc-eyebrow" data-chapter-reveal="4">
           3D WORLDS
         </p>
-        <h2 id="home-worlds-title">
-          <span data-chapter-reveal="5">Enter</span>
-          <br />
-          <em data-chapter-reveal="6">the worlds.</em>
-        </h2>
+        <div className="hc-atrium-heading">
+          <h2 id="home-worlds-title">
+            <span data-chapter-reveal="5">Enter</span>
+            <br />
+            <em data-chapter-reveal="6">the worlds.</em>
+          </h2>
+          {/* One decorative focus caption for the orbit: the room links
+              below remain the accessible source of truth. */}
+          <div className="hc-orbit-caption" aria-hidden="true">
+            {ORBIT_ROOMS.map((room, index) => (
+              <p key={room} data-orbit-caption={room}>
+                <small>{String(index + 1).padStart(2, '0')}</small>
+                <strong>{ORBIT_CAPTIONS[room]}</strong>
+              </p>
+            ))}
+          </div>
+        </div>
         <div>
           <p className="hc-body" data-chapter-reveal="7">
             Step inside our interiors and explore them in 3D. Move freely,

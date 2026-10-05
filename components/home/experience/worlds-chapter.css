@@ -402,7 +402,8 @@
 }
 .hc-atrium-room-link > span,
 .hc-atrium-room-link > small {
-  opacity: var(--room-label-opacity, 1);
+  /* TP3D PASS 16: the orbit's scroll-owned emphasis multiplies discovery's. */
+  opacity: calc(var(--room-label-opacity, 1) * var(--room-orbit-opacity, 1));
   transition:
     opacity 220ms ease,
     transform 220ms ease;
@@ -492,5 +493,99 @@
     .hc-atrium-room-link[data-room-active]
     > span::after {
     transform: scaleX(calc(0.6 * var(--room-reveal, 1)));
+  }
+}
+
+/* TP3D PASS 16: the Atrium orbit. Scroll owns the room focus while
+   [data-orbit-room] is present (discovery is suspended, so these values
+   have no transitions); the story timeline writes every value per frame.
+   The overview and the gateway hold are the unchanged PASS 05 Atrium. */
+.hc-orbit-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.hc-orbit-shade > span {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+.hc-orbit-shade > [data-orbit-shade='left'] {
+  background: linear-gradient(90deg, #1c140c8c, #1c140c00 46%);
+}
+.hc-orbit-shade > [data-orbit-shade='right'] {
+  background: linear-gradient(270deg, #1c140c8c, #1c140c00 46%);
+}
+/* The caption shares the title's slot; the title yields to it completely. */
+.hc-atrium-heading {
+  display: grid;
+}
+.hc-atrium-heading > * {
+  grid-area: 1 / 1;
+}
+.hc-orbit-caption {
+  display: grid;
+  align-self: end;
+  margin-bottom: 19px;
+  opacity: 0;
+  pointer-events: none;
+}
+.hc-orbit-caption > p {
+  grid-area: 1 / 1;
+  margin: 0;
+  visibility: hidden;
+}
+.hc-worlds[data-orbit-room='living'] [data-orbit-caption='living'],
+.hc-worlds[data-orbit-room='bedroom'] [data-orbit-caption='bedroom'],
+.hc-worlds[data-orbit-room='bathroom'] [data-orbit-caption='bathroom'],
+.hc-worlds[data-orbit-room='kitchen'] [data-orbit-caption='kitchen'] {
+  visibility: visible;
+}
+.hc-orbit-caption small {
+  display: block;
+  margin-bottom: clamp(10px, 0.9vw, 18px);
+  font: 400 clamp(9px, 0.68vw, 14px)/1 var(--hc-sans);
+  letter-spacing: 0.1em;
+}
+.hc-orbit-caption strong {
+  display: block;
+  font-size: clamp(60px, 4.35vw, 112px);
+  font-weight: 400;
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+  white-space: nowrap;
+}
+.hc-worlds[data-orbit-room] .hc-atrium-room-link > span {
+  transform: translateX(calc(3px * var(--room-orbit-focus, 0)));
+}
+.hc-worlds[data-orbit-room] .hc-atrium-room-link > span::after {
+  transform: scaleX(
+    calc((0.6 + 0.4 * var(--room-orbit-focus, 0)) * var(--room-reveal, 1))
+  );
+  opacity: calc(0.6 + 0.4 * var(--room-orbit-focus, 0));
+}
+/* Keyboard focus always outranks the scroll-owned dimming. */
+.hc-worlds[data-orbit-room] .hc-atrium-room-link:focus-visible {
+  --room-orbit-opacity: 1 !important;
+}
+.hc-worlds[data-orbit-room] .hc-atrium-cta:focus-visible {
+  opacity: 1 !important;
+}
+@media (min-width: 768px) and (max-width: 1199px) {
+  .hc-orbit-caption strong {
+    font-size: 64px;
+  }
+}
+@media (max-width: 767px) {
+  .hc-orbit-caption {
+    margin-bottom: 15px;
+  }
+  .hc-orbit-caption small {
+    margin-bottom: 10px;
+    font-size: 8px;
+  }
+  .hc-orbit-caption strong {
+    font-size: clamp(48px, 13vw, 60px);
   }
 }
