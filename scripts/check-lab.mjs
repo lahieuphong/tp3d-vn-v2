@@ -184,8 +184,9 @@ const IDS = ['atmosphere', 'breeze', 'depth', 'threshold'];
   );
   assert.equal(byId.lab.status, 'available', '6');
   assert.equal(byId.lab.href, '/world/lab', '7');
-  assert.equal(byId.studio.status, 'planned', '8');
-  assert.equal(byId.studio.href, null, '9');
+  // TP3D PASS 15 opened the Studio (check:studio covers it).
+  assert.equal(byId.studio.status, 'available', '8');
+  assert.equal(byId.studio.href, '/world/studio', '9');
   // Preserved identity.
   assert.deepEqual(
     [
@@ -223,8 +224,14 @@ const IDS = ['atmosphere', 'breeze', 'depth', 'threshold'];
     [
       ...rooms.matchAll(/<a href="(\/world\/[a-z]+)" class="wl-room-body">/g),
     ].map(([, h]) => h),
-    ['/world/gallery', '/world/objects', '/world/archive', '/world/lab'],
-    '11. four open rooms',
+    [
+      '/world/gallery',
+      '/world/objects',
+      '/world/archive',
+      '/world/lab',
+      '/world/studio',
+    ],
+    '11. five open rooms since TP3D PASS 15',
   );
   assert.match(
     lobbyBefore.match(
@@ -238,26 +245,40 @@ const IDS = ['atmosphere', 'breeze', 'depth', 'threshold'];
     /\/world\/lab/,
     '11. not hard-coded',
   );
-  assert.match(lobby, /4(?:<!-- -->)? of (?:<!-- -->)?5/, '12. 4 of 5');
+  assert.match(
+    lobby,
+    /5(?:<!-- -->)? of (?:<!-- -->)?5/,
+    '12. 5 of 5 since TP3D PASS 15',
+  );
   // 62 (PASS 13 numbering) / Lobby: only the Lab's entries and the count.
   assert.equal(withoutLab(lobby), withoutLab(lobbyBefore), 'Lobby');
-  // 13. The World map: four open rooms, in order; Studio stays text.
+  // 13. The World map: the open rooms, in order (all five since TP3D
+  // PASS 15).
   const chrome = html.slice(0, html.indexOf('<main'));
   assert.deepEqual(
     [
       ...chrome.matchAll(/<a href="(\/world\/[a-z]+)" class="wl-map-entry"/g),
     ].map(([, h]) => h),
-    ['/world/gallery', '/world/objects', '/world/archive', '/world/lab'],
+    [
+      '/world/gallery',
+      '/world/objects',
+      '/world/archive',
+      '/world/lab',
+      '/world/studio',
+    ],
     '13',
   );
-  assert.doesNotMatch(
-    chrome.match(/data-world-room="studio"[^>]*>([\s\S]*?)<\/li>/)[1],
-    /<a\b/,
-    '13. Studio stays text',
-  );
+  assert.doesNotMatch(chrome, /data-status="planned"/, '13. no planned wing');
   // 14. The Lab is current only in the Lab.
   const { WorldChrome } = chromeFor(building);
-  for (const current of [undefined, 'gallery', 'objects', 'archive', 'lab']) {
+  for (const current of [
+    undefined,
+    'gallery',
+    'objects',
+    'archive',
+    'lab',
+    'studio',
+  ]) {
     const markup = render(WorldChrome, { currentRoom: current });
     const labEntry = markup.match(
       /data-world-room="lab"[^>]*>([\s\S]*?)<\/li>/,
@@ -784,8 +805,12 @@ const rule = (selector) =>
     /color-scheme: dark;/,
   );
   const chromeCss = read('components/world/world-chrome.css');
-  assert.match(chromeCss, /\.world-lab \{\s*--wl-serif: 'Cormorant Spatial'/);
-  assert.match(chromeCss, /\.world-lab a \{/);
+  // The Lab's place in the shared lists (rooms opened later follow it).
+  assert.match(
+    chromeCss,
+    /\.world-lab(?:,\n\.world-[a-z-]+)* \{\s*--wl-serif: 'Cormorant Spatial'/,
+  );
+  assert.match(chromeCss, /\.world-lab a(?:,\n\.world-[a-z-]+ a)* \{/);
   assert.match(
     roomSource,
     /import '@\/components\/shared\/spatial-type\.css';/,
@@ -978,7 +1003,7 @@ for (const source of [...LAB_FILES.map(code), html]) {
   // 92. Visible focus from the World.
   assert.match(
     read('components/world/world-chrome.css'),
-    /\.world-lab :focus-visible \{\s*outline: 1px solid currentColor;/,
+    /\.world-lab :focus-visible(?:,\n\.world-[a-z-]+ :focus-visible)* \{\s*outline: 1px solid currentColor;/,
     '92',
   );
   // 93. Decorative fields are hidden from assistive tech; meaning is text.
@@ -1138,12 +1163,10 @@ for (const source of [...LAB_FILES.map(code), html]) {
       'world/lab/page.tsx',
       'world/objects/page.tsx',
       'world/page.tsx',
+      // TP3D PASS 15: Room 05.
+      'world/studio/page.tsx',
     ],
-    'one room route added; no Studio',
-  );
-  assert(
-    !existsSync(new URL('app/world/studio', root)),
-    'Studio stays planned',
+    'the Lab route (and since PASS 15 the Studio)',
   );
   const { scripts, dependencies, devDependencies } = json('package.json');
   assert.equal(scripts['check:lab'], 'node scripts/check-lab.mjs');
@@ -1177,5 +1200,5 @@ for (const source of [...LAB_FILES.map(code), html]) {
 }
 
 console.log(
-  'Lab passed: /world/lab is Room 04 inside the World (four of five rooms open, the Lobby and World map derive it from worldRooms, current only in the Lab, Studio planned); four experiments in order (EX–01…EX–04) whose engineering provenance names real production modules and never reaches the room; a server room whose islands are the Atmosphere study and the shared depth; the static study is complete before any activation, and only the toggle loads the production atmosphere through one lazy adapter (no three import, renderer, shader or WebGL code of its own); one instance, destroyed on stop and unmount, a late import never resurrects it; the native range maps into the production progress domain (pure, monotonic, both ends inside the active window, the ground swapping at the homepage swap) with frames on demand, coalesced, and no tick, clock or loop; reduced motion, Save-Data and failure keep the static study; Depth reuses the shared pointer follower, mid 3×2px and near 6×4px on the desktop tier only; Breeze is a still of the real cloth geometry and Threshold the real portal protocol, never replayed; one h1, four h2s, a navigable index, a labelled range and one toggle; scoped token CSS; the homepage systems, the portal, every other room, both shells, products, sources and the catalogue are locked.',
+  'Lab passed: /world/lab is Room 04 inside the World (the Lobby and World map derive it from worldRooms, current only in the Lab; since PASS 15 all five rooms are open); four experiments in order (EX–01…EX–04) whose engineering provenance names real production modules and never reaches the room; a server room whose islands are the Atmosphere study and the shared depth; the static study is complete before any activation, and only the toggle loads the production atmosphere through one lazy adapter (no three import, renderer, shader or WebGL code of its own); one instance, destroyed on stop and unmount, a late import never resurrects it; the native range maps into the production progress domain (pure, monotonic, both ends inside the active window, the ground swapping at the homepage swap) with frames on demand, coalesced, and no tick, clock or loop; reduced motion, Save-Data and failure keep the static study; Depth reuses the shared pointer follower, mid 3×2px and near 6×4px on the desktop tier only; Breeze is a still of the real cloth geometry and Threshold the real portal protocol, never replayed; one h1, four h2s, a navigable index, a labelled range and one toggle; scoped token CSS; the homepage systems, the portal, every other room, both shells, products, sources and the catalogue are locked.',
 );

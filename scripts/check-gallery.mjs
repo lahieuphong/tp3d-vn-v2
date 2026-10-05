@@ -32,8 +32,8 @@ const { resolveGalleryExhibits } = gallery;
 const { isWorldPath, WORLD_PATH } = building;
 
 // 3, 10–11. Inside the World; the Gallery opens its own room. Since TP3D
-// PASS 10 Objects opens its own room too, since PASS 13 the Archive and since
-// PASS 14 the Lab; Studio stays planned.
+// PASS 10 Objects opens its own room too, since PASS 13 the Archive, since
+// PASS 14 the Lab and since PASS 15 the Studio: the building is complete.
 assert.equal(isWorldPath('/world/gallery'), true);
 assert.deepEqual(
   [...worldRooms].map(({ id, status, href }) => [id, status, href]),
@@ -42,7 +42,7 @@ assert.deepEqual(
     ['objects', 'available', '/world/objects'],
     ['archive', 'available', '/world/archive'],
     ['lab', 'available', '/world/lab'],
-    ['studio', 'planned', null],
+    ['studio', 'available', '/world/studio'],
   ],
 );
 assert.equal(worldRooms[0].futurePath, '/world/gallery');
@@ -117,10 +117,10 @@ assert.equal(
     ['page.tsx'],
     'no /world/gallery/[slug] in this pass',
   );
-  assert(!existsSync(new URL('app/world/studio', root)), 'no studio page');
-  // TP3D PASS 13 and 14: Rooms 03 and 04 are real routes.
+  // TP3D PASS 13, 14 and 15: Rooms 03, 04 and 05 are real routes.
   assert(existsSync(new URL('app/world/archive/page.tsx', root)));
   assert(existsSync(new URL('app/world/lab/page.tsx', root)));
+  assert(existsSync(new URL('app/world/studio/page.tsx', root)));
 }
 
 // Render the real components.
@@ -194,18 +194,16 @@ for (const [, id, status, body] of mapRooms) {
       '9',
     );
     assert.match(body, /You are here/);
-  } else if (id === 'objects' || id === 'archive' || id === 'lab') {
-    // TP3D PASS 10 / 13 / 14: Rooms 02, 03 and 04 are open, plain links
-    // here, never current.
-    assert.equal(status, 'available');
+  } else {
+    // TP3D PASS 10 / 13 / 14 / 15: every other room is open, a plain link
+    // here, never current. (A planned wing stays text: the PASS 05 lineage
+    // below renders them.)
+    assert.equal(status, 'available', `${id} available`);
     assert.match(
       body,
       new RegExp(`^<a href="/world/${id}" class="wl-map-entry">`),
     );
     assert.doesNotMatch(body, /aria-current|You are here/);
-  } else {
-    assert.equal(status, 'planned');
-    assert.doesNotMatch(body, /<a\b|aria-current/, `26. ${id} stays text`);
   }
 }
 
@@ -218,6 +216,7 @@ assert.deepEqual(hrefs, [
   '/world/objects',
   '/world/archive',
   '/world/lab',
+  '/world/studio',
   '/',
   // TP3D PASS 07: Gallery exhibits carry the room into the detail page.
   ...galleryExhibits.map((world) => `/worlds/${world.slug}?from=gallery`),
@@ -319,14 +318,14 @@ for (const name of ['gsap', 'lenis', '@studio-freight/lenis', 'framer-motion'])
 assert.equal(scripts['check:gallery'], 'node scripts/check-gallery.mjs');
 
 // 25. The Lobby is the PASS 05 Lobby: with the Gallery href mapped back to
-// its PASS 05 bridge and Objects, the Archive and the Lab back to planned
-// wings (they opened in TP3D PASS 10, 13 and 14), the shared chrome renders
-// byte-identical markup.
+// its PASS 05 bridge and Objects, the Archive, the Lab and the Studio back to
+// planned wings (they opened in TP3D PASS 10, 13, 14 and 15), the shared
+// chrome renders byte-identical markup.
 {
   const planned = (r) => ({ ...r, status: 'planned', href: null });
-  // The Archive's and the Lab's descriptions became truthful when they
-  // opened (PASS 13, 14); the Lobby never renders a room description, so the
-  // lineage is unaffected.
+  // The Archive's, the Lab's and the Studio's descriptions became truthful
+  // when they opened (PASS 13, 14, 15); the Lobby never renders a room
+  // description, so the lineage is unaffected.
   const opened =
     (...ids) =>
     (r) =>
@@ -336,7 +335,7 @@ assert.equal(scripts['check:gallery'], 'node scripts/check-gallery.mjs');
     worldRooms: worldRooms.map((r) =>
       r.id === 'gallery'
         ? { ...r, href: '/worlds' }
-        : opened('objects', 'archive', 'lab')(r),
+        : opened('objects', 'archive', 'lab', 'studio')(r),
     ),
   };
   const lobbyFor = (buildingModule) =>
@@ -355,7 +354,7 @@ assert.equal(scripts['check:gallery'], 'node scripts/check-gallery.mjs');
   // PASS 06–09: only the Gallery destination changed.
   const asPass09 = {
     ...building,
-    worldRooms: worldRooms.map(opened('objects', 'archive', 'lab')),
+    worldRooms: worldRooms.map(opened('objects', 'archive', 'lab', 'studio')),
   };
   const pass09 = render(lobbyFor(asPass09).WorldLobby);
   assert.equal(
@@ -367,7 +366,7 @@ assert.equal(scripts['check:gallery'], 'node scripts/check-gallery.mjs');
   // World map) and the open-room count change.
   const asPass12 = {
     ...building,
-    worldRooms: worldRooms.map(opened('archive', 'lab')),
+    worldRooms: worldRooms.map(opened('archive', 'lab', 'studio')),
   };
   const pass12 = render(lobbyFor(asPass12).WorldLobby);
   const without = (room) => (markup) =>
@@ -387,7 +386,7 @@ assert.equal(scripts['check:gallery'], 'node scripts/check-gallery.mjs');
   // change; Gallery and Objects keep theirs.
   const asPass13 = {
     ...building,
-    worldRooms: worldRooms.map(opened('lab')),
+    worldRooms: worldRooms.map(opened('lab', 'studio')),
   };
   const pass13 = render(lobbyFor(asPass13).WorldLobby);
   assert.equal(
@@ -397,21 +396,36 @@ assert.equal(scripts['check:gallery'], 'node scripts/check-gallery.mjs');
   );
   assert.match(pass13, /3(?:<!-- -->)? of (?:<!-- -->)?5/);
   // TP3D PASS 14: the Lab opens. Only its two entries and the count change.
-  const lobby = render(lobbyFor(building).WorldLobby);
+  const asPass14 = {
+    ...building,
+    worldRooms: worldRooms.map(opened('studio')),
+  };
+  const pass14 = render(lobbyFor(asPass14).WorldLobby);
   assert.equal(
-    without('lab')(lobby),
+    without('lab')(pass14),
     without('lab')(pass13),
     'only the Lab entries and the count changed',
+  );
+  assert.match(pass14, /4(?:<!-- -->)? of (?:<!-- -->)?5/);
+  // TP3D PASS 15: the Studio opens and the building is complete. Only its
+  // two entries and the count change.
+  const lobby = render(lobbyFor(building).WorldLobby);
+  assert.equal(
+    without('studio')(lobby),
+    without('studio')(pass14),
+    'only the Studio entries and the count changed',
   );
   assert.equal((lobby.match(/href="\/world\/gallery"/g) ?? []).length, 2);
   assert.equal((lobby.match(/href="\/world\/objects"/g) ?? []).length, 2);
   assert.equal((lobby.match(/href="\/world\/archive"/g) ?? []).length, 2);
   assert.equal((lobby.match(/href="\/world\/lab"/g) ?? []).length, 2);
+  assert.equal((lobby.match(/href="\/world\/studio"/g) ?? []).length, 2);
   assert.match(
     lobby,
-    /4(?:<!-- -->)? of (?:<!-- -->)?5/,
-    'four of five rooms open',
+    /5(?:<!-- -->)? of (?:<!-- -->)?5/,
+    'five of five rooms open',
   );
+  assert.doesNotMatch(lobby, /data-status="planned"/, 'no planned wing');
   assert.match(
     read('app/world/page.tsx'),
     /<div data-world-page="lobby">\s*<WorldLobby \/>/,

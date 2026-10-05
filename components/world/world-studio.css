@@ -1,0 +1,617 @@
+/* TP3D PASS 15 — Room 05, Studio: the project table. A conversation before
+   a project exists: areas of conversation laid across one long table, an
+   agenda line for how a project can begin, concept studies as quiet ledger
+   rows, a starting brief as notes, and the honest state of enquiries. Warm
+   stone, ivory and fine rules; no cards, pricing tiles, forms or paper
+   cosplay. Tokens, focus and the chrome come from world-chrome.css. */
+:root:has(main[data-world-studio]),
+:root:has(main[data-world-studio]) body {
+  /* The same ground as every World room and the PORTAL cover. */
+  background: var(--world-ground);
+  color-scheme: dark;
+}
+:root:has(main[data-world-studio]) {
+  /* Native scroll, unsmoothed: the room opens at its top at once. */
+  scroll-behavior: auto;
+}
+.world-studio {
+  /* The table: warm stone, a step up from the ground. */
+  --wst-table: #2a221b;
+  --wst-quiet: rgb(243 233 214 / 78%);
+  /* A sheet's edge, finer than the World rule. */
+  --wst-edge: rgb(243 233 214 / 22%);
+  position: relative;
+  overflow-x: clip;
+  padding-bottom: clamp(40px, 7svh, 88px);
+  background: var(--world-ground);
+}
+.wst-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* Class-level spacing below always wins over this reset (0,1,0, earlier). */
+.world-studio :where(p, dl, dd, ol, ul) {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+.world-studio :where(ol, ul) {
+  list-style: none;
+}
+
+/* Studio type: one serif for names and questions, one sans for notes. */
+.wst-room-number,
+.wst-summary,
+.wst-section-title,
+.wst-number,
+.wst-directory-number,
+.wst-terms,
+.wst-study-label,
+.wst-study-facts,
+.wst-prompts-list dt,
+.wst-status,
+.wst-study-link,
+.wst-contact-link,
+.wst-lobby,
+.wst-directory a {
+  font: 500 11px/1.6 var(--wl-sans);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+.wst-room-number,
+.wst-summary,
+.wst-section-title,
+.wst-number,
+.wst-directory-number,
+.wst-terms,
+.wst-study-label,
+.wst-study-facts,
+.wst-prompts-list dt {
+  color: var(--wst-quiet);
+}
+
+/* Entry: the room's number and name. */
+.wst-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  column-gap: clamp(32px, 5vw, 96px);
+  padding: calc(clamp(78px, 9.2svh, 108px) + clamp(16px, 3svh, 40px))
+    var(--wl-gutter) clamp(28px, 4.5svh, 56px);
+}
+.wst-room-number {
+  grid-column: 1;
+  margin-bottom: 14px;
+}
+.world-studio h1 {
+  grid-column: 1;
+  margin: 0;
+  max-width: none;
+  font: 400 clamp(72px, 7.4vw, 136px) / 0.84 var(--wl-serif);
+  letter-spacing: -0.05em;
+}
+.wst-statement {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  max-width: 17ch;
+  padding-bottom: 6px;
+  text-align: right;
+  font: 400 clamp(22px, 1.8vw, 32px) / 1.12 var(--wl-serif);
+  letter-spacing: -0.02em;
+}
+.wst-statement em,
+.wst-question,
+.wst-conversation-line em {
+  font-style: italic;
+}
+.wst-summary {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  margin-bottom: 14px;
+}
+
+/* The lead: one line on what the room is for, then the directory. */
+.wst-lead {
+  display: grid;
+  gap: clamp(20px, 3svh, 32px);
+  padding-inline: var(--wl-gutter);
+}
+.wst-wall-text {
+  max-width: 52ch;
+  color: var(--wst-quiet);
+  font: 400 15px/1.65 var(--wl-sans);
+}
+.wst-directory {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--wl-rule);
+}
+.wst-directory ol {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  column-gap: clamp(16px, 2vw, 32px);
+}
+.wst-directory li {
+  border-bottom: 1px solid var(--wst-edge);
+}
+.wst-directory a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  letter-spacing: 0.16em;
+}
+.wst-directory-number {
+  color: var(--wst-quiet);
+}
+@media (hover: hover) and (pointer: fine) {
+  .wst-directory a:hover span:last-child {
+    box-shadow: inset 0 -1px 0 currentColor;
+  }
+}
+.wst-directory a:focus-visible span:last-child {
+  box-shadow: inset 0 -1px 0 currentColor;
+}
+
+/* A section of the table: a fine rule across the room, its heading and a
+   quiet note beside it. */
+.wst-section {
+  margin: clamp(88px, 14svh, 168px) var(--wl-gutter) 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--wl-rule);
+  /* Landing on /world/studio#<section> leaves a margin of room above. */
+  scroll-margin-top: clamp(24px, 6svh, 72px);
+}
+.wst-section-head {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  align-items: end;
+  column-gap: clamp(32px, 5vw, 96px);
+  row-gap: 16px;
+  margin-bottom: clamp(28px, 4.5svh, 52px);
+}
+.wst-title {
+  margin: 0;
+  max-width: none;
+  font: 400 clamp(40px, 4vw, 72px) / 0.95 var(--wl-serif);
+  letter-spacing: -0.04em;
+}
+.wst-section-note,
+.wst-disclosure {
+  justify-self: end;
+  max-width: 48ch;
+  font: 400 15px/1.6 var(--wl-sans);
+}
+.wst-section-note {
+  color: var(--wst-quiet);
+}
+/* The disclosure is read, never hidden: full ink, beside the studies. */
+.wst-disclosure {
+  padding-left: 16px;
+  border-left: 1px solid var(--wl-rule);
+  color: var(--wl-ivory);
+}
+
+/* The project table: one long surface; three areas laid on it, unequal by
+   placement, separated by hairlines. */
+.wst-areas {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: clamp(20px, 3vw, 44px);
+  background: var(--wst-table);
+}
+.wst-area {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding-inline: clamp(16px, 2vw, 36px);
+}
+.wst-area:first-child {
+  padding-left: 0;
+}
+.wst-area:last-child {
+  padding-right: 0;
+}
+.wst-area + .wst-area {
+  border-left: 1px solid var(--wst-edge);
+}
+.wst-area:nth-child(2) {
+  padding-top: clamp(24px, 4svh, 48px);
+}
+.wst-area:nth-child(3) {
+  padding-top: clamp(48px, 8svh, 96px);
+}
+.wst-area-title,
+.wst-step-title,
+.wst-study-title {
+  margin: 0;
+  max-width: none;
+  font-weight: 400;
+  font-family: var(--wl-serif);
+  letter-spacing: -0.03em;
+}
+.wst-area-title {
+  font-size: clamp(32px, 3vw, 48px);
+  line-height: 1;
+}
+.wst-question {
+  max-width: 20ch;
+  font: 400 clamp(20px, 1.6vw, 26px) / 1.2 var(--wl-serif);
+  letter-spacing: -0.015em;
+  text-wrap: pretty;
+}
+.wst-terms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--wst-edge);
+}
+
+/* How a project can begin: an agenda along one line. */
+.wst-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: clamp(20px, 3vw, 48px);
+  border-top: 1px solid var(--wst-edge);
+}
+.wst-step {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding-top: 18px;
+}
+.wst-step-title {
+  font-size: clamp(28px, 2.4vw, 38px);
+  line-height: 1;
+}
+.wst-prompts {
+  display: grid;
+  gap: 4px;
+  color: var(--wst-quiet);
+  font: 400 15px/1.55 var(--wl-sans);
+}
+
+/* Concept studies: three quiet ledger rows, never a portfolio wall. */
+.wst-ledger {
+  border-bottom: 1px solid var(--wst-edge);
+}
+.wst-study {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 3fr) minmax(0, 2fr) minmax(0, 4fr) auto;
+  align-items: baseline;
+  column-gap: clamp(16px, 2vw, 32px);
+  row-gap: 8px;
+  padding: 20px 0;
+  border-top: 1px solid var(--wst-edge);
+}
+.wst-study-name {
+  display: grid;
+  gap: 6px;
+}
+.wst-study-title {
+  font-size: clamp(24px, 2vw, 32px);
+  line-height: 1.05;
+}
+.wst-study-description {
+  max-width: 46ch;
+  color: var(--wst-quiet);
+  font: 400 15px/1.6 var(--wl-sans);
+}
+.wst-study-link,
+.wst-contact-link,
+.wst-lobby {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  white-space: nowrap;
+}
+.wst-study-link,
+.wst-contact-link {
+  box-shadow: inset 0 -1px 0 rgb(243 233 214 / 50%);
+}
+.wst-study-link > span:last-child,
+.wst-contact-link > span:last-child,
+.wst-lobby > span:first-child {
+  display: inline-block;
+  transition: transform var(--motion-duration-micro) var(--motion-ease-primary);
+}
+.wst-study-link:focus-visible > span:last-child,
+.wst-contact-link:focus-visible > span:last-child {
+  transform: translate(3px, -3px);
+}
+.wst-lobby:focus-visible > span:first-child {
+  transform: translateX(-3px);
+}
+@media (hover: hover) and (pointer: fine) {
+  .wst-study-link:hover > span:last-child,
+  .wst-contact-link:hover > span:last-child {
+    transform: translate(3px, -3px);
+  }
+  .wst-lobby:hover > span:first-child {
+    transform: translateX(-3px);
+  }
+}
+
+/* A useful starting brief: notes in two columns, ruled. */
+.wst-prompts-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: clamp(32px, 4vw, 72px);
+}
+.wst-prompts-list > div {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.4fr) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--wst-edge);
+}
+.wst-prompts-list dd {
+  font: 400 15px/1.6 var(--wl-sans);
+}
+
+/* Project conversation: the honest status, then the way to Contact. */
+.wst-status {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--wl-ivory);
+}
+.wst-status::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border: 1px solid currentColor;
+}
+.wst-conversation-body {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  align-items: end;
+  column-gap: clamp(32px, 5vw, 96px);
+  row-gap: 24px;
+}
+.wst-conversation-line {
+  max-width: 30ch;
+  font: 400 clamp(26px, 2.4vw, 40px) / 1.12 var(--wl-serif);
+  letter-spacing: -0.02em;
+  text-wrap: pretty;
+}
+.wst-conversation-links {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+
+/* Arrival (LOW): the room's number, its name, the statement. Then
+   stillness. Reduced motion shows the composed room at once (global kill
+   switch). */
+@keyframes wst-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.wst-room-number {
+  animation: wst-rise var(--motion-duration-fast) var(--motion-ease-primary)
+    80ms both;
+}
+.world-studio h1 {
+  animation: wst-rise var(--motion-duration-normal) var(--motion-ease-primary)
+    160ms both;
+}
+.wst-statement,
+.wst-summary {
+  animation: wst-rise var(--motion-duration-fast) var(--motion-ease-primary)
+    320ms both;
+}
+
+/* Below the desktop tier: the directory in three columns; each concept study
+   keeps its name and link on one line, its facts and description beneath. */
+@media (max-width: 1199px) {
+  .wst-directory ol {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .wst-study {
+    grid-template-columns: 56px minmax(0, 1fr) auto;
+  }
+  .wst-study-facts,
+  .wst-study-description {
+    grid-column: 2 / -1;
+  }
+}
+
+/* Tablet portrait: one column for the table; the agenda in two rows. */
+@media (min-width: 768px) and (max-width: 1199px) and (orientation: portrait) {
+  .wst-entry {
+    grid-template-columns: 1fr;
+    padding-top: calc(108px + 32px);
+  }
+  .wst-statement,
+  .wst-summary {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+    text-align: left;
+  }
+  .wst-statement {
+    max-width: none;
+    margin-top: 28px;
+  }
+  .wst-summary {
+    margin: 12px 0 0;
+  }
+  .world-studio h1 {
+    font-size: clamp(96px, 15vw, 144px);
+  }
+  .wst-section-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wst-section-note,
+  .wst-disclosure,
+  .wst-status {
+    justify-self: start;
+  }
+  .wst-areas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wst-area,
+  .wst-area:nth-child(2),
+  .wst-area:nth-child(3) {
+    padding: 24px 0;
+  }
+  .wst-area:first-child {
+    padding-top: 0;
+  }
+  .wst-area:last-child {
+    padding-bottom: 0;
+  }
+  .wst-area + .wst-area {
+    border-left: 0;
+    border-top: 1px solid var(--wst-edge);
+  }
+  .wst-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 32px;
+  }
+  .wst-prompts-list,
+  .wst-conversation-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Phones: one reading column in the room's order; targets full size. */
+@media (max-width: 767px) {
+  .wst-entry {
+    grid-template-columns: 1fr;
+    padding: calc(76px + 28px) var(--wl-gutter) 32px;
+  }
+  .wst-statement,
+  .wst-summary {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+    text-align: left;
+  }
+  .wst-statement {
+    max-width: none;
+    margin-top: 22px;
+    font-size: 24px;
+  }
+  .wst-summary {
+    margin: 10px 0 0;
+  }
+  .world-studio h1 {
+    font-size: clamp(64px, 20vw, 92px);
+  }
+  .wst-directory ol {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wst-section {
+    margin-top: 80px;
+  }
+  .wst-section-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wst-section-note,
+  .wst-disclosure,
+  .wst-status {
+    justify-self: start;
+  }
+  .wst-title {
+    font-size: clamp(40px, 12vw, 52px);
+  }
+  .wst-areas {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 20px;
+  }
+  .wst-area,
+  .wst-area:nth-child(2),
+  .wst-area:nth-child(3) {
+    padding: 22px 0;
+  }
+  .wst-area:first-child {
+    padding-top: 0;
+  }
+  .wst-area:last-child {
+    padding-bottom: 0;
+  }
+  .wst-area + .wst-area {
+    border-left: 0;
+    border-top: 1px solid var(--wst-edge);
+  }
+  .wst-steps {
+    grid-template-columns: minmax(0, 1fr);
+    border-top: 0;
+  }
+  .wst-step {
+    border-top: 1px solid var(--wst-edge);
+    padding-bottom: 6px;
+  }
+  .wst-study {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+  .wst-study-facts,
+  .wst-study-description,
+  .wst-study-link {
+    grid-column: 2;
+  }
+  .wst-prompts-list,
+  .wst-conversation-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wst-prompts-list > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+}
+
+/* Short landscape: the title clears the 68px chrome; the table reads as one
+   column of areas so no name is squeezed. Normal page scroll throughout. */
+@media (max-width: 1199px) and (max-height: 540px) and (orientation: landscape) {
+  .wst-entry {
+    padding-top: calc(68px + 20px);
+    padding-bottom: 24px;
+  }
+  .world-studio h1 {
+    font-size: clamp(56px, 9vw, 84px);
+  }
+  .wst-section {
+    margin-top: 64px;
+  }
+  .wst-title {
+    font-size: clamp(34px, 5.4vw, 48px);
+  }
+  .wst-areas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wst-area,
+  .wst-area:nth-child(2),
+  .wst-area:nth-child(3) {
+    padding: 18px 0;
+  }
+  .wst-area:first-child {
+    padding-top: 0;
+  }
+  .wst-area:last-child {
+    padding-bottom: 0;
+  }
+  .wst-area + .wst-area {
+    border-left: 0;
+    border-top: 1px solid var(--wst-edge);
+  }
+}

@@ -110,8 +110,8 @@ const css = read('components/world/world-objects.css');
   );
 }
 
-// 7–12. The building directory (four open rooms and one planned wing since
-// TP3D PASS 14), and the Lobby deriving Objects from it.
+// 7–12. The building directory (all five rooms open since TP3D PASS 15), and
+// the Lobby deriving Objects from it.
 {
   const byId = Object.fromEntries(worldRooms.map((r) => [r.id, r]));
   assert.deepEqual(
@@ -124,9 +124,9 @@ const css = read('components/world/world-objects.css');
     ['available', '/world/gallery'],
     '8',
   );
-  // TP3D PASS 13: the Archive opened as Room 03, and TP3D PASS 14 the Lab
-  // as Room 04; Studio stays planned (check:archive and check:lab cover the
-  // rooms themselves).
+  // TP3D PASS 13 opened the Archive as Room 03, PASS 14 the Lab as Room 04
+  // and PASS 15 the Studio as Room 05 (check:archive, check:lab and
+  // check:studio cover the rooms themselves).
   assert.deepEqual(
     [byId.archive.status, byId.archive.href],
     ['available', '/world/archive'],
@@ -139,12 +139,12 @@ const css = read('components/world/world-objects.css');
   );
   assert.deepEqual(
     [byId.studio.status, byId.studio.href],
-    ['planned', null],
+    ['available', '/world/studio'],
     '11. studio',
   );
   assert(existsSync(new URL('app/world/archive/page.tsx', root)));
   assert(existsSync(new URL('app/world/lab/page.tsx', root)));
-  assert(!existsSync(new URL('app/world/studio', root)));
+  assert(existsSync(new URL('app/world/studio/page.tsx', root)));
   const lobbyFor = (buildingModule) =>
     render(
       load('components/world/world-lobby.tsx', {
@@ -578,13 +578,14 @@ const css = read('components/world/world-objects.css');
   assert.deepEqual(
     pages.filter((p) => p.startsWith('world/')).sort(byCodeUnit),
     [
-      // TP3D PASS 13 added Room 03 and PASS 14 Room 04; nothing else
-      // under /world.
+      // TP3D PASS 13 added Room 03, PASS 14 Room 04 and PASS 15 Room 05;
+      // nothing else under /world.
       'world/archive/page.tsx',
       'world/gallery/page.tsx',
       'world/lab/page.tsx',
       'world/objects/page.tsx',
       'world/page.tsx',
+      'world/studio/page.tsx',
     ],
     'one new room route, nothing else under /world',
   );
@@ -628,5 +629,5 @@ const css = read('components/world/world-objects.css');
 }
 
 console.log(
-  'Objects room passed: /world/objects inside the World chrome with Objects current; the building has four open rooms (Gallery, Objects and, since PASS 13 and 14, the Archive and the Lab) and one planned wing, and the Lobby opens Objects from the data; the curation is four slugs resolved against data/products.ts in order, with every title, category, collection, dimension, material, image and asset fact from the product; each study links its /products/[slug]?from=objects object study, the Object Index lands on stable fragments, and the room leads to /products; digital models read as plain status from asset.available (none available today); no viewer, iframe, canvas, Three.js, model file or marketplace; 44px targets, one-column phones, a clear short-landscape title, a reduced-motion cut and one desktop-only depth; the product system and routes are otherwise untouched.',
+  'Objects room passed: /world/objects inside the World chrome with Objects current; the building has five open rooms (Gallery, Objects and, since PASS 13, 14 and 15, the Archive, the Lab and the Studio), and the Lobby opens Objects from the data; the curation is four slugs resolved against data/products.ts in order, with every title, category, collection, dimension, material, image and asset fact from the product; each study links its /products/[slug]?from=objects object study, the Object Index lands on stable fragments, and the room leads to /products; digital models read as plain status from asset.available (none available today); no viewer, iframe, canvas, Three.js, model file or marketplace; 44px targets, one-column phones, a clear short-landscape title, a reduced-motion cut and one desktop-only depth; the product system and routes are otherwise untouched.',
 );

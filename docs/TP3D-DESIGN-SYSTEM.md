@@ -20,6 +20,7 @@ changes a rule.
 - Product navigation and prefetch record: [TP3D-PASS-12-PRODUCT-NAVIGATION.md](TP3D-PASS-12-PRODUCT-NAVIGATION.md)
 - Room 03 / Archive record: [TP3D-PASS-13-ARCHIVE.md](TP3D-PASS-13-ARCHIVE.md)
 - Room 04 / Lab record: [TP3D-PASS-14-LAB.md](TP3D-PASS-14-LAB.md)
+- Room 05 / Studio record: [TP3D-PASS-15-STUDIO.md](TP3D-PASS-15-STUDIO.md)
 - Homepage timeline internals (progress ranges, WebGL tiers, measured
   baselines): [TANPHONG_HOME_MOTION_CONTEXT.md](TANPHONG_HOME_MOTION_CONTEXT.md)
 - Motion tokens: `lib/motion/tokens.ts`, mirrored as `--motion-*` in
@@ -45,7 +46,7 @@ website.
 | --- | --- | --- |
 | Website | Editorial gallery / portfolio | All routes; the homepage story |
 | Enter The World | Immersive digital building | Atrium CTA "ENTER THE WORLD" → PORTAL → `/world`, the Lobby (TP3D PASS 05) |
-| Rooms | Different spatial experiences | The building directory: five Lobby rooms in `data/world-building.ts` (01 Gallery open → its room, `/world/gallery`, since TP3D PASS 06; 02 Objects, 03 Archive, 04 Lab, 05 Studio planned). The Atrium openings (Living, Bedroom, Bathroom, Kitchen → `/spaces/*`, `/worlds/*`) are featured shortcuts, not the directory. Future `/experience/[slug]` |
+| Rooms | Different spatial experiences | The building directory: five Lobby rooms in `data/world-building.ts` (all five open at their own routes since TP3D PASS 15: 01 Gallery `/world/gallery`, 02 Objects `/world/objects`, 03 Archive `/world/archive`, 04 Lab `/world/lab`, 05 Studio `/world/studio`). The Atrium openings (Living, Bedroom, Bathroom, Kitchen → `/spaces/*`, `/worlds/*`) are featured shortcuts, not the directory. Future `/experience/[slug]` |
 | GLB models | Exhibits | Not yet supplied. `/worlds/[slug]` shows Sketchfab scenes after a click (click-to-load) |
 | Three.js | Exhibition engine | `/experience/[slug]` registry (empty). The homepage sky bridge is the only current use (§14) |
 
@@ -624,6 +625,24 @@ the full map.
       the page destroys it: canvas removed, resources disposed, context
       released. At most one live instance.
     - `check-lab` enforces this (TP3D PASS 14).
+25. **Commercial claims must match operational reality.**
+    - Present only a contact mechanism that exists. No form, address,
+      phone number, booking link or scheduler until there is a real
+      destination behind it; the only interaction is navigation.
+    - Future intent is separated from live capability: what TP3D wants to
+      do (areas of conversation, how a project can begin) never reads as a
+      service that can be bought today (no prices, packages, timelines or
+      guarantees).
+    - Status is visible, not implied: one truthful status (today "Opening
+      soon"), matching `/contact`, which stays its source of truth.
+    - `check-studio` enforces this (TP3D PASS 15).
+26. **Concept studies are not client portfolio.**
+    - Reference photography and illustrative projects stay labelled as
+      concept studies wherever they appear, with the disclosure beside
+      them, never behind hover or in a footer.
+    - World presentation never converts concept work into commissions,
+      clients, testimonials, metrics or team claims.
+    - `check-studio` enforces this (TP3D PASS 15).
 
 ## 10. Image behavior
 
@@ -900,6 +919,12 @@ project's catalogue.
   caps, budgets, Save-Data and context-loss handling (rules 23–24). The
   canvas is decorative; the study's keyboard control is a native range, not
   the canvas. Its other studies add no canvas.
+- Room 05, `/world/studio` (TP3D PASS 15), the project table, completes the
+  building. It has no canvas, image or client code of its own and no form or
+  contact channel (rules 25–26); concept studies open their editorial
+  `/projects/[slug]` pages and the conversation hands off to `/contact`, as
+  document navigations. The `planned` status and its label stay supported
+  for future wings.
 - No canvas persists across routes.
 - The homepage must not preload room scenes.
 

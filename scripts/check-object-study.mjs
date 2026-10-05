@@ -128,13 +128,13 @@ const chromeFor = (buildingModule) =>
     ),
   });
 const chrome = chromeFor(building);
-// The building as it stood before TP3D PASS 13 opened the Archive and PASS
-// 14 the Lab: the markup locks below compare against it, and the live map
-// adds only those two rooms' entries.
-const beforeArchiveAndLab = {
+// The building as it stood before TP3D PASS 13 opened the Archive, PASS 14
+// the Lab and PASS 15 the Studio: the markup locks below compare against it,
+// and the live map adds only those three rooms' entries.
+const beforeOpenedRooms = {
   ...building,
   worldRooms: worldRooms.map((r) =>
-    r.id === 'archive' || r.id === 'lab'
+    ['archive', 'lab', 'studio'].includes(r.id)
       ? { ...r, status: 'planned', href: null }
       : r,
   ),
@@ -675,10 +675,10 @@ assert.doesNotMatch(
 }
 
 // 40. Room 02 is PASS 10's room; only the studies' hrefs gained the context
-// (and, since TP3D PASS 13 and 14, the World map's Archive and Lab entries,
-// now links).
+// (and, since TP3D PASS 13, 14 and 15, the World map's Archive, Lab and
+// Studio entries, now links).
 {
-  const roomBefore = render(roomFor(beforeArchiveAndLab).WorldObjects);
+  const roomBefore = render(roomFor(beforeOpenedRooms).WorldObjects);
   assert.equal(
     hash(roomBefore.replaceAll('?from=objects"', '"')),
     PASS10.room,
@@ -686,16 +686,17 @@ assert.doesNotMatch(
   );
   const withoutNewRooms = (markup) =>
     markup.replace(
-      /<li\b[^>]*data-world-room="(?:archive|lab)"[\s\S]*?<\/li>/g,
+      /<li\b[^>]*data-world-room="(?:archive|lab|studio)"[\s\S]*?<\/li>/g,
       '<li/>',
     );
   assert.equal(
     withoutNewRooms(room),
     withoutNewRooms(roomBefore),
-    '40. only the map entries of the Archive and the Lab changed',
+    '40. only the map entries of the Archive, the Lab and the Studio changed',
   );
   assert.match(room, /<a href="\/world\/archive" class="wl-map-entry">/);
   assert.match(room, /<a href="\/world\/lab" class="wl-map-entry">/);
+  assert.match(room, /<a href="\/world\/studio" class="wl-map-entry">/);
 }
 assert.equal(
   (room.match(/\?from=objects"/g) ?? []).length,
@@ -896,6 +897,8 @@ for (const { selectors } of shellRules)
       'world/lab/page.tsx',
       'world/objects/page.tsx',
       'world/page.tsx',
+      // TP3D PASS 15: Room 05.
+      'world/studio/page.tsx',
       'worlds/[slug]/page.tsx',
       'worlds/page.tsx',
     ],
@@ -932,9 +935,9 @@ for (const { selectors } of shellRules)
     'components/world/world-objects.css': '038f31c72e212ffb',
     'app/world/objects/page.tsx': 'f5796bf6efe8f086',
     'data/world-objects.ts': '881f4e2816f5def9',
-    // TP3D PASS 13 opened the Archive and TP3D PASS 14 the Lab (status,
-    // href, a truthful description each).
-    'data/world-building.ts': 'cf136eb4a285fcc1',
+    // TP3D PASS 13 opened the Archive, TP3D PASS 14 the Lab and TP3D PASS 15
+    // the Studio (status, href, a truthful description each).
+    'data/world-building.ts': '972ff851d301302b',
     'components/world/world-chrome.tsx': '3a37f3c5c372903f',
     // 44, 46–47. The collection, the homepage, the World catalogue.
     'app/products/page.tsx': '2257cc689fdfa941',

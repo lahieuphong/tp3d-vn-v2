@@ -529,6 +529,8 @@ for (const { selectors } of shellRules)
         ['world/archive/page.tsx'],
         // TP3D PASS 14: Room 04, the third.
         ['world/lab/page.tsx'],
+        // TP3D PASS 15: Room 05, the fourth; the building is complete.
+        ['world/studio/page.tsx'],
       )
       .sort(byCodeUnit),
     '33. no route added by the World shell',

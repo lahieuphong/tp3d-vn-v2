@@ -36,8 +36,10 @@ const { worldRooms, WORLD_PATH, isWorldPath, PLANNED_ROOM_LABEL } = building;
 
 // 16–20. One building directory: five rooms, fixed taxonomy and order. The
 // Gallery (TP3D PASS 06; it bridged to /worlds in PASS 05), Objects
-// (TP3D PASS 10), the Archive (TP3D PASS 13) and the Lab (TP3D PASS 14) open
-// onto their own rooms; Studio is a planned wing and carries no link.
+// (TP3D PASS 10), the Archive (TP3D PASS 13), the Lab (TP3D PASS 14) and the
+// Studio (TP3D PASS 15) open onto their own rooms: the building is complete.
+// Planned wings stay supported (status and label; check:studio), and a
+// planned wing is never a link (the pre-opening fixtures in the room checks).
 assert.equal(WORLD_PATH, '/world');
 assert.deepEqual(
   [...worldRooms].map((room) => [room.number, room.id, room.name]),
@@ -52,17 +54,12 @@ assert.deepEqual(
 for (const room of worldRooms) {
   assert.equal(room.futurePath, `/world/${room.id}`);
   assert(room.summary && room.description && room.type);
-  if (['gallery', 'objects', 'archive', 'lab'].includes(room.id)) {
-    assert.equal(room.status, 'available');
-    assert.equal(
-      room.href,
-      `/world/${room.id}`,
-      `${room.name} opens its own room`,
-    );
-  } else {
-    assert.equal(room.status, 'planned');
-    assert.equal(room.href, null, 'planned wings are never links');
-  }
+  assert.equal(room.status, 'available', `${room.name} is open`);
+  assert.equal(
+    room.href,
+    `/world/${room.id}`,
+    `${room.name} opens its own room`,
+  );
 }
 assert.match(PLANNED_ROOM_LABEL, /later/i);
 for (const [path, inside] of [
@@ -71,6 +68,7 @@ for (const [path, inside] of [
   ['/world/objects', true],
   ['/world/archive', true],
   ['/world/lab', true],
+  ['/world/studio', true],
   ['/worlds', false],
   ['/worlds/modern-bathroom', false],
   ['/', false],
@@ -652,5 +650,5 @@ const origin = { left: 1128, top: 713, width: 88, height: 88 };
 }
 
 console.log(
-  'World gateway passed: five-room data model from one source, Gallery → /worlds, honest planned wings, no Lobby WebGL, real /world link with intent-only prefetch, untouched room shortcuts, 44px targets, and a portal that ignores modifier/middle clicks and double activation, uses compositor-only motion, covers flat in reduced motion, crosses after resize or stalls, falls back to the real link, and cleans up on arrival, back navigation, pagehide and restore.',
+  'World gateway passed: five-room data model from one source, Gallery → /worlds, all five rooms open at their own paths, no Lobby WebGL, real /world link with intent-only prefetch, untouched room shortcuts, 44px targets, and a portal that ignores modifier/middle clicks and double activation, uses compositor-only motion, covers flat in reduced motion, crosses after resize or stalls, falls back to the real link, and cleans up on arrival, back navigation, pagehide and restore.',
 );
