@@ -536,12 +536,12 @@ while (pending.length) {
         ['gallery', 'objects', 'archive', 'lab', 'studio'],
         'Lobby: both navigation modes list the same rooms in order',
       );
-      // TP3D PASS 06 / 10 / 13: the Gallery, Objects and the Archive open
-      // their own rooms; Lab and Studio stay planned.
+      // TP3D PASS 06 / 10 / 13 / 14: the Gallery, Objects, the Archive and
+      // the Lab open their own rooms; Studio stays planned.
       assert.deepEqual(
         list.filter((room) => room.status === 'available').map((r) => r.id),
-        ['gallery', 'objects', 'archive'],
-        'Lobby: three open rooms',
+        ['gallery', 'objects', 'archive', 'lab'],
+        'Lobby: four open rooms',
       );
       for (const room of list) {
         if (room.status === 'available')
@@ -629,18 +629,89 @@ while (pending.length) {
       map,
       /<a\b[^>]*href="\/world\/archive"[^>]*aria-current="page"/,
     );
-    for (const room of ['gallery', 'objects'])
+    // TP3D PASS 14: the Lab is open too, never current here.
+    for (const room of ['gallery', 'objects', 'lab'])
       assert.match(
         map,
         new RegExp(
           `<a\\b(?=[^>]*\\bhref="/world/${room}")(?![^>]*aria-current)[^>]*>`,
         ),
       );
-    assert.equal(
-      (map.match(/<a\b/g) ?? []).length,
-      3,
-      'planned rooms stay text',
+    assert.equal((map.match(/<a\b/g) ?? []).length, 4, 'Studio stays text');
+    assert.match(
+      html,
+      /<a\b(?=[^>]*\bclass="wl-back")(?=[^>]*\bhref="\/world")/,
     );
+    assert.match(html, /<a\b[^>]*href="\/"[^>]*>[\s\S]*?Exit/);
+  }
+  if (route === '/world/lab') {
+    // TP3D PASS 14: Room 04, a workbench of four production studies, complete
+    // as server HTML: no canvas or WebGL until a visitor loads a live study.
+    assert.match(html, /<title>Lab — TP3D<\/title>/);
+    assert.equal((html.match(/<h1\b/g) ?? []).length, 1, 'Lab: one h1');
+    assert.equal((html.match(/<h2\b/g) ?? []).length, 4, 'Lab: four studies');
+    assert.equal(
+      (html.match(/<header\b/g) ?? []).length,
+      1,
+      'Lab: one header, the World chrome',
+    );
+    assert.doesNotMatch(
+      html,
+      /class="site-header|class="site-footer/,
+      'Lab: the editorial header and footer stay absent',
+    );
+    assert.doesNotMatch(
+      html,
+      /<canvas\b|<iframe\b|three\.module|sketchfab\.com|\bfab\.com|\.glb\b/i,
+      'Lab: no WebGL, viewer or model file before activation',
+    );
+    assert.match(html, /<main\b[^>]*id="main"[^>]*data-world-lab/);
+    const studies = [
+      ...html.matchAll(
+        /<article\b[^>]*\bid="([^"]+)"[^>]*data-experiment="([^"]+)"[^>]*data-mode="([^"]+)"/g,
+      ),
+    ].map(([, id, , mode]) => `${id}:${mode}`);
+    assert.deepEqual(
+      studies,
+      [
+        'atmosphere:live',
+        'breeze:reference',
+        'depth:live',
+        'threshold:reference',
+      ],
+      'Lab: four studies in order',
+    );
+    for (const number of ['EX–01', 'EX–02', 'EX–03', 'EX–04'])
+      assert(html.includes(number), `Lab: ${number}`);
+    assert.match(
+      html,
+      /data-lab-atmosphere=""[^>]*data-phase="static"/,
+      'Lab: the static Atmosphere study is complete before activation',
+    );
+    assert.match(html, />Static study<\/output>/);
+    assert.match(html, /data-lab-depth=""/);
+    const index =
+      html.match(/<nav class="wlab-index"[\s\S]*?<\/nav>/)?.[0] ?? '';
+    assert.deepEqual(
+      [...index.matchAll(/href="#([a-z]+)"/g)].map(([, id]) => id),
+      ['atmosphere', 'breeze', 'depth', 'threshold'],
+      'Lab: the index reaches every study',
+    );
+    assert.doesNotMatch(
+      html.match(/<main\b[\s\S]*<\/main>/)?.[0] ?? '',
+      /href="https?:|components\/|\.tsx?\b/,
+      'Lab: no external link, no source path',
+    );
+    const map = html.match(/aria-label="World map"[\s\S]*?<\/ol>/)?.[0] ?? '';
+    assert.match(map, /<a\b[^>]*href="\/world\/lab"[^>]*aria-current="page"/);
+    for (const room of ['gallery', 'objects', 'archive'])
+      assert.match(
+        map,
+        new RegExp(
+          `<a\\b(?=[^>]*\\bhref="/world/${room}")(?![^>]*aria-current)[^>]*>`,
+        ),
+      );
+    assert.equal((map.match(/<a\b/g) ?? []).length, 4, 'Studio stays text');
     assert.match(
       html,
       /<a\b(?=[^>]*\bclass="wl-back")(?=[^>]*\bhref="\/world")/,
@@ -707,20 +778,16 @@ while (pending.length) {
       map,
       /<a\b[^>]*href="\/world\/gallery"[^>]*aria-current="page"/,
     );
-    // TP3D PASS 10 / 13: Objects and the Archive are open too, plain links
-    // here, never current.
-    for (const room of ['objects', 'archive'])
+    // TP3D PASS 10 / 13 / 14: Objects, the Archive and the Lab are open too,
+    // plain links here, never current.
+    for (const room of ['objects', 'archive', 'lab'])
       assert.match(
         map,
         new RegExp(
           `<a\\b(?=[^>]*\\bhref="/world/${room}")(?![^>]*aria-current)[^>]*>`,
         ),
       );
-    assert.equal(
-      (map.match(/<a\b/g) ?? []).length,
-      3,
-      'planned rooms stay text',
-    );
+    assert.equal((map.match(/<a\b/g) ?? []).length, 4, 'Studio stays text');
     assert.match(
       html,
       /<a\b(?=[^>]*\bclass="wl-back")(?=[^>]*\bhref="\/world")/,
@@ -792,18 +859,14 @@ while (pending.length) {
       map,
       /<a\b[^>]*href="\/world\/objects"[^>]*aria-current="page"/,
     );
-    for (const room of ['gallery', 'archive'])
+    for (const room of ['gallery', 'archive', 'lab'])
       assert.match(
         map,
         new RegExp(
           `<a\\b(?=[^>]*\\bhref="/world/${room}")(?![^>]*aria-current)[^>]*>`,
         ),
       );
-    assert.equal(
-      (map.match(/<a\b/g) ?? []).length,
-      3,
-      'planned rooms stay text',
-    );
+    assert.equal((map.match(/<a\b/g) ?? []).length, 4, 'Studio stays text');
     assert.match(
       html,
       /<a\b(?=[^>]*\bclass="wl-back")(?=[^>]*\bhref="\/world")/,
@@ -873,6 +936,7 @@ for (const route of [
   '/world',
   '/world/gallery',
   '/world/objects',
+  '/world/lab',
   '/spaces',
   '/projects',
   '/collections',
@@ -1062,9 +1126,11 @@ const invalidRoutes = [
   '/journal/missing-article',
   '/worlds/missing-world',
   // Reserved World addresses stay unbuilt until their room exists (the
-  // Archive opened in TP3D PASS 13; its records stay on their sources).
-  '/world/lab',
+  // Archive opened in TP3D PASS 13 and the Lab in PASS 14; Archive records
+  // stay on their sources, Lab studies are fragments of one room).
+  '/world/studio',
   '/world/archive/material-natural-oak',
+  '/world/lab/atmosphere',
   '/world/gallery/modern-kitchen',
   // TP3D PASS 11: object studies stay on /products/[slug].
   '/world/objects/form-lounge-chair',

@@ -19,6 +19,7 @@ changes a rule.
 - Object study World-shell record: [TP3D-PASS-11-OBJECT-STUDY-SHELL.md](TP3D-PASS-11-OBJECT-STUDY-SHELL.md)
 - Product navigation and prefetch record: [TP3D-PASS-12-PRODUCT-NAVIGATION.md](TP3D-PASS-12-PRODUCT-NAVIGATION.md)
 - Room 03 / Archive record: [TP3D-PASS-13-ARCHIVE.md](TP3D-PASS-13-ARCHIVE.md)
+- Room 04 / Lab record: [TP3D-PASS-14-LAB.md](TP3D-PASS-14-LAB.md)
 - Homepage timeline internals (progress ranges, WebGL tiers, measured
   baselines): [TANPHONG_HOME_MOTION_CONTEXT.md](TANPHONG_HOME_MOTION_CONTEXT.md)
 - Motion tokens: `lib/motion/tokens.ts`, mirrored as `--motion-*` in
@@ -598,6 +599,31 @@ the full map.
       aesthetics or availability online, and the underlying work and its
       digital reproduction are not assumed to share a rights status.
     - `check-archive` enforces this (TP3D PASS 13).
+23. **The Lab exposes systems, not diagnostics.**
+    - Every Lab study corresponds to a system already running in production,
+      and its curation names the production modules (engineering
+      provenance, kept in data, tests and records — never in the room).
+    - The Lab adapts systems; it never forks them. A live study consumes the
+      production module through a thin adapter; a reference study describes
+      the real system and leaves it where it works. No copied renderer,
+      shader, geometry, pointer interpolation or portal.
+    - Visitors read behaviour: the question, the medium, where it runs in
+      production and the study's state in plain text. Never FPS, draw
+      calls, uniforms, DPR, budgets, file names or debug state.
+    - `check-lab` enforces this (TP3D PASS 14).
+24. **Experimental cost is opt-in.**
+    - A heavy study (WebGL, Three.js) loads only on an explicit control.
+      Mount, scroll, viewport entry, hover, focus and timers never start
+      it; before that the room requests no Three.js and creates no canvas
+      or context.
+    - The static study is complete on its own, and it is what reduced
+      motion, Save-Data (as the production tiers decide) and any failure
+      keep. There is no error copy, empty rectangle or retry loop.
+    - A live study draws on demand, one coalesced frame at a time, with no
+      ambient clock; at rest it schedules nothing. Stopping it or leaving
+      the page destroys it: canvas removed, resources disposed, context
+      released. At most one live instance.
+    - `check-lab` enforces this (TP3D PASS 14).
 
 ## 10. Image behavior
 
@@ -867,6 +893,13 @@ project's catalogue.
   with no canvas and no client code of its own. Each record opens its
   editorial source (Material Library, Journal) as a document navigation;
   the sources keep their own shell.
+- Room 04, `/world/lab` (TP3D PASS 14), is the one room that may create
+  WebGL, and only on request: LOAD LIVE STUDY lazily loads the production
+  atmospheric renderer (`createAtmosphericSkyBridge`) through
+  `components/world/lab-atmosphere-adapter.ts`, with its own tiers, DPR
+  caps, budgets, Save-Data and context-loss handling (rules 23–24). The
+  canvas is decorative; the study's keyboard control is a native range, not
+  the canvas. Its other studies add no canvas.
 - No canvas persists across routes.
 - The homepage must not preload room scenes.
 

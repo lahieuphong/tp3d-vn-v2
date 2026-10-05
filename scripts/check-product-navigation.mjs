@@ -176,14 +176,16 @@ const wiring = (link, buildingModule = building) => {
 };
 const recorded = wiring(recordingLink);
 // Markup locks compare with the building as it stood before TP3D PASS 13
-// opened the Archive (the World map's only change).
-const beforeArchive = {
+// opened the Archive and PASS 14 the Lab (the World map's only changes).
+const beforeArchiveAndLab = {
   ...building,
   worldRooms: worldRooms.map((r) =>
-    r.id === 'archive' ? { ...r, status: 'planned', href: null } : r,
+    r.id === 'archive' || r.id === 'lab'
+      ? { ...r, status: 'planned', href: null }
+      : r,
   ),
 };
-const plain = wiring(linkModule, beforeArchive);
+const plain = wiring(linkModule, beforeArchiveAndLab);
 
 /** Every anchor whose href is a Product detail, with its recorded policy. */
 const productDetailAnchors = (html) =>
@@ -416,8 +418,9 @@ for (const { slug } of products) {
     'components/world/object-study-shell.css': '7743c1aecaa2449a',
     'components/world/world-objects.tsx': '4a565398c1e36def',
     'components/world/world-chrome.tsx': '3a37f3c5c372903f',
-    // TP3D PASS 13 shares the World tokens with the Archive.
-    'components/world/world-chrome.css': '1b8b7848e86a9684',
+    // TP3D PASS 13 and 14 share the World tokens with the Archive and the
+    // Lab.
+    'components/world/world-chrome.css': '85727fd0b7d1a653',
     'lib/product-assets.ts': 'dd5606b65228a9e8',
     'components/shared/section-heading.tsx': '983439f27e3defa5',
     'components/shared/text-link.tsx': '837e8edb721aa951',
@@ -458,6 +461,8 @@ for (const { slug } of products) {
       // TP3D PASS 13: Room 03.
       'world/archive/page.tsx',
       'world/gallery/page.tsx',
+      // TP3D PASS 14: Room 04.
+      'world/lab/page.tsx',
       'world/objects/page.tsx',
       'world/page.tsx',
       'worlds/[slug]/page.tsx',

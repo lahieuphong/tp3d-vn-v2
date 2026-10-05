@@ -1,5 +1,5 @@
 /** TP3D PASS 13 — Room 03, Archive. The building directory (three open
- * rooms), the curation (references only, resolved against
+ * rooms then; four since TP3D PASS 14 opened the Lab), the curation (references only, resolved against
  * `data/materials.ts` and `data/journal.ts`, a broken accession an error),
  * provenance on every record, the real room rendered to markup, its CSS,
  * the runtime contract and locks on everything the pass must not touch.
@@ -136,7 +136,12 @@ const EXPECTED = [
     ['available', '/world/objects'],
     '6',
   );
-  assert.deepEqual([byId.lab.status, byId.lab.href], ['planned', null], '7');
+  // TP3D PASS 14 opened the Lab (check:lab covers it); Studio stays planned.
+  assert.deepEqual(
+    [byId.lab.status, byId.lab.href],
+    ['available', '/world/lab'],
+    '7',
+  );
   assert.deepEqual(
     [byId.studio.status, byId.studio.href],
     ['planned', null],
@@ -182,21 +187,21 @@ const EXPECTED = [
   );
   assert.match(
     lobby,
-    /3(?:<!-- -->)? of (?:<!-- -->)?5/,
-    '10. three of five rooms open',
+    /4(?:<!-- -->)? of (?:<!-- -->)?5/,
+    '10. four of five rooms open since TP3D PASS 14',
   );
   // 62. Only the Archive's entries and the count changed in the Lobby.
   assert.equal(withoutArchive(lobby), withoutArchive(lobbyBefore), '62');
-  // 11. The World map: exactly three open rooms, in order.
+  // 11. The World map: the open rooms, in order (four since TP3D PASS 14).
   const chrome = html.slice(0, html.indexOf('<main'));
   assert.deepEqual(
     [
       ...chrome.matchAll(/<a href="(\/world\/[a-z]+)" class="wl-map-entry"/g),
     ].map(([, h]) => h),
-    ['/world/gallery', '/world/objects', '/world/archive'],
+    ['/world/gallery', '/world/objects', '/world/archive', '/world/lab'],
     '11',
   );
-  for (const id of ['lab', 'studio'])
+  for (const id of ['studio'])
     assert.doesNotMatch(
       chrome.match(
         new RegExp(`data-world-room="${id}"[^>]*>([\\s\\S]*?)</li>`),
@@ -206,7 +211,7 @@ const EXPECTED = [
     );
   // 12. The Archive is current only in the Archive.
   const { WorldChrome } = chromeFor(building);
-  for (const current of [undefined, 'gallery', 'objects', 'archive']) {
+  for (const current of [undefined, 'gallery', 'objects', 'archive', 'lab']) {
     const markup = render(WorldChrome, { currentRoom: current });
     const archiveEntry = markup.match(
       /data-world-room="archive"[^>]*>([\s\S]*?)<\/li>/,
@@ -567,13 +572,17 @@ const EXPECTED = [
     /filter|sepia|grayscale|mix-blend|noise|grain|clip-path: polygon|mask/,
     'no visual cosplay',
   );
-  // The World's tokens and focus reach the room.
+  // The World's tokens and focus reach the room (since TP3D PASS 14 the Lab
+  // follows it in the same lists).
   const chromeCss = read('components/world/world-chrome.css');
   assert.match(
     chromeCss,
-    /\.world-archive \{\s*--wl-serif: 'Cormorant Spatial'/,
+    /\.world-archive,\n\.world-lab \{\s*--wl-serif: 'Cormorant Spatial'/,
   );
-  assert.match(chromeCss, /\.world-archive :focus-visible \{/);
+  assert.match(
+    chromeCss,
+    /\.world-archive :focus-visible,\n\.world-lab :focus-visible \{/,
+  );
   assert.match(
     roomSource,
     /import '@\/components\/shared\/spatial-type\.css';/,
@@ -739,10 +748,12 @@ const EXPECTED = [
     [
       'world/archive/page.tsx',
       'world/gallery/page.tsx',
+      // TP3D PASS 14: Room 04.
+      'world/lab/page.tsx',
       'world/objects/page.tsx',
       'world/page.tsx',
     ],
-    'one room route added',
+    'one room route for the Archive (and, since PASS 14, one for the Lab)',
   );
   assert(
     !existsSync(new URL('app/world/archive/[slug]', root)),
@@ -772,5 +783,5 @@ const EXPECTED = [
 }
 
 console.log(
-  'Archive passed: /world/archive is Room 03 inside the World (three of five rooms open, the Lobby and World map derive it from worldRooms, current only in the Archive, Lab and Studio planned); four records in accession order (AR–001…AR–004) resolve from data/materials.ts and data/journal.ts with no source fact authored in the curation and a broken reference an error; every record names its source collection, opens its source route and rests on existing project content, with journal dates from the journal and no invented material date; no external URL, rights claim or cultural asset; one h1, one h2 per record, a navigable accession index on collision-safe fragments, source alt text, 44px targets; scoped CSS with token motion, no photographic treatment and a reduced-motion-safe arrival; no client code, 3D, network or loop; Gallery, Objects, both detail shells and the Lobby differ only by the Archive entry, and sources, products, homepage and catalogue are locked.',
+  'Archive passed: /world/archive is Room 03 inside the World (the Lobby and World map derive it from worldRooms, current only in the Archive; since PASS 14 four of five rooms are open, Studio planned); four records in accession order (AR–001…AR–004) resolve from data/materials.ts and data/journal.ts with no source fact authored in the curation and a broken reference an error; every record names its source collection, opens its source route and rests on existing project content, with journal dates from the journal and no invented material date; no external URL, rights claim or cultural asset; one h1, one h2 per record, a navigable accession index on collision-safe fragments, source alt text, 44px targets; scoped CSS with token motion, no photographic treatment and a reduced-motion-safe arrival; no client code, 3D, network or loop; Gallery, Objects, both detail shells and the Lobby differ only by the Archive entry, and sources, products, homepage and catalogue are locked.',
 );

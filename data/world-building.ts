@@ -3,7 +3,7 @@
  * every room shares. A future GLB Lobby replaces only the visual layer;
  * routes, room IDs, order and statuses stay here.
  *
- * Rooms open their own route inside the World. Three are real rooms:
+ * Rooms open their own route inside the World. Four are real rooms:
  * - Room 01, the Gallery (`/world/gallery`, TP3D PASS 06): spaces, curated in
  *   `data/world-gallery.ts`; the `/worlds` catalogue is reached from inside it
  *   and keeps its own URLs.
@@ -13,7 +13,10 @@
  * - Room 03, Archive (`/world/archive`, TP3D PASS 13): a reading room of
  *   records, curated in `data/world-archive.ts` from existing material and
  *   journal content; every record names and opens its editorial source.
- * Lab and Studio are planned wings with no route yet.
+ * - Room 04, Lab (`/world/lab`, TP3D PASS 14): studies of systems TP3D
+ *   already runs in production, curated in `data/world-lab.ts`; live studies
+ *   reuse the production modules and start only when a visitor asks.
+ * Studio is a planned wing with no route yet.
  *
  * Not the homepage Atrium shortcuts: Living / Bedroom / Bathroom / Kitchen
  * (`data/home-chapters.ts`) are featured shortcuts into current content. The
@@ -102,10 +105,10 @@ export const worldRooms: readonly WorldRoom[] = [
     name: 'Lab',
     summary: 'Spatial experiments',
     description:
-      'Studies in interactive space, light and real-time 3D on the web.',
+      'Studies of light, movement and spatial response, taken from systems running in production.',
     type: 'experiment',
-    status: 'planned',
-    href: null,
+    status: 'available',
+    href: '/world/lab',
     futurePath: '/world/lab',
   },
   {

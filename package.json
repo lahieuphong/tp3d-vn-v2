@@ -30,6 +30,7 @@
     "check:object-study": "node scripts/check-object-study.mjs",
     "check:product-navigation": "node scripts/check-product-navigation.mjs",
     "check:archive": "node scripts/check-archive.mjs",
+    "check:lab": "node scripts/check-lab.mjs",
     "check:motion": "node scripts/check-motion-foundation.mjs"
   },
   "dependencies": {

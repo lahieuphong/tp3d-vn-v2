@@ -2,7 +2,7 @@
  * state machine runs against a minimal fake DOM with manual timers; route,
  * markup and network behaviour are covered by check-site and browser QA. */
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 
@@ -36,8 +36,8 @@ const { worldRooms, WORLD_PATH, isWorldPath, PLANNED_ROOM_LABEL } = building;
 
 // 16–20. One building directory: five rooms, fixed taxonomy and order. The
 // Gallery (TP3D PASS 06; it bridged to /worlds in PASS 05), Objects
-// (TP3D PASS 10) and the Archive (TP3D PASS 13) open onto their own rooms;
-// Lab and Studio are planned wings and carry no link.
+// (TP3D PASS 10), the Archive (TP3D PASS 13) and the Lab (TP3D PASS 14) open
+// onto their own rooms; Studio is a planned wing and carries no link.
 assert.equal(WORLD_PATH, '/world');
 assert.deepEqual(
   [...worldRooms].map((room) => [room.number, room.id, room.name]),
@@ -52,7 +52,7 @@ assert.deepEqual(
 for (const room of worldRooms) {
   assert.equal(room.futurePath, `/world/${room.id}`);
   assert(room.summary && room.description && room.type);
-  if (['gallery', 'objects', 'archive'].includes(room.id)) {
+  if (['gallery', 'objects', 'archive', 'lab'].includes(room.id)) {
     assert.equal(room.status, 'available');
     assert.equal(
       room.href,
@@ -70,6 +70,7 @@ for (const [path, inside] of [
   ['/world/gallery', true],
   ['/world/objects', true],
   ['/world/archive', true],
+  ['/world/lab', true],
   ['/worlds', false],
   ['/worlds/modern-bathroom', false],
   ['/', false],
@@ -123,18 +124,29 @@ for (const [path, inside] of [
 
 // 23–24. No WebGL in the World: no Three.js, no canvas, no atmosphere code,
 // no RAF of its own (pointer depth uses the shared, self-stopping follower).
+// One exception since TP3D PASS 14: the Lab's Atmosphere study opens the
+// production atmosphere on an explicit request only, through its island and
+// a lazy adapter (one instance, frames on demand, full cleanup; check:lab
+// holds that contract). Neither imports three, and nothing else may.
+const LAB_ATMOSPHERE = new Set([
+  'components/world/lab-atmosphere-study.tsx',
+  'components/world/lab-atmosphere-adapter.ts',
+]);
 for (const directory of ['components/world/', 'app/world/'])
   for (const file of readdirSync(new URL(directory, root), { recursive: true })
     .map((name) => name.replaceAll('\\', '/'))
     .filter((name) => /\.(tsx?|css)$/.test(name))) {
     const source = read(directory + file);
     assert.doesNotMatch(source, /from ['"]three['"]|import\(['"]three/);
+    if (LAB_ATMOSPHERE.has(directory + file)) continue;
     assert.doesNotMatch(
       source,
       /<canvas|atmospheric-sky|createElement\(['"]canvas/,
     );
     assert.doesNotMatch(source, /requestAnimationFrame|setInterval/);
   }
+for (const file of LAB_ATMOSPHERE)
+  assert(existsSync(new URL(file, root)), `${file} is the only exception`);
 
 // 4–5, 25. The Atrium's primary gateway is a real link to /world, prefetched
 // only after intent; the four room shortcuts are untouched.

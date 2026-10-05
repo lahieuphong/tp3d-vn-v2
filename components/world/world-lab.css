@@ -1,0 +1,841 @@
+/* TP3D PASS 14 — Room 04, Lab. A spatial workbench: large empty working
+   surfaces, calibration lines and fine rules. The Atmosphere bench leads and
+   is the largest; Breeze is a wide reference field, Depth a calibration
+   field, Threshold a compact protocol. No terminal, code box, dashboard,
+   glass or glow: the studies describe behaviour, never diagnostics. Tokens,
+   focus and the chrome come from world-chrome.css. */
+:root:has(main[data-world-lab]),
+:root:has(main[data-world-lab]) body {
+  /* The same ground as every World room and the PORTAL cover. */
+  background: var(--world-ground);
+  color-scheme: dark;
+}
+:root:has(main[data-world-lab]) {
+  /* Native scroll, unsmoothed: the room opens at its top at once. */
+  scroll-behavior: auto;
+}
+.world-lab {
+  /* The production atmosphere's own palette, the colours its renderer
+     draws (check:lab compares each): the departing ivory, cloud shade,
+     daylight and the oculus sky. */
+  --wlab-air: #eee8dc;
+  --wlab-cloud: #cdd6e4;
+  --wlab-daylight: #eef0f3;
+  --wlab-sky: #b0c3e0;
+  --wlab-sky-low: #c2d3e9;
+  /* Ink on a light surface; a dark working surface on the ground. */
+  --wlab-ink: #2a221b;
+  --wlab-surface: #241d17;
+  --wlab-quiet: rgb(243 233 214 / 78%);
+  /* A study's edge, finer than the World rule. */
+  --wlab-edge: rgb(243 233 214 / 22%);
+  position: relative;
+  overflow-x: clip;
+  padding-bottom: clamp(40px, 7svh, 88px);
+  background: var(--world-ground);
+}
+/* Class-level spacing below always wins over this reset (0,1,0, earlier). */
+.world-lab :where(p, dl, dd, ol, figure) {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Lab type: one serif for names and questions, one sans for facts. */
+.wlab-room-number,
+.wlab-count,
+.wlab-section-title,
+.wlab-edge,
+.wlab-facts dt,
+.wlab-tone > span,
+.wlab-status,
+.wlab-toggle,
+.wlab-range-label,
+.wlab-scale,
+.wlab-station-name,
+.wlab-step,
+.wlab-plane > span,
+.wlab-index-number,
+.wlab-index-mode,
+.wlab-lobby {
+  font: 500 11px/1.6 var(--wl-sans);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+.wlab-room-number,
+.wlab-count,
+.wlab-section-title,
+.wlab-edge,
+.wlab-facts dt,
+.wlab-status,
+.wlab-scale,
+.wlab-index-mode {
+  color: var(--wlab-quiet);
+}
+
+/* Entry: the room's number and name. */
+.wlab-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  column-gap: clamp(32px, 5vw, 96px);
+  padding: calc(clamp(78px, 9.2svh, 108px) + clamp(16px, 3svh, 40px))
+    var(--wl-gutter) clamp(28px, 4.5svh, 56px);
+}
+.wlab-room-number {
+  grid-column: 1;
+  margin-bottom: 14px;
+}
+.world-lab h1 {
+  grid-column: 1;
+  margin: 0;
+  max-width: none;
+  font: 400 clamp(72px, 7.4vw, 136px) / 0.84 var(--wl-serif);
+  letter-spacing: -0.05em;
+}
+.wlab-statement {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  max-width: 17ch;
+  padding-bottom: 6px;
+  text-align: right;
+  font: 400 clamp(22px, 1.8vw, 32px) / 1.12 var(--wl-serif);
+  letter-spacing: -0.02em;
+}
+.wlab-statement em,
+.wlab-question,
+.wlab-note-line em {
+  font-style: italic;
+}
+.wlab-count {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  margin-bottom: 14px;
+}
+.wlab-wall-text {
+  max-width: 46ch;
+  margin-inline: var(--wl-gutter);
+  color: var(--wlab-quiet);
+  font: 400 15px/1.65 var(--wl-sans);
+}
+
+/* A study: a fine rule across the room, then its label and its field. */
+.wlab-experiment {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: clamp(28px, 4vw, 72px);
+  margin: clamp(88px, 14svh, 168px) var(--wl-gutter) 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--wl-rule);
+  /* Landing on /world/lab#<study> leaves a margin of room above. */
+  scroll-margin-top: clamp(24px, 6svh, 72px);
+}
+.wlab-label {
+  grid-area: label;
+  align-self: start;
+}
+.wlab-edge {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: clamp(14px, 2.4svh, 36px);
+}
+.wlab-number {
+  color: var(--wl-ivory);
+}
+.wlab-title {
+  margin: 0;
+  max-width: none;
+  font: 400 clamp(44px, 4.4vw, 80px) / 0.92 var(--wl-serif);
+  letter-spacing: -0.04em;
+}
+.wlab-question {
+  max-width: 22ch;
+  margin-top: 16px;
+  font: 400 clamp(20px, 1.6vw, 28px) / 1.2 var(--wl-serif);
+  letter-spacing: -0.015em;
+  text-wrap: pretty;
+}
+/* Medium and production context, set out on rules. */
+.wlab-facts {
+  display: grid;
+  margin-top: clamp(20px, 3svh, 32px);
+  border-bottom: 1px solid var(--wlab-edge);
+}
+.wlab-facts > div {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.42fr) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 16px;
+  padding: 11px 0;
+  border-top: 1px solid var(--wlab-edge);
+}
+.wlab-facts dd {
+  font: 400 14px/1.5 var(--wl-sans);
+}
+
+/* EX–01 Atmosphere: the dominant bench. The study's island renders the
+   field and its controls straight into this grid. */
+.wlab-experiment[data-experiment='atmosphere'] {
+  grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'label field'
+    'controls field';
+  /* Close to the entry, so LOAD LIVE STUDY is on screen at laptop heights
+     (720px and up). */
+  margin-top: clamp(20px, 3.4svh, 56px);
+}
+.wlab-study {
+  display: contents;
+}
+.wlab-field {
+  grid-area: field;
+  position: relative;
+  overflow: hidden;
+  height: clamp(360px, 64svh, 640px);
+  background: var(--wlab-air);
+}
+/* A calibration frame over the whole field, live or static. */
+.wlab-field::after {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  z-index: 2;
+  border: 1px solid rgb(42 34 27 / 16%);
+  pointer-events: none;
+}
+.wlab-palette {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.wlab-tone {
+  display: flex;
+  align-items: flex-end;
+  padding: 24px;
+  color: var(--wlab-ink);
+}
+.wlab-tone + .wlab-tone {
+  border-left: 1px solid rgb(42 34 27 / 18%);
+}
+.wlab-tone[data-tone='air'] {
+  background: var(--wlab-air);
+}
+.wlab-tone[data-tone='cloud'] {
+  background: var(--wlab-cloud);
+}
+.wlab-tone[data-tone='sky'] {
+  background: var(--wlab-sky);
+}
+/* The production renderer's one canvas fills the field. */
+.wlab-host {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+/* Live: the static study steps aside for the production atmosphere over
+   its ground — the air, then (past the homepage's swap) the open sky its
+   opening reveals. */
+.wlab-field[data-phase='live'] .wlab-palette {
+  visibility: hidden;
+}
+.wlab-field[data-phase='live'][data-ground='sky'] {
+  background: linear-gradient(
+    to top,
+    var(--wlab-sky-low) 6%,
+    var(--wlab-sky) 95%
+  );
+}
+.wlab-controls {
+  grid-area: controls;
+  align-self: start;
+  display: grid;
+  justify-items: start;
+  gap: 14px;
+  /* Status and toggle are reserved before hydration: nothing shifts. */
+  min-height: calc(18px + 14px + 44px);
+  margin-top: clamp(16px, 2.6svh, 40px);
+}
+.wlab-status {
+  display: block;
+  min-height: 18px;
+}
+.wlab-status:focus {
+  outline: none;
+}
+.wlab-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 24px;
+  border: 1px solid var(--wl-rule);
+  border-radius: 0;
+  background: transparent;
+  color: var(--wl-ivory);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-duration-micro) var(--motion-ease-primary),
+    color var(--motion-duration-micro) var(--motion-ease-primary);
+}
+@media (hover: hover) and (pointer: fine) {
+  .wlab-toggle:hover {
+    background: var(--wl-ivory);
+    color: var(--world-ground);
+  }
+}
+.wlab-range {
+  display: grid;
+  justify-self: stretch;
+  gap: 6px;
+  max-width: 420px;
+}
+.wlab-range-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.wlab-band {
+  color: var(--wl-ivory);
+}
+.wlab-range input {
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  accent-color: var(--wl-ivory);
+  cursor: pointer;
+}
+.wlab-scale {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* EX–02 Breeze: a wide reference field. */
+.wlab-experiment[data-experiment='breeze'] {
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  grid-template-areas:
+    'label stations'
+    'cloth cloth';
+}
+.wlab-stations {
+  grid-area: stations;
+  align-self: end;
+  display: grid;
+  list-style: none;
+  border-bottom: 1px solid var(--wlab-edge);
+}
+.wlab-stations li {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.3fr) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--wlab-edge);
+  font: 400 14px/1.6 var(--wl-sans);
+}
+.wlab-station-name {
+  color: var(--wl-ivory);
+}
+.wlab-cloth {
+  grid-area: cloth;
+  margin-top: clamp(28px, 4.5svh, 52px);
+}
+.wlab-cloth-still {
+  display: block;
+  width: 100%;
+  height: clamp(260px, 48svh, 500px);
+  padding: clamp(14px, 2svh, 24px) 0;
+  background: var(--wlab-surface);
+}
+/* The view's own edge: a calibration frame around the cloth. */
+.wlab-cloth-view {
+  fill: none;
+  stroke: var(--wlab-edge);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+.wlab-cloth-outline,
+.wlab-cloth-thread {
+  fill: none;
+  stroke: var(--wl-ivory);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+.wlab-cloth-outline {
+  stroke-opacity: 0.82;
+}
+.wlab-cloth-thread {
+  stroke-opacity: 0.3;
+}
+.wlab-cloth figcaption,
+.wlab-depth-status,
+.wlab-aside {
+  max-width: 52ch;
+  color: var(--wlab-quiet);
+  font: 400 14px/1.6 var(--wl-sans);
+}
+.wlab-cloth figcaption {
+  margin-top: 12px;
+}
+
+/* EX–03 Depth: a calibration field of three planes. */
+.wlab-experiment[data-experiment='depth'] {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'field label'
+    'field status';
+}
+.wlab-depth {
+  grid-area: field;
+  position: relative;
+  overflow: hidden;
+  height: clamp(320px, 54svh, 540px);
+  background: var(--wlab-surface);
+}
+.wlab-plane {
+  position: absolute;
+}
+.wlab-plane > span {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+}
+/* Far: the calibration grid, still. */
+.wlab-plane[data-plane='far'] {
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--wlab-edge) 0 1px,
+      transparent 1px 12.5%
+    ),
+    repeating-linear-gradient(
+      0deg,
+      var(--wlab-edge) 0 1px,
+      transparent 1px 16.66%
+    );
+  color: var(--wlab-quiet);
+}
+/* Mid: an aperture of thin frames. */
+.wlab-plane[data-plane='mid'] {
+  inset: 18% 20%;
+  border: 1px solid var(--wl-rule);
+  box-shadow:
+    inset 0 0 0 18px var(--wlab-surface),
+    inset 0 0 0 19px var(--wlab-edge);
+  color: var(--wlab-quiet);
+}
+/* Near: one ivory plane, the closest surface. */
+.wlab-plane[data-plane='near'] {
+  inset: 38% 36% 30% 38%;
+  background: var(--wlab-air);
+  color: var(--wlab-ink);
+}
+.wlab-depth-status {
+  grid-area: status;
+  align-self: start;
+  margin-top: clamp(20px, 3svh, 32px);
+}
+.wlab-depth-status [data-capability='pointer'] {
+  display: none;
+}
+/* The planes move only where pointer depth belongs: the desktop tier, a
+   fine hover pointer and no reduced-motion request (createPointerFollower
+   never moves for touch, pen or reduced motion either). Mid at most 3 × 2px,
+   near 6 × 4px, under MOTION_LIMITS.parallaxPx. */
+@media (min-width: 1200px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .wlab-plane[data-plane='mid'] {
+    transform: translate3d(
+      calc(var(--lab-depth-x, 0) * -3px),
+      calc(var(--lab-depth-y, 0) * -2px),
+      0
+    );
+  }
+  .wlab-plane[data-plane='near'] {
+    transform: translate3d(
+      calc(var(--lab-depth-x, 0) * -6px),
+      calc(var(--lab-depth-y, 0) * -4px),
+      0
+    );
+  }
+  .wlab-depth-status [data-capability='pointer'] {
+    display: inline;
+  }
+  .wlab-depth-status [data-capability='static'] {
+    display: none;
+  }
+}
+
+/* EX–04 Threshold: a compact protocol. */
+.wlab-experiment[data-experiment='threshold'] {
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  grid-template-areas:
+    'label protocol'
+    'label aside';
+  grid-template-rows: auto 1fr;
+}
+.wlab-protocol {
+  grid-area: protocol;
+  display: grid;
+  list-style: none;
+  border-bottom: 1px solid var(--wlab-edge);
+}
+.wlab-protocol li {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.3fr) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--wlab-edge);
+  font: 400 14px/1.6 var(--wl-sans);
+}
+.wlab-step {
+  color: var(--wl-ivory);
+}
+.wlab-aside {
+  grid-area: aside;
+  margin-top: 16px;
+}
+
+/* Fast navigation inside the room: every study, one step away. */
+.wlab-index {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 9fr);
+  column-gap: clamp(32px, 4vw, 72px);
+  margin: clamp(104px, 17svh, 200px) var(--wl-gutter) 0;
+  padding-top: clamp(24px, 3.5svh, 40px);
+  border-top: 1px solid var(--wl-rule);
+}
+.wlab-index ol {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: clamp(32px, 4vw, 72px);
+  list-style: none;
+}
+.wlab-index li {
+  border-bottom: 1px solid var(--wlab-edge);
+}
+.wlab-index a {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 16px;
+  min-height: 56px;
+  padding: 14px 0;
+}
+.wlab-index-number {
+  color: var(--wl-ivory);
+}
+.wlab-index-name {
+  font: 400 clamp(22px, 1.8vw, 30px) / 1.1 var(--wl-serif);
+  letter-spacing: -0.02em;
+}
+.wlab-index-mode {
+  grid-column: 2;
+  margin-top: 6px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .wlab-index a:hover .wlab-index-name {
+    font-style: italic;
+  }
+}
+.wlab-index a:focus-visible .wlab-index-name {
+  font-style: italic;
+}
+
+/* The note: where these studies come from. */
+.wlab-note {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  column-gap: clamp(32px, 5vw, 96px);
+  row-gap: 18px;
+  margin: clamp(88px, 14svh, 168px) var(--wl-gutter) 0;
+  padding-top: clamp(24px, 3.5svh, 40px);
+  border-top: 1px solid var(--wl-rule);
+}
+.wlab-note > .wlab-section-title,
+.wlab-note-line {
+  grid-column: 1;
+}
+.wlab-note-line {
+  font: 400 clamp(30px, 2.8vw, 48px) / 1.05 var(--wl-serif);
+  letter-spacing: -0.025em;
+}
+.wlab-note-text {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: end;
+  max-width: 46ch;
+  font: 400 15px/1.6 var(--wl-sans);
+}
+.wlab-lobby {
+  grid-column: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 12px;
+  min-height: 44px;
+}
+.wlab-lobby > span:first-child {
+  display: inline-block;
+  transition: transform var(--motion-duration-micro) var(--motion-ease-primary);
+}
+.wlab-lobby:focus-visible > span:first-child {
+  transform: translateX(-3px);
+}
+@media (hover: hover) and (pointer: fine) {
+  .wlab-lobby:hover > span:first-child {
+    transform: translateX(-3px);
+  }
+}
+
+/* Arrival (LOW): the room's number, its name, the statement, then the
+   first bench settles. Then stillness: studies answer only interaction.
+   Reduced motion shows the composed room at once (global kill switch). */
+@keyframes wlab-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.wlab-room-number {
+  animation: wlab-rise var(--motion-duration-fast) var(--motion-ease-primary)
+    80ms both;
+}
+.world-lab h1 {
+  animation: wlab-rise var(--motion-duration-normal) var(--motion-ease-primary)
+    160ms both;
+}
+.wlab-statement,
+.wlab-count,
+.wlab-wall-text {
+  animation: wlab-rise var(--motion-duration-fast) var(--motion-ease-primary)
+    320ms both;
+}
+.wlab-experiment[data-experiment='atmosphere'] {
+  animation: wlab-rise var(--motion-duration-normal) var(--motion-ease-primary)
+    480ms both;
+}
+
+/* Tablet portrait: every study stacks, label first. No hover needed. */
+@media (min-width: 768px) and (max-width: 1199px) and (orientation: portrait) {
+  .wlab-entry {
+    grid-template-columns: 1fr;
+    padding-top: calc(108px + 32px);
+  }
+  .wlab-statement,
+  .wlab-count {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+    text-align: left;
+  }
+  .wlab-statement {
+    max-width: none;
+    margin-top: 28px;
+  }
+  .wlab-count {
+    margin: 12px 0 0;
+  }
+  .world-lab h1 {
+    font-size: clamp(96px, 15vw, 144px);
+  }
+  .wlab-experiment[data-experiment='atmosphere'] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas: 'label' 'field' 'controls';
+  }
+  .wlab-field {
+    height: clamp(360px, 42svh, 560px);
+    margin-top: 32px;
+  }
+  .wlab-experiment[data-experiment='breeze'] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'label' 'cloth' 'stations';
+  }
+  .wlab-stations {
+    margin-top: 28px;
+  }
+  .wlab-experiment[data-experiment='depth'] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas: 'label' 'field' 'status';
+  }
+  .wlab-depth {
+    height: clamp(300px, 34svh, 440px);
+    margin-top: 32px;
+  }
+  .wlab-experiment[data-experiment='threshold'] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas: 'label' 'protocol' 'aside';
+  }
+  .wlab-protocol {
+    margin-top: 28px;
+  }
+  .wlab-index,
+  .wlab-note {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 20px;
+  }
+  .wlab-note-text {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}
+
+/* Phones: one reading column in the room's order, controls full size. */
+@media (max-width: 767px) {
+  .wlab-entry {
+    grid-template-columns: 1fr;
+    padding: calc(76px + 28px) var(--wl-gutter) 32px;
+  }
+  .wlab-statement,
+  .wlab-count {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+    text-align: left;
+  }
+  .wlab-statement {
+    max-width: none;
+    margin-top: 22px;
+    font-size: 24px;
+  }
+  .wlab-count {
+    margin: 10px 0 0;
+  }
+  .world-lab h1 {
+    font-size: clamp(64px, 20vw, 92px);
+  }
+  .wlab-experiment {
+    margin-top: 72px;
+  }
+  .wlab-experiment,
+  .wlab-experiment[data-experiment='atmosphere'],
+  .wlab-experiment[data-experiment='breeze'],
+  .wlab-experiment[data-experiment='depth'],
+  .wlab-experiment[data-experiment='threshold'] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+  .wlab-experiment[data-experiment='atmosphere'] {
+    grid-template-areas: 'label' 'field' 'controls';
+    margin-top: 28px;
+  }
+  .wlab-experiment[data-experiment='breeze'] {
+    grid-template-areas: 'label' 'cloth' 'stations';
+  }
+  .wlab-experiment[data-experiment='depth'] {
+    grid-template-areas: 'label' 'field' 'status';
+  }
+  .wlab-experiment[data-experiment='threshold'] {
+    grid-template-areas: 'label' 'protocol' 'aside';
+  }
+  .wlab-title {
+    font-size: clamp(44px, 13vw, 56px);
+  }
+  .wlab-question {
+    font-size: 21px;
+  }
+  .wlab-field {
+    height: clamp(300px, 52svh, 420px);
+    margin-top: 28px;
+  }
+  .wlab-tone {
+    padding: 14px 10px;
+  }
+  .wlab-tone > span {
+    letter-spacing: 0.16em;
+  }
+  .wlab-toggle,
+  .wlab-range {
+    justify-self: stretch;
+  }
+  .wlab-cloth-still {
+    height: clamp(240px, 34svh, 300px);
+  }
+  .wlab-stations,
+  .wlab-protocol {
+    margin-top: 24px;
+  }
+  .wlab-stations li,
+  .wlab-protocol li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+  .wlab-depth {
+    height: clamp(260px, 42svh, 340px);
+    margin-top: 28px;
+  }
+  .wlab-index,
+  .wlab-note {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 18px;
+    margin-top: 96px;
+  }
+  .wlab-index ol {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wlab-index a {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+  .wlab-note-text {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}
+
+/* Short landscape: the title clears the 68px chrome; the Atmosphere bench
+   keeps its two sides, so the controls sit beside a field that fits the
+   view. Normal page scroll throughout. */
+@media (max-width: 1199px) and (max-height: 540px) and (orientation: landscape) {
+  .wlab-entry {
+    padding-top: calc(68px + 20px);
+    padding-bottom: 24px;
+  }
+  .world-lab h1 {
+    font-size: clamp(56px, 9vw, 84px);
+  }
+  .wlab-experiment {
+    margin-top: 64px;
+  }
+  .wlab-experiment[data-experiment='atmosphere'] {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      'label field'
+      'controls field';
+    margin-top: 24px;
+  }
+  .wlab-title {
+    font-size: clamp(36px, 5.6vw, 52px);
+  }
+  .wlab-question {
+    font-size: 19px;
+  }
+  .wlab-field {
+    height: clamp(220px, calc(100svh - 96px), 320px);
+    margin-top: 0;
+  }
+  .wlab-controls {
+    margin-top: 16px;
+  }
+  .wlab-cloth-still {
+    height: clamp(180px, 52svh, 260px);
+  }
+  .wlab-depth {
+    height: clamp(220px, 62svh, 300px);
+  }
+}
