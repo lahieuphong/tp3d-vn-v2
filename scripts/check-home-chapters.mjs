@@ -413,9 +413,6 @@ function browser({
       if (path === './home-motion') return loadStoryMath('home-motion');
       if (path === './home-story-frame') return mathModule.exports;
       if (path === './atmospheric-bridge-frame') return bridgeModule;
-      // TP3D PASS 16: the pure orbit frame (no base marker here: no orbit).
-      if (path === './worlds-orbit-frame')
-        return loadStoryMath('worlds-orbit-frame');
       assert.equal(path, './scene-image');
       return { prepareSceneImage };
     },

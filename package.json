@@ -32,7 +32,6 @@
     "check:archive": "node scripts/check-archive.mjs",
     "check:lab": "node scripts/check-lab.mjs",
     "check:studio": "node scripts/check-studio.mjs",
-    "check:worlds-orbit": "node scripts/check-worlds-orbit.mjs",
     "check:motion": "node scripts/check-motion-foundation.mjs"
   },
   "dependencies": {

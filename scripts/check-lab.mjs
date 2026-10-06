@@ -1098,9 +1098,7 @@ for (const source of [...LAB_FILES.map(code), html]) {
     'components/home/experience/atmospheric-bridge-frame.ts':
       '6e8ec43efe204f08',
     'components/home/experience/home-motion.ts': 'e38f6680dc14089c',
-    // TP3D PASS 16 appended the Atrium orbit; check:worlds-orbit proves every
-    // base-journey write (the bridge the Lab maps) still equals PASS 15.
-    'components/home/experience/home-story-timeline.ts': '8c4ca696079c8a25',
+    'components/home/experience/home-story-timeline.ts': 'b634eb8afb916741',
     'components/home/experience/continuous-breeze.tsx': '80f5ac52eee64916',
     'components/home/experience/breeze-renderer.ts': 'aa615ba1520bea94',
     'components/home/experience/breeze-geometry.ts': '8e8d627818928972',

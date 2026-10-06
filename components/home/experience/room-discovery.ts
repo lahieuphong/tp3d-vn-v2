@@ -6,9 +6,6 @@ type DiscoveryState = {
   width: number;
   reduced: boolean;
   visible: boolean;
-  // TP3D PASS 16: while the Atrium orbit owns the room focus, scroll owns
-  // it alone. Links stay real and focusable; only the previews yield.
-  orbit?: boolean;
 };
 
 /** Local, event-driven discovery. It never moves the architecture, intercepts
@@ -138,9 +135,7 @@ export function createRoomDiscovery(worlds: HTMLElement) {
       if (fine.matches && mayPreview()) warmRooms();
     }
     const active =
-      state.visible &&
-      state.progress >= HOME_PRODUCTION.discoveryStart &&
-      !state.orbit;
+      state.visible && state.progress >= HOME_PRODUCTION.discoveryStart;
     const changed = enabled !== active;
     enabled = active;
     attr(worlds, 'data-world-interactive', enabled ? '' : null);
