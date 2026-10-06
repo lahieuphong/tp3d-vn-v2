@@ -6,6 +6,10 @@ type DiscoveryState = {
   width: number;
   reduced: boolean;
   visible: boolean;
+  // TP3D PASS — Atrium room orbit: while the rooms orbit as portals, each
+  // portal answers its own hover/focus and the World gateway keeps showing
+  // the World. Links stay real and focusable; only the previews yield.
+  orbit?: boolean;
 };
 
 /** Local, event-driven discovery. It never moves the architecture, intercepts
@@ -19,6 +23,10 @@ export function createRoomDiscovery(worlds: HTMLElement) {
   const defaultPreview = worlds.querySelector<HTMLImageElement>(
     '.hc-atrium-preview > img:not([data-room-preview])',
   );
+  // The orbit's room apertures reuse the same four 192px previews.
+  const portalImages = [
+    ...worlds.querySelectorAll<HTMLImageElement>('img[data-room-portal]'),
+  ];
   const saved = [worlds, ...links, ...previews].map((node) => ({
     node,
     attributes: [
@@ -92,6 +100,9 @@ export function createRoomDiscovery(worlds: HTMLElement) {
         'low',
       )
     : null;
+  const portalPreparations = portalImages.map((image) =>
+    prepareSceneImage(image, { ready() {}, failed() {} }, 'low'),
+  );
   const mayPreview = () => state.width >= 768;
   const warmRooms = () => {
     for (const preparation of preparations) preparation.start();
@@ -133,9 +144,14 @@ export function createRoomDiscovery(worlds: HTMLElement) {
     if (state.visible && state.progress >= HOME_PRODUCTION.thumbnailPreload) {
       defaultPreparation?.start();
       if (fine.matches && mayPreview()) warmRooms();
+      // Reduced motion never shows the orbit, so never fetches its portals.
+      if (!state.reduced)
+        for (const preparation of portalPreparations) preparation.start();
     }
     const active =
-      state.visible && state.progress >= HOME_PRODUCTION.discoveryStart;
+      state.visible &&
+      state.progress >= HOME_PRODUCTION.discoveryStart &&
+      !state.orbit;
     const changed = enabled !== active;
     enabled = active;
     attr(worlds, 'data-world-interactive', enabled ? '' : null);
@@ -175,6 +191,7 @@ export function createRoomDiscovery(worlds: HTMLElement) {
       fine.removeEventListener('change', capability);
       defaultPreparation?.destroy();
       for (const preparation of preparations) preparation.destroy();
+      for (const preparation of portalPreparations) preparation.destroy();
       decoded.clear();
       hover = focus = null;
       for (const { node, attributes } of saved)

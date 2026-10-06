@@ -1098,7 +1098,9 @@ for (const source of [...LAB_FILES.map(code), html]) {
     'components/home/experience/atmospheric-bridge-frame.ts':
       '6e8ec43efe204f08',
     'components/home/experience/home-motion.ts': 'e38f6680dc14089c',
-    'components/home/experience/home-story-timeline.ts': 'b634eb8afb916741',
+    // TP3D PASS — Atrium room orbit appends its own span after the approved
+    // journey; the bridge writes the Lab maps are unchanged (check:atrium-orbit).
+    'components/home/experience/home-story-timeline.ts': '899d14c7c9687fc3',
     'components/home/experience/continuous-breeze.tsx': '80f5ac52eee64916',
     'components/home/experience/breeze-renderer.ts': 'aa615ba1520bea94',
     'components/home/experience/breeze-geometry.ts': '8e8d627818928972',

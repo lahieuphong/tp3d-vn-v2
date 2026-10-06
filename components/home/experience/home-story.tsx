@@ -32,6 +32,13 @@ export function HomeStory({ children }: { children: ReactNode }) {
           </span>
         </aside>
       </div>
+      {/* TP3D PASS — Atrium room orbit: measures the approved journey's
+          height, so the orbit appends its own span instead of stretching it. */}
+      <div
+        className="home-story-base"
+        data-home-story-base
+        aria-hidden="true"
+      />
     </section>
   );
 }

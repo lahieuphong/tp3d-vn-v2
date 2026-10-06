@@ -31,6 +31,14 @@ import {
   tpPose,
   type TPGeometry,
 } from './home-story-frame';
+import {
+  measureWorldsOrbit,
+  orbitPose,
+  orbitTier,
+  worldsOrbitFrame,
+  type Box,
+  type OrbitRoom,
+} from './worlds-orbit';
 
 /** The only scroll owner. All scene layers sample native progress; no camera
  * clock, scroll correction, per-frame React state or independent scene trigger. */
@@ -75,6 +83,21 @@ export function createHomeStoryTimeline(
       'source[data-hero-deferred-source]',
     ),
   ];
+  // TP3D PASS — Atrium room orbit. The approved journey's height is measured
+  // from its own marker; anything the story is taller than that is the
+  // appended orbit. The four room wrappers carry the existing room links.
+  const baseMarker = sequence.querySelector<HTMLElement>(
+    '[data-home-story-base]',
+  );
+  const roomWrappers = [
+    ...worlds.querySelectorAll<HTMLElement>('.hc-atrium-room'),
+  ].map((node) => ({
+    node,
+    room: node.querySelector<HTMLElement>('[data-room]')?.dataset.room as
+      | OrbitRoom
+      | undefined,
+  }));
+  const roomFocus = worlds.querySelector<HTMLElement>('.hc-room-focus');
   const openingLayers = Object.keys(arrivalFrame(0, 1440, false)).flatMap(
     (selector) =>
       [...root.querySelectorAll<HTMLElement>(selector)].map((node) => ({
@@ -102,6 +125,8 @@ export function createHomeStoryTimeline(
       discovery,
       manifesto,
       portals,
+      roomFocus,
+      ...roomWrappers.map((wrapper) => wrapper.node),
       ...openingLayers.map((layer) => layer.node),
     ]),
   ]
@@ -127,12 +152,16 @@ export function createHomeStoryTimeline(
             'data-tp-state',
             'data-bridge-phase',
             'data-world-interactive',
+            'data-room-orbit',
+            'data-orbit-room',
           ]
       ).map((name) => [name, node.getAttribute(name)] as const),
     }));
   let geometry = {
     top: 0,
+    // The approved journey's own scroll span, never stretched by the orbit.
     span: 1,
+    orbit: 0,
     width: 1,
     height: 1,
     bottom: 0,
@@ -148,6 +177,7 @@ export function createHomeStoryTimeline(
     opacity: 1,
   };
   let atriumGeometry = measureAtrium(1440, 900);
+  let orbitGeometry = measureWorldsOrbit(1440, 900);
   const headerMix = header?.style.getPropertyValue('--home-header-ivory') ?? '';
   const headerMixPriority =
     header?.style.getPropertyPriority('--home-header-ivory') ?? '';
@@ -247,9 +277,13 @@ export function createHomeStoryTimeline(
     const owner = sequence.getBoundingClientRect();
     const bounds = stage.getBoundingClientRect();
     const worldBounds = worlds.getBoundingClientRect();
+    const baseHeight = baseMarker
+      ? baseMarker.getBoundingClientRect().height
+      : owner.height;
     geometry = {
       top: owner.top + scroll,
-      span: Math.max(1, owner.height - bounds.height),
+      span: Math.max(1, baseHeight - bounds.height),
+      orbit: Math.max(0, owner.height - baseHeight),
       width: bounds.width,
       height: bounds.height,
       bottom: owner.bottom + scroll,
@@ -279,6 +313,56 @@ export function createHomeStoryTimeline(
     }
     breeze?.measure(bounds.width, bounds.height);
     atriumGeometry = measureAtrium(bounds.width, bounds.height);
+    // The portals keep clear of the copy (each line of glyphs), the gateway
+    // and the baseline (their layout boxes), read here once per layout and
+    // never per frame. Reveal offsets are taken out, so a layout measured
+    // mid-journey matches the settled Atrium the orbit plays over.
+    const avoid: Box[] = [];
+    const layoutBox = (node: HTMLElement | null) => {
+      if (!node) return;
+      let x = 0,
+        y = 0;
+      for (
+        let at: HTMLElement | null = node;
+        at && at !== worlds;
+        at = at.offsetParent as HTMLElement | null
+      ) {
+        x += at.offsetLeft;
+        y += at.offsetTop;
+      }
+      avoid.push({
+        x0: x,
+        y0: y,
+        x1: x + node.offsetWidth,
+        y1: y + node.offsetHeight,
+      });
+    };
+    for (const node of worlds.querySelectorAll<HTMLElement>(
+      '.hc-atrium-copy [data-chapter-reveal]',
+    )) {
+      const lift =
+        Number(
+          /translate3d\(0, (-?[\d.]+)px/.exec(node.style.transform)?.[1],
+        ) || 0;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      for (const line of range.getClientRects())
+        if (line.width > 1)
+          avoid.push({
+            x0: line.left - bounds.left,
+            y0: line.top - bounds.top - lift,
+            x1: line.right - bounds.left,
+            y1: line.bottom - bounds.top - lift,
+          });
+    }
+    layoutBox(worlds.querySelector<HTMLElement>('.hc-atrium-cta'));
+    layoutBox(worlds.querySelector<HTMLElement>('.hc-atrium-baseline'));
+    orbitGeometry = measureWorldsOrbit(
+      bounds.width,
+      bounds.height,
+      avoid,
+      geometry.header,
+    );
     needsMeasure = false;
   };
   const expose = (node: HTMLElement | null, visible: boolean) => {
@@ -290,6 +374,11 @@ export function createHomeStoryTimeline(
   const property = (node: HTMLElement, name: string, value: string) => {
     if (node.style.getPropertyValue(name) !== value)
       node.style.setProperty(name, value);
+  };
+  const data = (node: HTMLElement, name: string, value: string | null) => {
+    if (node.getAttribute(name) === value) return;
+    if (value === null) node.removeAttribute(name);
+    else node.setAttribute(name, value);
   };
   function render(now = performance.now()) {
     narrative = false;
@@ -309,6 +398,21 @@ export function createHomeStoryTimeline(
     const bridge = bridgeFrame(bridgeProgress, geometry.width, still);
     const visualChapter = homeStoryFrame(bridgeProgress).chapter;
     const worldPose = atriumPose(bridgeProgress, atriumGeometry, still);
+    // The room orbit samples its own appended span, only after the approved
+    // journey has ended (p = 1). Reduced motion has no orbit span.
+    const tier = orbitTier(geometry.width, geometry.height, still);
+    const orbitEnabled = tier !== 'reduced' && geometry.orbit > 0;
+    const orbitProgress =
+      orbitEnabled && sceneImage === 'ready'
+        ? clamp((scroll - geometry.top - geometry.span) / geometry.orbit)
+        : 0;
+    const orbit = worldsOrbitFrame(orbitProgress, orbitGeometry, tier);
+    // One camera, one origin, one bounded mass: the breath is expressed about
+    // the arrival's origin, whose pose is the identity from camera end.
+    const scenePose =
+      orbitProgress > 0
+        ? orbitPose(orbit, worldPose.originX, worldPose.originY)
+        : worldPose;
     const elapsed = lastFrameTime ? now - lastFrameTime : 0;
     lastFrameTime = now;
     const motion = cameraImpulse(bridgeProgress, geometry.width);
@@ -316,13 +420,14 @@ export function createHomeStoryTimeline(
     const massEnabled = !still && bridgeProgress < bridgeTiming.settled;
     const cameraResponse = settleVisual(
       cameraMass,
-      worldPose,
+      scenePose,
       elapsed,
       geometry.width,
       geometry.height,
-      massEnabled &&
-        bridge.scene3Visible &&
-        bridgeProgress >= profile.cameraStart,
+      orbitProgress > 0 ||
+        (massEnabled &&
+          bridge.scene3Visible &&
+          bridgeProgress >= profile.cameraStart),
     );
     const architectureResponse = settleVisual(
       architectureMass,
@@ -357,7 +462,11 @@ export function createHomeStoryTimeline(
       width: geometry.width,
       reduced: still,
       visible:
-        sceneImage === 'ready' && scroll <= geometry.top + geometry.span + 1,
+        sceneImage === 'ready' &&
+        scroll <= geometry.top + geometry.span + geometry.orbit + 1,
+      // While the orbit carries the rooms, the World gateway keeps showing
+      // the World: room previews never swap into it.
+      orbit: orbit.orbit,
     });
     const ivory = past ? 0 : bridge.headerIvory;
     const theme = ivory === 1 ? 'dark' : ivory > 0 ? 'bridge' : 'light';
@@ -415,7 +524,7 @@ export function createHomeStoryTimeline(
         : p <= bridgeTiming.exitStart
           ? tpTiming.settle
           : Math.min(p, bridgeTiming.settled);
-    const signature = `${visualProgress}/${state.chapter}/${still}/${ready}/${sceneImage}/${theme}/${geometry.width}/${geometry.height}`;
+    const signature = `${visualProgress}/${orbitProgress}/${state.chapter}/${still}/${ready}/${sceneImage}/${theme}/${geometry.width}/${geometry.height}`;
     if (camera) {
       property(
         camera,
@@ -478,10 +587,11 @@ export function createHomeStoryTimeline(
         property(
           roomLabels,
           'transform',
-          geometry.width >= 1200
-            ? worldPose.scale === 1 && worldPose.x === 0 && worldPose.y === 0
+          // Portal layout places rooms in viewport space (the orbit layer).
+          geometry.width >= 1200 && !orbit.orbit
+            ? scenePose.scale === 1 && scenePose.x === 0 && scenePose.y === 0
               ? 'translateX(-50%)'
-              : `translateX(-50%) translate3d(${worldPose.x.toFixed(3)}px, ${worldPose.y.toFixed(3)}px, 0) scale(${worldPose.scale.toFixed(7)})`
+              : `translateX(-50%) translate3d(${scenePose.x.toFixed(3)}px, ${scenePose.y.toFixed(3)}px, 0) scale(${scenePose.scale.toFixed(7)})`
             : 'none',
         );
       }
@@ -560,7 +670,17 @@ export function createHomeStoryTimeline(
           Number(node.dataset.chapterReveal),
           still,
         );
-        property(node, 'opacity', reveal.opacity.toFixed(5));
+        property(
+          node,
+          'opacity',
+          (
+            reveal.opacity *
+            // The World gateway quietens while the rooms are explored.
+            (node.tagName === 'A' && !node.dataset.room
+              ? orbit.gatewayOpacity
+              : 1)
+          ).toFixed(5),
+        );
         property(
           node,
           'transform',
@@ -590,6 +710,38 @@ export function createHomeStoryTimeline(
           p >= (still ? arrivalTiming.reduced : arrivalTiming).labels[1],
       );
       expose(worlds!, bridge.interactive);
+      // TP3D PASS — Atrium room orbit: one explicit mode; positions, depth
+      // and the doorway exposure are custom properties only.
+      data(worlds!, 'data-room-orbit', orbit.orbit ? '' : null);
+      data(worlds!, 'data-orbit-room', orbit.activeRoom);
+      for (const { node, room } of roomWrappers) {
+        const portal = room ? orbit.portals[room] : null;
+        // Before the switch the lintel labels fade; after it, the portals.
+        property(
+          node,
+          '--orbit-opacity',
+          (portal && orbit.orbit ? portal.opacity : orbit.labels).toFixed(5),
+        );
+        // Positions are pure functions of scroll, written whenever the orbit
+        // exists (inert until portal layout), so the DOM never depends on
+        // the path that reached a scroll position.
+        if (!portal || !orbitEnabled) continue;
+        property(node, '--orbit-x', `${portal.x.toFixed(2)}px`);
+        property(node, '--orbit-y', `${portal.y.toFixed(2)}px`);
+        property(node, '--orbit-scale', portal.scale.toFixed(5));
+        property(node, '--orbit-blur', `${portal.blur.toFixed(3)}px`);
+        property(node, '--orbit-depth', portal.depth.toFixed(5));
+        property(node, '--orbit-z', String(portal.z));
+      }
+      if (roomFocus) {
+        property(roomFocus, '--room-focus-x', `${orbit.focusX.toFixed(2)}px`);
+        property(roomFocus, '--room-focus-y', `${orbit.focusY.toFixed(2)}px`);
+        property(
+          roomFocus,
+          '--room-focus-opacity',
+          orbit.focusOpacity.toFixed(5),
+        );
+      }
       if (rail) {
         // Preserve the approved midpoint/end rail positions; no motion in holds.
         const midpoint = 0.47 / 0.92;

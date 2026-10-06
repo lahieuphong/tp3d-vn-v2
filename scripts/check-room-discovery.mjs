@@ -62,8 +62,20 @@ function fixture({ finePointer = true } = {}) {
       }),
     ),
     defaultImage = new Element();
+  // TP3D PASS — Atrium room orbit: the rooms' own apertures are separate
+  // images from the gateway's room previews.
+  const portals = links.map((l) =>
+    Object.assign(new Element(), {
+      dataset: { roomPortal: l.dataset.room },
+    }),
+  );
   const fine = Object.assign(new Element(), { matches: finePointer });
-  worlds.querySelectorAll = (q) => (q === '[data-room]' ? links : previews);
+  worlds.querySelectorAll = (q) =>
+    q === '[data-room]'
+      ? links
+      : q === 'img[data-room-portal]'
+        ? portals
+        : previews;
   worlds.querySelector = () => defaultImage;
   const loaded = { exports: {} };
   runInNewContext(output, {
@@ -99,8 +111,13 @@ function fixture({ finePointer = true } = {}) {
     },
   });
   const controller = loaded.exports.createRoomDiscovery(worlds);
-  const update = (p = 0.95, width = 1440, reduced = false, visible = true) =>
-    controller.update({ progress: p, width, reduced, visible });
+  const update = (
+    p = 0.95,
+    width = 1440,
+    reduced = false,
+    visible = true,
+    orbit = false,
+  ) => controller.update({ progress: p, width, reduced, visible, orbit });
   const hover = (i) =>
     worlds.emit('pointerover', { target: links[i], pointerType: 'mouse' });
   const focus = (i) => {
@@ -111,6 +128,7 @@ function fixture({ finePointer = true } = {}) {
     worlds,
     links,
     previews,
+    portals,
     defaultImage,
     fine,
     preparations,
@@ -230,10 +248,20 @@ for (let cycle = 0; cycle < 30; cycle++) {
 }
 const touch = fixture({ finePointer: false });
 touch.update(0.95, 390);
+const gatewayImages = new Set([touch.defaultImage, ...touch.previews]);
 assert.equal(
-  touch.preparations.filter((p) => p.starts).length,
+  touch.preparations.filter((p) => p.starts && gatewayImages.has(p.image))
+    .length,
   1,
   'touch requests only default thumbnail',
+);
+// The orbit's four apertures are the rooms' own images: phones show them.
+assert.deepEqual(
+  touch.preparations
+    .filter((p) => p.starts && !gatewayImages.has(p.image))
+    .map((p) => p.image.dataset.roomPortal),
+  ['living', 'bedroom', 'bathroom', 'kitchen'],
+  'touch requests the four room apertures',
 );
 touch.worlds.emit('pointerover', {
   target: touch.links[0],
@@ -247,6 +275,40 @@ touch.worlds.emit('pointerout', {
 });
 assert.equal(touch.worlds.getAttribute('data-active-room'), null);
 touch.controller.destroy();
+{
+  // Reduced motion never shows the orbit, so never fetches its apertures.
+  const still = fixture();
+  still.update(0.95, 1440, true);
+  const portals = new Set(still.portals);
+  assert.equal(
+    still.preparations.filter((p) => p.starts && portals.has(p.image)).length,
+    0,
+    'reduced motion requests no room apertures',
+  );
+  // Nothing is requested before the existing thumbnail threshold.
+  const early = fixture();
+  early.update(0.1);
+  assert(early.preparations.every((p) => p.starts === 0));
+  // While the rooms orbit, the World gateway keeps showing the World: no
+  // hover or focus swaps a room preview into it; links stay untouched.
+  const orbit = fixture();
+  orbit.update(0.95);
+  orbit.hover(1);
+  assert.equal(orbit.worlds.getAttribute('data-active-room'), 'bedroom');
+  orbit.update(1, 1440, false, true, true);
+  assert.equal(orbit.worlds.getAttribute('data-world-interactive'), null);
+  assert.equal(orbit.worlds.getAttribute('data-active-room'), null);
+  assert(orbit.previews.every((i) => !i.getAttribute('data-preview-active')));
+  orbit.hover(2);
+  orbit.focus(3);
+  assert.equal(orbit.worlds.getAttribute('data-active-room'), null);
+  assert(orbit.previews.every((i) => !i.getAttribute('data-preview-active')));
+  for (const node of [orbit.worlds, ...orbit.links])
+    for (const name of ['inert', 'tabindex', 'aria-hidden'])
+      assert.equal(node.getAttribute(name), null, 'links stay reachable');
+  orbit.controller.destroy();
+  assert(orbit.preparations.every((p) => p.destroyed));
+}
 assert.doesNotMatch(
   source,
   /requestAnimationFrame|setInterval|setTimeout|preventDefault|pointermove|new\s+Image\s*\(/,

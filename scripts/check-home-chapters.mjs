@@ -413,6 +413,9 @@ function browser({
       if (path === './home-motion') return loadStoryMath('home-motion');
       if (path === './home-story-frame') return mathModule.exports;
       if (path === './atmospheric-bridge-frame') return bridgeModule;
+      // TP3D PASS — Atrium room orbit: the pure orbit frame (no base marker
+      // in this double, so no orbit span).
+      if (path === './worlds-orbit') return loadStoryMath('worlds-orbit');
       assert.equal(path, './scene-image');
       return { prepareSceneImage };
     },

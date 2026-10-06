@@ -5,11 +5,29 @@ html:has([data-home-story]) {
   scroll-behavior: auto;
 }
 /* PASS 1 scroll distances and breakpoints live here. Native document flow
-   releases the one sticky viewport directly into the existing Footer. */
+   releases the one sticky viewport directly into the existing Footer.
+   TP3D PASS — Atrium room orbit: the approved journey keeps its base height;
+   the room orbit appends its own span after it (none under reduced motion). */
 .home-story {
-  --story-height: 360svh;
+  --story-base-height: 360svh;
+  --story-orbit-height: 0svh;
+  --story-height: calc(var(--story-base-height) + var(--story-orbit-height));
   position: relative;
   height: var(--story-height);
+}
+.home-story-base {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: var(--story-base-height);
+  visibility: hidden;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .home-story {
+    --story-orbit-height: 160svh;
+  }
 }
 .home-story-stage {
   position: sticky;
@@ -113,12 +131,12 @@ html:has([data-home-story]) {
 }
 @media (max-width: 1199px) {
   .home-story {
-    --story-height: 320svh;
+    --story-base-height: 320svh;
   }
 }
 @media (max-width: 767px) {
   .home-story {
-    --story-height: 280svh;
+    --story-base-height: 280svh;
   }
   /* One painted cloth projection on mobile. */
   .home-story-stage .cb-back > g {
@@ -149,6 +167,11 @@ html:has([data-home-story]) {
   }
   .home-story-stage .hc-atrium-rooms {
     gap: 0 18px;
+  }
+  /* TP3D PASS — Atrium room orbit: the grid's slot keeps its gapless
+     height (two 44px rows) while its links orbit, so nothing shifts. */
+  .home-story-stage .hc-chapter.hc-worlds[data-room-orbit] .hc-atrium-rooms {
+    min-height: 88px;
   }
 }
 /* TP3D PASS 04: landscape phones (and any short landscape below 1200px).

@@ -1,0 +1,1309 @@
+/** TP3D PASS — Atrium room orbit. After the approved Atrium has settled, an
+ * appended span of native scroll carries the four room portals around the
+ * Atrium's central axis. Checked here: the CSS story geometry, the real
+ * master timeline in a small owned DOM double (its base-journey writes are
+ * digest-locked to the PASS 15 timeline), the pure orbit frame and its
+ * fitted layout, and the source contracts. RoomDiscovery's orbit behaviour is
+ * in check-room-discovery. Browser visual and layout QA remain separate.
+ *
+ * To re-derive the base digest from another timeline source:
+ *   ORBIT_BASELINE_TIMELINE=<path> node scripts/check-atrium-orbit.mjs */
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
+import ts from 'typescript';
+import { loadStoryMath } from './load-story-math.mjs';
+
+const read = (path) =>
+  readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+const EXPERIENCE = 'components/home/experience/';
+const transpile = (text) =>
+  ts.transpileModule(text.replaceAll('import.meta.env.DEV', 'false'), {
+    compilerOptions: {
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.CommonJS,
+    },
+  }).outputText;
+// Values from the vm realm compare by JSON (cross-realm prototypes differ).
+const json = (value) =>
+  JSON.stringify(value, (_, v) =>
+    typeof v === 'number' ? Number(v.toFixed(9)) : v,
+  );
+const same = (a, b, message) => assert.equal(json(a), json(b), message);
+const digest = (value) =>
+  createHash('sha256').update(json(value)).digest('hex').slice(0, 16);
+const steps = (from, to, count) =>
+  Array.from({ length: count + 1 }, (_, i) => from + ((to - from) * i) / count);
+const byKey = ([a], [b]) => (a < b ? -1 : a > b ? 1 : 0);
+
+const { MOTION } = loadStoryMath('home-motion');
+const { bridgeTiming, measureAtrium, worldReveal } = loadStoryMath(
+  'atmospheric-bridge-frame',
+);
+const { HOME_PRODUCTION } = loadStoryMath('home-production');
+const orbitModule = loadStoryMath('worlds-orbit');
+const {
+  ATRIUM_SOURCE,
+  ORBIT,
+  ORBIT_ROOMS,
+  ORBIT_DOORWAYS,
+  measureWorldsOrbit,
+  worldsOrbitFrame,
+  orbitTier,
+  orbitFocus,
+  orbitPose,
+  portalBox,
+} = orbitModule;
+const ROOMS = ['living', 'bedroom', 'bathroom', 'kitchen'];
+
+const timelineSource = read(`${EXPERIENCE}home-story-timeline.ts`);
+const orbitSource = read(`${EXPERIENCE}worlds-orbit.ts`);
+const discoverySource = read(`${EXPERIENCE}room-discovery.ts`);
+const chapterSource = read(`${EXPERIENCE}worlds-chapter.tsx`);
+const chapterCss = read(`${EXPERIENCE}worlds-chapter.css`);
+const storySource = read(`${EXPERIENCE}home-story.tsx`);
+const storyCss = read(`${EXPERIENCE}home-story.css`);
+
+// ---------------------------------------------------------------------------
+// 1. Story geometry: the PASS 15 heights stay the approved journey; the room
+// orbit appends 160svh only when motion is allowed.
+// ---------------------------------------------------------------------------
+const geometry = (() => {
+  const root = storyCss.match(/\n\.home-story \{([^}]*)\}/);
+  assert.ok(root, 'the story root rule exists');
+  assert.match(root[1], /--story-base-height: 360svh;/);
+  assert.match(root[1], /--story-orbit-height: 0svh;/);
+  assert.match(
+    root[1],
+    /--story-height: calc\(var\(--story-base-height\) \+ var\(--story-orbit-height\)\);/,
+  );
+  assert.match(root[1], /height: var\(--story-height\);/);
+  assert.equal(storyCss.match(/--story-height:/g).length, 1);
+  const base = { desktop: 360 };
+  for (const [, query, value] of storyCss.matchAll(
+    /@media \(max-width: (\d+)px\) \{\s*\.home-story \{\s*--story-base-height: (\d+)svh;/g,
+  ))
+    base[query === '1199' ? 'tablet' : 'mobile'] = Number(value);
+  same(base, { desktop: 360, tablet: 320, mobile: 280 }, 'PASS 15 heights');
+  const orbit = [
+    ...storyCss.matchAll(
+      /@media ([^{]+)\{\s*\.home-story \{\s*--story-orbit-height: (\d+)svh;\s*\}\s*\}/g,
+    ),
+  ];
+  assert.equal(orbit.length, 1, 'one appended orbit span');
+  assert.equal(orbit[0][1].trim(), '(prefers-reduced-motion: no-preference)');
+  assert.equal(Number(orbit[0][2]), 160, 'the orbit appends 160svh');
+  assert.equal(storyCss.match(/--story-orbit-height:/g).length, 2);
+  const marker = storyCss.match(/\n\.home-story-base \{([^}]*)\}/);
+  assert.ok(marker);
+  assert.match(marker[1], /position: absolute;/);
+  assert.match(marker[1], /height: var\(--story-base-height\);/);
+  assert.match(marker[1], /visibility: hidden;/);
+  assert.match(
+    storySource,
+    /<\/aside>\s*<\/div>[\s\S]*<div\s+className="home-story-base"\s+data-home-story-base\s+aria-hidden="true"\s*\/>\s*<\/section>/,
+    'the base marker sits outside the sticky stage',
+  );
+  return { base, orbit: 160 };
+})();
+const baseSvh = (w) =>
+  w < 768
+    ? geometry.base.mobile
+    : w < 1200
+      ? geometry.base.tablet
+      : geometry.base.desktop;
+
+// ---------------------------------------------------------------------------
+// A small owned DOM double for the real master timeline.
+// ---------------------------------------------------------------------------
+function story({
+  source = timelineSource,
+  width = 1440,
+  height = 900,
+  orbit = true,
+  reduced = false,
+  initialScroll = 0,
+} = {}) {
+  let vw = width,
+    vh = height,
+    clock = 0,
+    sequenceId = 0,
+    rafCalls = 0,
+    motionOff = reduced;
+  const frames = new Map(),
+    emitters = [],
+    observers = [],
+    discovery = { updates: [], suspended: 0 };
+  const heights = () => {
+    const base = (baseSvh(vw) / 100) * vh;
+    const extra =
+      orbit === true && !motionOff ? (geometry.orbit / 100) * vh : 0;
+    return { base, total: base + extra };
+  };
+  class Events {
+    listeners = new Map();
+    constructor() {
+      emitters.push(this);
+    }
+    addEventListener(name, fn) {
+      if (!this.listeners.has(name)) this.listeners.set(name, new Set());
+      this.listeners.get(name).add(fn);
+    }
+    removeEventListener(name, fn) {
+      this.listeners.get(name)?.delete(fn);
+    }
+    emit(name, event = {}) {
+      for (const fn of this.listeners.get(name) ?? []) fn(event);
+    }
+  }
+  class Style {
+    values = new Map();
+    setProperty(name, value) {
+      this.values.set(name, value);
+    }
+    getPropertyValue(name) {
+      return this.values.get(name) ?? '';
+    }
+    getPropertyPriority() {
+      return '';
+    }
+    removeProperty(name) {
+      this.values.delete(name);
+    }
+    get transform() {
+      return this.getPropertyValue('transform');
+    }
+  }
+  const camel = (key) =>
+    'data-' + String(key).replace(/[A-Z]/g, (c) => '-' + c.toLowerCase());
+  class Node extends Events {
+    attrs = new Map();
+    style = new Style();
+    offsetLeft = 0;
+    offsetTop = 0;
+    offsetWidth = 0;
+    offsetHeight = 0;
+    offsetParent = null;
+    constructor(name, tagName = 'DIV', rect = () => ({ top: 0, height: vh })) {
+      super();
+      this.name = name;
+      this.tagName = tagName;
+      this.rect = rect;
+      this.dataset = new Proxy(
+        {},
+        {
+          get: (_, key) => this.attrs.get(camel(key)),
+          set: (_, key, value) => {
+            this.setAttribute(camel(key), value);
+            return true;
+          },
+          deleteProperty: (_, key) => {
+            this.removeAttribute(camel(key));
+            return true;
+          },
+        },
+      );
+    }
+    get inert() {
+      return this.attrs.has('inert');
+    }
+    set inert(value) {
+      if (value) this.setAttribute('inert', '');
+      else this.removeAttribute('inert');
+    }
+    hasAttribute(name) {
+      return this.attrs.has(name);
+    }
+    getAttribute(name) {
+      return this.attrs.get(name) ?? null;
+    }
+    setAttribute(name, value) {
+      this.attrs.set(name, String(value));
+    }
+    removeAttribute(name) {
+      this.attrs.delete(name);
+    }
+    querySelector() {
+      return null;
+    }
+    querySelectorAll() {
+      return [];
+    }
+    getBoundingClientRect() {
+      const { top, height: h } = this.rect();
+      return {
+        top: top - window.scrollY,
+        bottom: top - window.scrollY + h,
+        height: h,
+        width: vw,
+        left: 0,
+      };
+    }
+    click() {
+      assert.fail(`scroll never activates ${this.name}`);
+    }
+  }
+  const window = Object.assign(new Events(), { scrollY: initialScroll });
+  window.scrollTo = window.scrollBy = () =>
+    assert.fail('the orbit never corrects native scroll');
+  const document = Object.assign(new Events(), {
+    hidden: false,
+    readyState: 'complete',
+    documentElement: new Node('html'),
+    createRange: () => ({
+      selectNodeContents() {},
+      getClientRects: () => [],
+    }),
+  });
+  const header = new Node('header', 'HEADER', () => ({ top: 0, height: 80 }));
+  document.querySelector = (selector) =>
+    selector === '.site-header' ? header : null;
+  const root = new Node('root');
+  const sequence = new Node('sequence', 'SECTION', () => ({
+    top: 0,
+    height: heights().total,
+  }));
+  const marker = new Node('marker', 'DIV', () => ({
+    top: 0,
+    height: heights().base,
+  }));
+  const stage = new Node('stage');
+  const storyNode = new Node('story');
+  const worlds = new Node('worlds', 'SECTION');
+  const camera = new Node('camera');
+  const rooms = new Node('rooms', 'NAV');
+  const image = new Node('image', 'IMG');
+  const focus = new Node('focus', 'SPAN');
+  // The Atrium's real [data-chapter-reveal] order and roles.
+  const reveals = [
+    ['eyebrow', 'P', 4],
+    ['enter', 'SPAN', 5],
+    ['the-worlds', 'EM', 6],
+    ['body', 'P', 7],
+    ['signoff', 'P', 8],
+    ...ROOMS.map((room, i) => [`room-${room}`, 'A', i]),
+    ['gateway', 'A', 9],
+    ['baseline', 'DIV', 9],
+  ].map(([name, tag, order]) => {
+    const node = new Node(name, tag);
+    node.attrs.set('data-chapter-reveal', String(order));
+    if (name.startsWith('room-')) node.attrs.set('data-room', name.slice(5));
+    return node;
+  });
+  const gateway = reveals.find((node) => node.name === 'gateway');
+  const baseline = reveals.find((node) => node.name === 'baseline');
+  const links = reveals.filter((node) => node.name.startsWith('room-'));
+  const copyNodes = reveals.filter((node) =>
+    ['eyebrow', 'enter', 'the-worlds', 'body', 'signoff'].includes(node.name),
+  );
+  const wrappers = links.map((link) => {
+    const node = new Node(`wrapper-${link.attrs.get('data-room')}`);
+    node.querySelector = (selector) =>
+      selector === '[data-room]' ? link : null;
+    return node;
+  });
+  for (const node of [gateway, baseline]) node.offsetParent = worlds;
+  root.querySelector = (selector) =>
+    ({
+      '[data-home-story]': sequence,
+      '[data-home-story-stage]': stage,
+      '.spatial-hero': storyNode,
+      '.hc-worlds': worlds,
+    })[selector] ?? null;
+  sequence.querySelector = (selector) =>
+    selector === '[data-home-story-base]' && orbit !== 'no-marker'
+      ? marker
+      : null;
+  worlds.querySelector = (selector) =>
+    ({
+      '[data-scene3-camera]': camera,
+      '.hc-atrium-rooms': rooms,
+      '.hc-atrium-backdrop img': image,
+      '.hc-room-focus': focus,
+      '.hc-atrium-cta': gateway,
+      '.hc-atrium-baseline': baseline,
+    })[selector] ?? null;
+  worlds.querySelectorAll = (selector) =>
+    ({
+      '[data-chapter-reveal]': reveals,
+      '.hc-atrium-room': wrappers,
+      '.hc-atrium-copy [data-chapter-reveal]': copyNodes,
+    })[selector] ?? [];
+  const media = {
+    '(prefers-reduced-motion: reduce)': Object.assign(new Events(), {
+      matches: reduced,
+    }),
+    '(hover: hover) and (pointer: fine)': Object.assign(new Events(), {
+      matches: true,
+    }),
+  };
+  window.matchMedia = (query) => media[query];
+  const loaded = { exports: {} };
+  runInNewContext(transpile(source), {
+    module: loaded,
+    exports: loaded.exports,
+    require(path) {
+      if (path === './atmospheric-sky-renderer')
+        return {
+          createAtmosphericSkyBridge: () => assert.fail('no sky host here'),
+        };
+      if (path === './hero-depth')
+        return {
+          createHeroDepth: () => ({
+            update() {},
+            tick() {},
+            wantsTime: () => false,
+            suspend() {},
+            destroy() {},
+          }),
+        };
+      if (path === './room-discovery')
+        return {
+          createRoomDiscovery: () => ({
+            update: (state) => discovery.updates.push({ ...state }),
+            suspend: () => discovery.suspended++,
+            destroy() {},
+          }),
+        };
+      if (path === './scene-image')
+        return {
+          prepareSceneImage(plate, callbacks) {
+            assert.equal(plate, image, 'the one Atrium plate is reused');
+            let started = false;
+            return {
+              start() {
+                if (started) return;
+                started = true;
+                callbacks.ready();
+              },
+              destroy() {},
+            };
+          },
+        };
+      assert.match(
+        path,
+        /^\.\/(home-production|home-motion|home-story-frame|atmospheric-bridge-frame|worlds-orbit)$/,
+        `unexpected timeline import ${path}`,
+      );
+      return loadStoryMath(path.slice(2));
+    },
+    window,
+    document,
+    navigator: {},
+    ResizeObserver: class {
+      constructor(fn) {
+        this.fn = fn;
+        observers.push(this);
+      }
+      observe() {}
+      disconnect() {
+        this.disconnected = true;
+      }
+    },
+    getComputedStyle: () => assert.fail('no shared TP in this double'),
+    performance: { now: () => clock },
+    requestAnimationFrame(fn) {
+      rafCalls++;
+      const id = ++sequenceId;
+      frames.set(id, fn);
+      return id;
+    },
+    cancelAnimationFrame(id) {
+      frames.delete(id);
+    },
+    setInterval: () => assert.fail('no interval'),
+    setTimeout: () => assert.fail('no timer'),
+  });
+  const flush = () => {
+    clock += 1000 / 60;
+    const tasks = [...frames.values()];
+    frames.clear();
+    for (const task of tasks) task(clock);
+  };
+  // Every sample is painted to rest: samples never depend on their path.
+  const settle = () => {
+    for (let i = 0; i < 400 && frames.size; i++) flush();
+    assert.equal(frames.size, 0, 'the story comes to rest: 0 RAF');
+  };
+  const scroll = (y) => {
+    window.scrollY = y;
+    window.emit('scroll');
+    settle();
+  };
+  const named = [
+    root,
+    header,
+    stage,
+    storyNode,
+    worlds,
+    camera,
+    rooms,
+    ...reveals,
+  ];
+  // `base` keeps only the approved outputs, so a PASS 15 timeline and this
+  // one can be compared over the base journey.
+  const trace = ({ base = false } = {}) =>
+    [...named, ...(base ? [] : [...wrappers, focus])].map((node) => [
+      node.name,
+      [...node.style.values].sort(byKey),
+      [...node.attrs]
+        .filter(
+          ([key]) =>
+            !base || (key !== 'data-room-orbit' && key !== 'data-orbit-room'),
+        )
+        .sort(byKey),
+    ]);
+  const dispose = loaded.exports.createHomeStoryTimeline(root);
+  return {
+    dispose,
+    settle,
+    scroll,
+    trace,
+    root,
+    worlds,
+    camera,
+    rooms,
+    focus,
+    wrappers,
+    links,
+    gateway,
+    header,
+    window,
+    document,
+    frames,
+    observers,
+    discovery,
+    span: () => heights().base - vh,
+    orbitSpan: () => heights().total - heights().base,
+    viewport: () => [vw, vh],
+    rafCalls: () => rafCalls,
+    resize(w, h) {
+      vw = w;
+      vh = h;
+      window.emit('resize');
+      for (const observer of observers) observer.fn([]);
+      settle();
+    },
+    setReduced(value) {
+      motionOff = value;
+      media['(prefers-reduced-motion: reduce)'].matches = value;
+      media['(prefers-reduced-motion: reduce)'].emit('change');
+      settle();
+    },
+    listenerCount: () =>
+      emitters.reduce(
+        (n, e) => n + [...e.listeners.values()].reduce((a, s) => a + s.size, 0),
+        0,
+      ),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Regression 1. The existing narrative is unchanged before the room orbit:
+// every base-journey write equals the PASS 15 timeline (d1a6a78).
+// ---------------------------------------------------------------------------
+const BASE_VIEWPORTS = [
+  [1440, 900],
+  [1180, 820],
+  [390, 844],
+  [844, 390],
+];
+function baseJourney(source, orbit) {
+  const frames = [];
+  for (const [width, height] of BASE_VIEWPORTS)
+    for (const reduced of [false, true]) {
+      const h = story({ source, width, height, orbit, reduced });
+      h.settle();
+      const span = h.span();
+      const positions = [
+        ...steps(0, span, 240),
+        ...steps(span, 0, 24).slice(1),
+      ].map(Math.round);
+      for (const y of positions) {
+        h.scroll(y);
+        frames.push([width, height, reduced, y, h.trace({ base: true })]);
+        const { orbit: _orbit, ...state } = h.discovery.updates.at(-1);
+        frames.push(state);
+      }
+      h.dispose();
+    }
+  return frames;
+}
+const PASS15_BASE_DIGEST = '11b1a49bdceb01ae';
+if (process.env.ORBIT_BASELINE_TIMELINE) {
+  const baseline = readFileSync(process.env.ORBIT_BASELINE_TIMELINE, 'utf8');
+  console.log(digest(baseJourney(baseline, 'no-marker')));
+  process.exit(0);
+}
+assert.equal(
+  digest(baseJourney(timelineSource, true)),
+  PASS15_BASE_DIGEST,
+  'every base-journey write equals the PASS 15 timeline (not stretched)',
+);
+assert.equal(
+  digest(baseJourney(timelineSource, 'no-marker')),
+  PASS15_BASE_DIGEST,
+  'without a base marker the story is exactly PASS 15',
+);
+// The physical spans: base progress reaches 1 at the PASS 15 distance
+// (260/220/180svh) and the orbit is 160svh more.
+for (const [width, height] of [...BASE_VIEWPORTS, [1366, 768], [768, 1024]]) {
+  const h = story({ width, height });
+  h.settle();
+  const span = (baseSvh(width) / 100) * height - height;
+  assert.ok(Math.abs(h.span() - span) < 1e-6, `${width}×${height} base`);
+  assert.ok(Math.abs(h.orbitSpan() - 1.6 * height) < 1e-6, 'orbit 160svh');
+  for (const o of steps(0, 1, 10)) {
+    h.scroll(h.span() + o * h.orbitSpan());
+    assert.equal(h.root.dataset.storyProgress, '1.00000');
+  }
+  h.dispose();
+}
+
+// ---------------------------------------------------------------------------
+// Regression 2. The orbit starts only after the Atrium has fully settled
+// and its approved final hold has been seen.
+// ---------------------------------------------------------------------------
+{
+  const h = story();
+  h.settle();
+  const span = h.span();
+  assert.equal(bridgeTiming.settled, HOME_PRODUCTION.discoveryStart);
+  assert.ok(1 - bridgeTiming.settled >= 0.08, 'the approved final hold');
+  let held = null;
+  for (const y of steps(0, span, 400).map(Math.round)) {
+    h.scroll(y);
+    assert.equal(h.worlds.getAttribute('data-room-orbit'), null);
+    assert.equal(h.worlds.getAttribute('data-orbit-room'), null);
+    assert.equal(h.discovery.updates.at(-1).orbit, false);
+    for (const node of h.wrappers)
+      assert.equal(node.style.getPropertyValue('--orbit-opacity'), '1.00000');
+    if (y >= bridgeTiming.settled * span) {
+      const frame = json(h.trace().filter(([name]) => name !== 'root'));
+      held ??= frame;
+      assert.equal(frame, held, `the settled hold is still at ${y}`);
+      assert.equal(h.camera.style.getPropertyValue('transform'), 'none');
+    }
+  }
+  // The approved settled hold continues into the orbit span until 0.04.
+  for (let y = span; y <= span + ORBIT.labelsOut[0] * h.orbitSpan(); y += 8) {
+    h.scroll(y);
+    assert.equal(h.camera.style.getPropertyValue('transform'), 'none');
+    for (const node of h.wrappers)
+      assert.equal(node.style.getPropertyValue('--orbit-opacity'), '1.00000');
+  }
+  assert.ok(
+    ORBIT.labelsOut[0] > 0 && ORBIT.labelsOut[1] === ORBIT.portalsIn[0],
+  );
+  h.dispose();
+}
+
+// ---------------------------------------------------------------------------
+// Regressions 3–5. The pure frame: four focus states in order, reverse
+// order, deterministic endpoints, holds that are real plateaus.
+// ---------------------------------------------------------------------------
+{
+  for (const banned of [
+    /\bdocument\b/,
+    /\bwindow\b/,
+    /globalThis/,
+    /getBoundingClientRect|getComputedStyle|matchMedia/,
+    /addEventListener|requestAnimationFrame|setTimeout|setInterval/,
+    /performance|Date\b|Math\.random/,
+    /^(let|var) /m,
+    /\b(direction|lastScroll|previous(Scroll|Progress)|velocity)\b/,
+    /fetch\(|https?:/,
+  ])
+    assert.doesNotMatch(orbitSource, banned, `pure orbit frame: ${banned}`);
+  assert.deepEqual([...ORBIT_ROOMS], ROOMS, 'four rooms in a fixed order');
+  assert.deepEqual(Object.keys(ORBIT_DOORWAYS), ROOMS);
+  same(ATRIUM_SOURCE.pivot, { x: 836, y: 665 });
+  assert.equal(ATRIUM_SOURCE.width, MOTION.camera.source.width);
+  // The homepage shortcuts are the same four, in order.
+  assert.match(
+    read('data/home-chapters.ts'),
+    /\[\s*'Living',\s*'Bedroom',\s*'Bathroom',\s*'Kitchen',\s*\]\.map/,
+  );
+  const samples = steps(0, 1, 2000);
+  for (const [width, height] of [
+    [1440, 900],
+    [1180, 820],
+    [390, 844],
+    [844, 390],
+  ]) {
+    const tier = orbitTier(width, height, false);
+    const g = measureWorldsOrbit(width, height);
+    const frames = samples.map((o) => worldsOrbitFrame(o, g, tier));
+    const order = frames
+      .map((f) => f.activeRoom)
+      .filter((room, i, all) => i === 0 || room !== all[i - 1]);
+    same(order, [null, ...ROOMS], `${width}×${height}: four focus states`);
+    // Reverse scroll is the same function sampled backwards.
+    same(
+      [...samples].reverse().map((o) => worldsOrbitFrame(o, g, tier)),
+      [...frames].reverse(),
+      'reverse sampling equals forward sampling',
+    );
+    const reverse = [...frames]
+      .reverse()
+      .map((f) => f.activeRoom)
+      .filter((room, i, all) => i === 0 || room !== all[i - 1]);
+    same(reverse, [...ROOMS].reverse().concat(null), 'reverse order');
+    // Deterministic endpoints and clamping.
+    const start = worldsOrbitFrame(0, g, tier);
+    const end = worldsOrbitFrame(1, g, tier);
+    same(worldsOrbitFrame(-1, g, tier), start);
+    same(worldsOrbitFrame(2, g, tier), end);
+    assert.equal(start.orbit, false);
+    assert.equal(start.labels, 1, 'the settled Atrium, untouched');
+    assert.equal(start.cameraScale, 1);
+    assert.equal(start.cameraX, 0);
+    assert.equal(start.focusOpacity, 0);
+    assert.equal(start.gatewayOpacity, 1);
+    assert.equal(end.activeRoom, 'kitchen');
+    assert.equal(end.focus, 3);
+    assert.equal(end.portals.kitchen.depth, 1, 'Kitchen settles in front');
+    assert.equal(end.gatewayOpacity, 1, 'ENTER THE WORLD is primary again');
+    // Holds: the focus plateaus at 0, 1, 2, 3; turns slow in and out.
+    const holds = [
+      [ORBIT.portalsIn[0], ORBIT.turns[0][0]],
+      [ORBIT.turns[0][1], ORBIT.turns[1][0]],
+      [ORBIT.turns[1][1], ORBIT.turns[2][0]],
+      [ORBIT.turns[2][1], 1],
+    ];
+    holds.forEach(([a, b], index) => {
+      assert.ok(b - a >= 0.08, 'each room has a visible hold');
+      for (const o of steps(a, b, 10)) {
+        assert.ok(Math.abs(orbitFocus(o) - index) < 1e-9, 'plateau');
+        const f = worldsOrbitFrame(o, g, tier);
+        assert.equal(f.activeRoom, ROOMS[index]);
+        if (o >= ORBIT.portalsIn[1])
+          assert.ok(
+            f.portals[ROOMS[index]].depth > 1 - 1e-9,
+            'focused in front',
+          );
+      }
+    });
+    for (const [a, b] of ORBIT.turns) {
+      const e = 1e-5;
+      const speed = (o) => (orbitFocus(o + e) - orbitFocus(o - e)) / (2 * e);
+      assert.ok(speed(a) < 0.01 && speed(b) < 0.01, 'turns start/end at rest');
+      assert.ok(speed((a + b) / 2) > 1, 'and move between');
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Depth, camera breath, doorway focus and tiers.
+// ---------------------------------------------------------------------------
+const VIEWPORTS = [
+  [1440, 900],
+  [1366, 768],
+  [1280, 720],
+  [1920, 1080],
+  [1180, 820],
+  [768, 1024],
+  [820, 1180],
+  [390, 844],
+  [360, 740],
+  [844, 390],
+  [740, 360],
+  [667, 375],
+];
+for (const [width, height] of VIEWPORTS) {
+  const tier = orbitTier(width, height, false);
+  const g = measureWorldsOrbit(width, height);
+  for (const o of steps(ORBIT.portalsIn[1], 1, 200)) {
+    const f = worldsOrbitFrame(o, g, tier);
+    const portals = ROOMS.map((room) => f.portals[room]);
+    // Depth: front larger, brighter, sharper and higher than the rear.
+    const sorted = [...portals].sort((a, b) => a.depth - b.depth);
+    for (let i = 1; i < sorted.length; i++) {
+      assert.ok(sorted[i].scale >= sorted[i - 1].scale);
+      assert.ok(sorted[i].opacity >= sorted[i - 1].opacity);
+      assert.ok(sorted[i].z >= sorted[i - 1].z);
+      assert.ok(sorted[i].blur <= sorted[i - 1].blur);
+    }
+    for (const p of portals) {
+      assert.ok(p.scale >= 0.72 - 1e-9 && p.scale <= 1.14 + 1e-9, 'scale');
+      assert.ok(p.opacity >= 0.35 - 1e-9 && p.opacity <= 1, 'opacity');
+      assert.ok(p.blur >= 0 && p.blur <= 1.5, 'very small blur only');
+      if (p.depth >= 0.85) assert.equal(p.blur, 0, 'the front is sharp');
+    }
+    // Camera breath: ≤ 2% scale, ≤ 2.5vw / 1.5vh, never an exposed edge.
+    assert.ok(f.cameraScale >= 1 && f.cameraScale <= 1.02 + 1e-12);
+    assert.ok(Math.abs(f.cameraX) <= 0.025 * width + 1e-9);
+    assert.ok(Math.abs(f.cameraY) <= 0.015 * height + 1e-9);
+    const s = f.cameraScale;
+    assert.ok(f.pivotX * (1 - s) + f.cameraX <= 1e-9, 'left edge covered');
+    assert.ok(f.pivotX + s * (width - f.pivotX) + f.cameraX >= width - 1e-9);
+    assert.ok(f.pivotY * (1 - s) + f.cameraY <= 1e-9, 'top edge covered');
+    assert.ok(f.pivotY + s * (height - f.pivotY) + f.cameraY >= height - 1e-9);
+    // The doorway exposure sits on the focused room's measured doorway.
+    const room = ROOMS[Math.round(f.focus)];
+    if (Number.isInteger(f.focus)) {
+      assert.ok(Math.abs(f.focusX - g.doorways[room].x) < 1e-9);
+      assert.ok(Math.abs(f.focusY - g.doorways[room].y) < 1e-9);
+    }
+  }
+  // The ellipse is centred on the projected world axis.
+  const cover = Math.max(width / 1672, height / 941);
+  const left = (width - 1672 * cover) * (width < 768 ? 0.51 : 0.5);
+  assert.ok(
+    Math.abs(g.layout.x - (left + ATRIUM_SOURCE.axis.x * cover)) < 1e-9,
+  );
+  assert.ok(g.layout.radiusX > g.layout.radiusY, `${width}×${height} ellipse`);
+}
+{
+  // Tiers: tablet and phones are smaller and shallower than desktop.
+  const s = ORBIT.shapes;
+  for (const tier of ['tablet', 'mobile', 'landscape']) {
+    assert.ok(s[tier].radiusY < s.desktop.radiusY);
+    assert.ok(s[tier].portal < s.desktop.portal);
+    assert.ok(
+      s[tier].scale[1] - s[tier].scale[0] <
+        s.desktop.scale[1] - s.desktop.scale[0],
+      `${tier} has reduced depth`,
+    );
+    assert.ok(s[tier].camera < s.desktop.camera);
+  }
+  // CSS lays a portal out with the sizes the fit assumes.
+  const block = chapterCss.slice(chapterCss.indexOf('Atrium room orbit'));
+  const cssPortal = (pattern) => Number(block.match(pattern)?.[1]);
+  assert.equal(
+    cssPortal(/\.hc-worlds\[data-room-orbit\] \{\s*--portal-size: (\d+)px;/),
+    s.desktop.portal,
+  );
+  assert.equal(
+    cssPortal(
+      /max-width: 1199px\) \{\s*\.hc-worlds\[data-room-orbit\] \{\s*--portal-size: (\d+)px;/,
+    ),
+    s.tablet.portal,
+  );
+  assert.equal(
+    cssPortal(
+      /max-width: 767px\) \{[\s\S]*?\.hc-worlds\[data-room-orbit\] \{\s*--portal-size: (\d+)px;/,
+    ),
+    s.mobile.portal,
+  );
+  assert.equal(
+    cssPortal(
+      /max-height: 540px\) and \(orientation: landscape\) \{\s*\.hc-worlds\[data-room-orbit\] \{\s*--portal-size: (\d+)px;/,
+    ),
+    s.landscape.portal,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Regression 10. Portals stay in bounds (and clear of the copy) — mobile
+// included — wherever the fit finds room, at every angle of the orbit.
+// ---------------------------------------------------------------------------
+{
+  const inside = (box, w, h, header) =>
+    box.x0 >= 8 - 1e-9 &&
+    box.x1 <= w - 8 + 1e-9 &&
+    box.y0 >= header + 6 - 1e-9 &&
+    box.y1 <= h - 8 + 1e-9;
+  // The copy's glyph lines and the gateway, as measured in Chrome on the
+  // settled Atrium (headless Chrome 154, PASS 15 layout), with the header.
+  const MEASURED = {
+    '1440x900': {
+      header: 83,
+      avoid: [
+        [75, 567, 230, 639],
+        [75, 638, 341, 710],
+        [75, 729, 470, 751],
+        [75, 752, 491, 774],
+        [75, 800, 111, 802],
+        [125, 795, 294, 806],
+        [75, 542, 146, 555],
+        [1128, 713, 1376, 801],
+      ],
+    },
+    '1366x768': {
+      header: 78,
+      avoid: [
+        [71, 432, 219, 501],
+        [71, 500, 326, 569],
+        [71, 588, 424, 610],
+        [71, 611, 451, 633],
+        [71, 635, 147, 656],
+        [71, 682, 107, 684],
+        [121, 677, 282, 688],
+        [71, 407, 139, 419],
+        [1062, 600, 1305, 684],
+      ],
+    },
+    '1280x720': {
+      header: 78,
+      avoid: [
+        [67, 389, 215, 458],
+        [67, 457, 321, 526],
+        [67, 545, 420, 567],
+        [67, 568, 412, 590],
+        [67, 592, 177, 614],
+        [67, 639, 103, 641],
+        [117, 634, 275, 644],
+        [67, 365, 132, 377],
+        [985, 562, 1223, 641],
+      ],
+    },
+    '1180x820': {
+      header: 78,
+      avoid: [
+        [61, 380, 240, 463],
+        [61, 462, 368, 544],
+        [61, 563, 338, 588],
+        [61, 591, 371, 616],
+        [61, 619, 334, 643],
+        [61, 646, 150, 671],
+        [61, 697, 97, 699],
+        [111, 693, 270, 703],
+        [61, 356, 126, 368],
+        [901, 643, 1110, 697],
+      ],
+    },
+    '768x1024': {
+      header: 95,
+      avoid: [
+        [40, 590, 181, 655],
+        [40, 654, 282, 720],
+        [40, 739, 317, 764],
+        [40, 766, 349, 791],
+        [40, 794, 312, 819],
+        [40, 822, 129, 846],
+        [40, 873, 76, 875],
+        [90, 868, 248, 878],
+        [40, 566, 105, 578],
+        [513, 816, 722, 871],
+      ],
+    },
+    '390x844': {
+      header: 76,
+      avoid: [
+        [27, 376, 159, 437],
+        [27, 436, 254, 497],
+        [27, 511, 333, 534],
+        [27, 535, 354, 558],
+        [27, 559, 249, 582],
+        [27, 605, 52, 607],
+        [63, 601, 210, 611],
+        [27, 353, 88, 364],
+        [27, 744, 239, 792],
+      ],
+    },
+    '844x390': {
+      header: 78,
+      avoid: [
+        [44, 185, 155, 237],
+        [44, 236, 235, 288],
+        [44, 297, 438, 316],
+        [44, 317, 357, 336],
+        [44, 351, 80, 353],
+        [94, 346, 252, 356],
+        [44, 167, 109, 179],
+        [593, 310, 794, 359],
+      ],
+    },
+    '667x375': {
+      header: 76,
+      avoid: [
+        [46, 159, 153, 209],
+        [46, 208, 230, 258],
+        [46, 267, 342, 285],
+        [46, 286, 336, 304],
+        [46, 305, 139, 323],
+        [46, 338, 71, 339],
+        [82, 334, 229, 343],
+        [46, 141, 108, 153],
+        [420, 297, 627, 345],
+      ],
+    },
+  };
+  const copy = Object.fromEntries(
+    Object.entries(MEASURED).map(([key, { avoid }]) => [
+      key,
+      avoid.map(([x0, y0, x1, y1]) => ({ x0, y0, x1, y1 })),
+    ]),
+  );
+  for (const [width, height] of VIEWPORTS) {
+    const tier = orbitTier(width, height, false);
+    const avoid = copy[`${width}x${height}`] ?? [];
+    const header = MEASURED[`${width}x${height}`]?.header ?? 90;
+    const g = measureWorldsOrbit(width, height, avoid, header);
+    assert.equal(g.layout.fallback, false, `${width}×${height} fits`);
+    for (let i = 0; i < 360; i++) {
+      const box = portalBox(g.layout, (i / 360) * 2 * Math.PI, width, tier);
+      assert.ok(inside(box, width, height, header), `${width}×${height} in`);
+      for (const a of avoid)
+        assert.ok(
+          box.x1 <= a.x0 || box.x0 >= a.x1 || box.y1 <= a.y0 || box.y0 >= a.y1,
+          `${width}×${height} clear of the copy`,
+        );
+    }
+  }
+  // Phones: a compact orbit in the plate's upper free area.
+  const phone = measureWorldsOrbit(390, 844, copy['390x844'], 76);
+  assert.ok(phone.layout.radiusX <= 0.3 * 390 + 1e-9);
+  assert.ok(
+    phone.layout.y < Math.min(...copy['390x844'].map((b) => b.y0)),
+    'above the copy column',
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The real timeline through the orbit (regressions 3–6 end to end).
+// ---------------------------------------------------------------------------
+const fixed = (n, digits) => n.toFixed(digits);
+const cameraString = (pose) =>
+  pose.x === 0 && pose.y === 0 && pose.scale === 1
+    ? 'none'
+    : `translate3d(${fixed(pose.x, 3)}px, ${fixed(pose.y, 3)}px, 0) scale(${fixed(pose.scale, 7)})`;
+const zero = { x0: 0, y0: 0, x1: 0, y1: 0 };
+function expectFrame(h, o) {
+  const [w, vh] = h.viewport();
+  const tier = orbitTier(w, vh, false);
+  const g = measureWorldsOrbit(w, vh, [zero, zero], 80);
+  const f = worldsOrbitFrame(o, g, tier);
+  const { originX, originY } = measureAtrium(w, vh);
+  const pose =
+    o > 0 ? orbitPose(f, originX, originY) : { x: 0, y: 0, scale: 1 };
+  assert.equal(h.worlds.getAttribute('data-room-orbit'), f.orbit ? '' : null);
+  assert.equal(h.worlds.getAttribute('data-orbit-room'), f.activeRoom);
+  assert.equal(
+    h.camera.style.getPropertyValue('transform'),
+    cameraString(pose),
+  );
+  assert.equal(h.camera.style.getPropertyValue('will-change'), 'auto');
+  for (const node of h.wrappers) {
+    const room = node.name.slice('wrapper-'.length);
+    const p = f.portals[room];
+    if (!f.orbit) {
+      assert.equal(
+        node.style.getPropertyValue('--orbit-opacity'),
+        fixed(f.labels, 5),
+      );
+      continue;
+    }
+    assert.equal(
+      node.style.getPropertyValue('--orbit-x'),
+      `${fixed(p.x, 2)}px`,
+    );
+    assert.equal(
+      node.style.getPropertyValue('--orbit-y'),
+      `${fixed(p.y, 2)}px`,
+    );
+    assert.equal(
+      node.style.getPropertyValue('--orbit-scale'),
+      fixed(p.scale, 5),
+    );
+    assert.equal(
+      node.style.getPropertyValue('--orbit-opacity'),
+      fixed(p.opacity, 5),
+    );
+    assert.equal(
+      node.style.getPropertyValue('--orbit-blur'),
+      `${fixed(p.blur, 3)}px`,
+    );
+    assert.equal(node.style.getPropertyValue('--orbit-z'), String(p.z));
+  }
+  assert.equal(
+    h.focus.style.getPropertyValue('--room-focus-opacity'),
+    fixed(f.focusOpacity, 5),
+  );
+  assert.equal(
+    h.gateway.style.getPropertyValue('opacity'),
+    fixed(worldReveal(1, 9, false).opacity * f.gatewayOpacity, 5),
+  );
+  for (const link of [...h.links, h.gateway])
+    assert.equal(link.getAttribute('inert'), null, 'links stay real');
+  assert.equal(h.discovery.updates.at(-1).orbit, f.orbit);
+  // Desktop labels follow the architecture until the portals take over.
+  assert.equal(
+    h.rooms.style.getPropertyValue('transform'),
+    w >= 1200 && !f.orbit
+      ? pose.scale === 1 && pose.x === 0 && pose.y === 0
+        ? 'translateX(-50%)'
+        : `translateX(-50%) translate3d(${fixed(pose.x, 3)}px, ${fixed(pose.y, 3)}px, 0) scale(${fixed(pose.scale, 7)})`
+      : 'none',
+  );
+  return f;
+}
+const STOPS = steps(0, 1, 100);
+for (const [width, height] of [
+  [1440, 900],
+  [1366, 768],
+  [1180, 820],
+  [768, 1024],
+  [390, 844],
+  [844, 390],
+]) {
+  const h = story({ width, height });
+  h.settle();
+  const at = (o) => Math.round(h.span() + o * h.orbitSpan());
+  const exact = (o) => (at(o) - h.span()) / h.orbitSpan();
+  h.scroll(h.span());
+  const theme = h.header.dataset.chapterTheme;
+  const rooms = [];
+  const forward = STOPS.map((o) => {
+    h.scroll(at(o));
+    const f = expectFrame(h, exact(o));
+    if (f.activeRoom !== rooms.at(-1)) rooms.push(f.activeRoom);
+    assert.equal(h.header.dataset.chapterTheme, theme, 'header unchanged');
+    return json(h.trace());
+  });
+  same(rooms, [null, ...ROOMS], 'the real timeline: four focus states');
+  const backRooms = [];
+  const backward = [...STOPS].reverse().map((o) => {
+    h.scroll(at(o));
+    const room = h.worlds.getAttribute('data-orbit-room');
+    if (room !== backRooms.at(-1)) backRooms.push(room);
+    return json(h.trace());
+  });
+  same(backRooms, [...ROOMS].reverse().concat(null), 'reverse order');
+  assert.deepEqual(backward.reverse(), forward, 'reverse equals forward');
+  // A jump samples its destination; nothing is queued.
+  h.scroll(at(0.2));
+  h.scroll(at(0.88));
+  assert.equal(json(h.trace()), forward[STOPS.indexOf(0.88)], 'jump');
+  // Released into the Footer: no navigation, the orbit stays at Kitchen.
+  h.scroll(h.span() + h.orbitSpan() + height);
+  assert.equal(h.worlds.getAttribute('data-orbit-room'), 'kitchen');
+  h.dispose();
+}
+
+// ---------------------------------------------------------------------------
+// Regression 6. Reduced motion never rotates the rooms: the pure frame (on
+// its own) and the real timeline.
+// ---------------------------------------------------------------------------
+for (const [width, height] of VIEWPORTS) {
+  const g = measureWorldsOrbit(width, height);
+  for (const o of steps(0, 1, 50)) {
+    const f = worldsOrbitFrame(o, g, 'reduced');
+    assert.equal(f.orbit, false, 'reduced motion never orbits');
+    assert.equal(f.activeRoom, null);
+    assert.equal(f.labels, 1);
+    assert.equal(f.cameraScale, 1);
+    assert.equal(f.cameraX, 0);
+    assert.equal(f.focusOpacity, 0);
+    assert.equal(f.gatewayOpacity, 1);
+  }
+}
+for (const tall of [false, true]) {
+  // `tall` simulates a stale orbit spacer: the rooms still never orbit.
+  const h = story({ reduced: true, orbit: tall });
+  h.settle();
+  if (!tall) assert.equal(h.orbitSpan(), 0, 'no extended orbit journey');
+  for (const y of steps(0, h.span() + h.orbitSpan(), 80).map(Math.round)) {
+    h.scroll(y);
+    assert.equal(h.worlds.getAttribute('data-room-orbit'), null);
+    assert.equal(h.worlds.getAttribute('data-orbit-room'), null);
+    assert.equal(h.discovery.updates.at(-1).orbit, false);
+    for (const node of h.wrappers) {
+      assert.equal(node.style.getPropertyValue('--orbit-opacity'), '1.00000');
+      assert.equal(node.style.getPropertyValue('--orbit-x'), '');
+    }
+  }
+  assert.equal(h.camera.style.getPropertyValue('transform'), 'none');
+  h.dispose();
+}
+{
+  // Switching to reduced motion mid-orbit restores the static rooms.
+  const h = story();
+  h.settle();
+  h.scroll(Math.round(h.span() + 0.5 * h.orbitSpan()));
+  assert.equal(h.worlds.getAttribute('data-room-orbit'), '');
+  h.setReduced(true);
+  assert.equal(h.orbitSpan(), 0);
+  assert.equal(h.worlds.getAttribute('data-room-orbit'), null);
+  assert.equal(h.camera.style.getPropertyValue('transform'), 'none');
+  h.dispose();
+}
+
+// ---------------------------------------------------------------------------
+// Regression 7. No additional RAF loop, scroll owner or timer.
+// ---------------------------------------------------------------------------
+{
+  const h = story();
+  h.settle();
+  assert.equal(h.frames.size, 0, '0 RAF at rest');
+  assert.equal(h.window.listeners.get('scroll').size, 1, 'one scroll owner');
+  assert.equal(h.observers.length, 1, 'one geometry observer');
+  h.scroll(Math.round(h.span() + 0.3 * h.orbitSpan()));
+  assert.equal(h.frames.size, 0, '0 RAF once the orbit stops');
+  h.window.scrollY += 40;
+  h.window.emit('scroll');
+  h.window.emit('scroll');
+  assert.equal(h.frames.size, 1, 'scroll requests the one existing frame');
+  h.settle();
+  // A hidden tab does no orbit work.
+  h.document.hidden = true;
+  h.document.emit('visibilitychange');
+  const calls = h.rafCalls();
+  h.window.scrollY += 200;
+  h.window.emit('scroll');
+  assert.equal(h.rafCalls(), calls, 'no background work');
+  h.document.hidden = false;
+  h.document.emit('visibilitychange');
+  h.settle();
+  h.dispose();
+  assert.equal(h.listenerCount(), 0, 'every listener is removed');
+  assert.equal(h.worlds.getAttribute('data-room-orbit'), null);
+}
+{
+  const files = [
+    timelineSource,
+    orbitSource,
+    discoverySource,
+    chapterSource,
+    storySource,
+  ];
+  const count = (pattern) =>
+    files.reduce((n, text) => n + (text.match(pattern) ?? []).length, 0);
+  assert.equal(count(/addEventListener\('scroll'/g), 1, 'one scroll listener');
+  assert.equal(count(/requestAnimationFrame\(/g), 1, 'one master RAF');
+  assert.equal(count(/setInterval|setTimeout\(/g), 0, 'no timers, no autoplay');
+  assert.equal(count(/<canvas|getContext\(|from 'three'|import\('three'/g), 0);
+  assert.equal(
+    count(
+      /gsap|ScrollTrigger|lenis|locomotive|framer-motion|from 'motion'|animation-timeline|scroll-snap/gi,
+    ),
+    0,
+  );
+  assert.equal(
+    count(/preventDefault|scrollTo\(|scrollBy\(|scrollIntoView/g),
+    0,
+  );
+  same(
+    [...timelineSource.matchAll(/from '([^']+)'/g)].map((m) => m[1]),
+    [
+      './breeze-renderer',
+      './atmospheric-sky-renderer',
+      './home-motion',
+      './scene-image',
+      './home-production',
+      './room-discovery',
+      './hero-depth',
+      './atmospheric-bridge-frame',
+      './home-story-frame',
+      './worlds-orbit',
+    ],
+    'the timeline gains only the pure orbit module',
+  );
+  assert.doesNotMatch(chapterSource, /'use client'|useState|useEffect/);
+  assert.match(
+    discoverySource,
+    /!state\.orbit/,
+    'discovery yields to the orbit',
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Regressions 8–9. Room hrefs and the /world gateway are unchanged; one
+// semantic link per room; the portals are decorative parts of those links.
+// ---------------------------------------------------------------------------
+{
+  assert.equal(chapterSource.match(/<Link\b/g).length, 1, 'one link per room');
+  assert.match(
+    chapterSource,
+    /\{worldsChapterOptions\.map\(\(room, index\) => \([\s\S]*?<Link\s+href=\{room\.href\}\s+prefetch=\{false\}\s+className="hc-atrium-room-link"\s+data-chapter-reveal=\{index\}\s+data-room=\{room\.id\}\s*>\s*\{\/\*[\s\S]*?\*\/\}\s*<picture className="hc-room-portal">\s*<img\s+data-room-portal=\{room\.id\}\s+data-src=\{`\/images\/home-chapters\/room-preview-\$\{room\.id\}\.webp`\}\s+width="192"\s+height="192"\s+alt=""\s+loading="lazy"\s+decoding="async"\s+fetchPriority="low"\s*\/>\s*<\/picture>\s*<small>/,
+    'the portal is a decorative part of the one room link',
+  );
+  assert.match(
+    chapterSource,
+    /<WorldGatewayLink className="hc-atrium-cta" data-chapter-reveal="9">[\s\S]*ENTER THE WORLD/,
+  );
+  assert.equal(chapterSource.match(/asset="worlds-atrium"/g).length, 1);
+  assert.match(
+    chapterSource,
+    /<span className="hc-room-focus" aria-hidden="true" \/>/,
+  );
+  // The portal never borrows the gateway's circle, and the gateway keeps
+  // showing the World while the rooms orbit.
+  assert.match(
+    chapterCss,
+    /\.hc-worlds\[data-room-orbit\] \.hc-atrium-cta:focus-visible \{\s*opacity: 1 !important;/,
+    'keyboard focus outranks the quieter gateway',
+  );
+  assert.ok(
+    ORBIT.gatewayQuiet[0] >= ORBIT.labelsOut[1],
+    'quiet only in orbit mode',
+  );
+  // Phones keep the room grid's slot at its natural height (two 44px rows
+  // plus the row gap) while its links orbit: no layout shift in the column.
+  assert.match(
+    chapterCss,
+    /\.hc-worlds\[data-room-orbit\] \.hc-atrium-rooms \{\s*position: static;\s*min-height: 96px;/,
+  );
+  assert.match(
+    storyCss,
+    /\.hc-atrium-rooms \{\s*gap: 0 18px;\s*\}[\s\S]*?\.hc-worlds\[data-room-orbit\] \.hc-atrium-rooms \{\s*min-height: 88px;/,
+  );
+  const orbitCss = chapterCss
+    .slice(chapterCss.indexOf('/* TP3D PASS — Atrium room orbit'))
+    .replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(orbitCss, /border-radius: 50%/);
+  // The photograph never rotates or distorts; portals never tilt.
+  assert.doesNotMatch(orbitCss, /rotate|perspective|skew|matrix3d/);
+  assert.doesNotMatch(timelineSource, /rotate\(|perspective\(|skew\(/);
+}
+{
+  // Everything the PASS must not touch is byte-identical to PASS 15
+  // (d1a6a78): Intro, Arrival, Perspective, Breeze, Atmosphere renderer and
+  // shaders, bridge frames, header, footer, WorldGatewayLink, the portal,
+  // /world and its rooms, room data. Line endings are normalised.
+  const PASS = new Set(
+    [
+      'home-story-timeline.ts',
+      'home-story.css',
+      'home-story.tsx',
+      'room-discovery.ts',
+      'worlds-chapter.css',
+      'worlds-chapter.tsx',
+      'worlds-orbit.ts',
+    ].map((name) => `${EXPERIENCE}${name}`),
+  );
+  const walk = (dir) =>
+    readdirSync(new URL(`../${dir}`, import.meta.url))
+      .sort()
+      .flatMap((name) => {
+        const path = `${dir}${name}`;
+        return statSync(new URL(`../${path}`, import.meta.url)).isDirectory()
+          ? walk(`${path}/`)
+          : [path];
+      });
+  const files = [
+    ...walk('components/home/'),
+    ...walk('components/world/'),
+    ...walk('components/layout/'),
+    ...walk('app/world/'),
+    'app/page.tsx',
+    'data/home-chapters.ts',
+    'data/world-building.ts',
+  ]
+    .filter((path) => !PASS.has(path))
+    .map((path) => [
+      path,
+      createHash('sha256')
+        .update(read(path).replaceAll('\r\n', '\n'))
+        .digest('hex')
+        .slice(0, 12),
+    ]);
+  assert.equal(
+    digest(files),
+    'd8922fdb98a3c952',
+    'files outside this PASS are unchanged from PASS 15',
+  );
+}
+
+const g = measureWorldsOrbit(1440, 900);
+console.log(
+  `Atrium room orbit passed: base journey = PASS 15 (${PASS15_BASE_DIGEST}), ` +
+    `orbit +${geometry.orbit}svh after p = 1 (none reduced), Living → ` +
+    `Bedroom → Bathroom → Kitchen with holds and exact reverse, depth ` +
+    `${ORBIT.shapes.desktop.scale.join('–')}, breath ≤ ${1 + ORBIT.breath}, ` +
+    `ellipse ${Math.round(g.layout.radiusX)}×${Math.round(g.layout.radiusY)}px ` +
+    `at 1440×900, portals fitted in bounds on 12 viewports, one owner, ` +
+    `0 RAF at rest, hrefs and gateway unchanged.`,
+);

@@ -24,6 +24,9 @@ export function WorldsChapter() {
             deferred
           />
         </div>
+        {/* TP3D PASS — Atrium room orbit: a soft exposure field on the
+            focused doorway. It moves with the plate; opacity only. */}
+        <span className="hc-room-focus" aria-hidden="true" />
       </div>
       <div className="hc-atrium-copy">
         <p className="hc-eyebrow" data-chapter-reveal="4">
@@ -55,6 +58,20 @@ export function WorldsChapter() {
               data-chapter-reveal={index}
               data-room={room.id}
             >
+              {/* The room's own aperture, shown only while the rooms orbit.
+                  Decorative (alt=""): the link's name stays "01 Living". */}
+              <picture className="hc-room-portal">
+                <img
+                  data-room-portal={room.id}
+                  data-src={`/images/home-chapters/room-preview-${room.id}.webp`}
+                  width="192"
+                  height="192"
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  fetchPriority="low"
+                />
+              </picture>
               <small>{String(index + 1).padStart(2, '0')}</small>
               <span>{room.title}</span>
             </Link>
