@@ -43,6 +43,42 @@
 .hc-room-orbit-cta[hidden] {
   display: none;
 }
+
+/* PASS 6A.96 — the approved Atrium stays in view for the whole harness.
+   The approved exposure shade does two jobs: a zenith band that keeps the
+   ivory header readable, and a field that backs the copy (up to 93% opaque
+   over the lower two thirds on phones). In production both arrive with the
+   copy. Here Arrival and the final release have no copy, so the two are
+   drawn apart: the zenith band stays with the bridge's exposure (::after),
+   and the copy field (::before) follows the editorial UI through
+   --atrium-editorial, the one value the controller writes per frame. With
+   both whole, every pixel equals the approved shade: the stops below are
+   the approved gradients, cut where they are transparent. */
+.home-story-stage
+  .hc-worlds[data-atrium-orbit-preview]
+  .hc-atrium-backdrop::after {
+  background: linear-gradient(180deg, #241a1480, transparent 18%);
+}
+.home-story-stage
+  .hc-worlds[data-atrium-orbit-preview]
+  .hc-atrium-backdrop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  /* Above the plate stage and an incoming plate, like the zenith band. */
+  z-index: 2;
+  background:
+    linear-gradient(180deg, transparent 66%, #24190d33),
+    linear-gradient(28deg, #24190dc2, #24190d38 29%, transparent 52%);
+  opacity: calc(var(--world-exposure, 1) * var(--atrium-editorial, 0));
+}
+/* The same value carries the copy, the CTA and the room labels in (with
+   Living) and out (in the release), so none shows without the others. */
+.home-story-stage
+  .hc-worlds[data-atrium-orbit-preview]
+  > :is(.hc-room-orbit-copy, .hc-atrium-rooms) {
+  opacity: var(--atrium-editorial, 0);
+}
 .hc-room-orbit-title em {
   white-space: nowrap;
 }
@@ -63,9 +99,10 @@
 /* RoomIndicator: spec §8 zone I, today's gateway position. As the World
    gateway returns in late Kitchen it takes this zone back: the indicator
    leaves first, then the gateway enters (--atrium-indicator, set per frame
-   from the same reveal). */
+   from the same reveal). It enters and leaves with the rest of the
+   editorial UI (--atrium-editorial). */
 .hc-room-orbit-indicator {
-  opacity: var(--atrium-indicator, 1);
+  opacity: calc(var(--atrium-indicator, 1) * var(--atrium-editorial, 0));
   position: absolute;
   z-index: 10;
   right: 4.5%;
@@ -98,17 +135,45 @@
     bottom: 15%;
     gap: 12px;
   }
+  .home-story-stage
+    .hc-worlds[data-atrium-orbit-preview]
+    .hc-atrium-backdrop::after {
+    background: linear-gradient(180deg, #241a1499, transparent 24%);
+  }
+  .home-story-stage
+    .hc-worlds[data-atrium-orbit-preview]
+    .hc-atrium-backdrop::before {
+    background: linear-gradient(180deg, transparent 24%, #24190d99 84%);
+  }
 }
 @media (max-width: 767px) {
+  /* One column: the indicator sits above the gateway and keeps its place
+     as the gateway returns; it still leaves with the editorial UI. */
   .hc-room-orbit-indicator {
     position: relative;
     inset: auto;
-    opacity: 1;
+    opacity: var(--atrium-editorial, 0);
     gap: 15px;
     font-size: 8px;
   }
   .hc-room-orbit-indicator .hc-room-orbit-thumb {
     width: 48px;
+  }
+  .home-story-stage
+    .hc-worlds[data-atrium-orbit-preview]
+    .hc-atrium-backdrop::after {
+    background: linear-gradient(180deg, #241a1499, transparent 18%);
+  }
+  .home-story-stage
+    .hc-worlds[data-atrium-orbit-preview]
+    .hc-atrium-backdrop::before {
+    background: linear-gradient(
+      180deg,
+      transparent 18%,
+      #24190d59 38%,
+      #24190de0 78%,
+      #24190dec
+    );
   }
 }
 @media (max-width: 1199px) and (max-height: 540px) and (orientation: landscape) {
@@ -116,10 +181,22 @@
     position: absolute;
     inset: auto 6% max(24px, 8svh) auto;
     gap: 12px;
-    opacity: var(--atrium-indicator, 1);
+    opacity: calc(var(--atrium-indicator, 1) * var(--atrium-editorial, 0));
   }
   .home-story-stage .hc-chapter.hc-worlds .hc-room-orbit-thumb {
     width: 46px;
+  }
+  .home-story-stage
+    .hc-worlds[data-atrium-orbit-preview]
+    .hc-atrium-backdrop::after {
+    background: linear-gradient(180deg, #241a1480, transparent 22%);
+  }
+  .home-story-stage
+    .hc-worlds[data-atrium-orbit-preview]
+    .hc-atrium-backdrop::before {
+    background:
+      linear-gradient(180deg, transparent 62%, #24190d40),
+      linear-gradient(28deg, #24190dc2, #24190d38 34%, transparent 58%);
   }
 }
 
@@ -131,7 +208,9 @@
   }
 }
 
-/* Development diagnostic: plainly not architecture and never production. */
+/* Engineering readout: plainly not architecture and never production. The
+   controller creates it only on explicit request (?atriumOrbitDebug=1); the
+   review URL (?atriumOrbit=1) has no such node. */
 /* Scoped under .hc-worlds to outrank `.hc-worlds p { max-width: none }`. */
 .hc-worlds .hc-room-orbit-diagnostic {
   position: absolute;

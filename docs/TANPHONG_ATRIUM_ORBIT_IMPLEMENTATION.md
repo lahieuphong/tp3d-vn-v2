@@ -5,7 +5,9 @@ are locked in PASS 6A.5 and the owner decisions of PASS 6A.75 (§0). PASS
 6A.75 adds an interaction harness (§15). FINAL VISUAL ORBIT NOT YET
 IMPLEMENTED: it waits for the real camera plates. PASS 6A.9 adds the studio
 handoff, the delivery intake contract (§16) and the PASS 6B.1 entry criteria
-(§17); PASS 6A.95 locks the master storage policy (§16).** None of the approved render plates and no
+(§17); PASS 6A.95 locks the master storage policy (§16); PASS 6A.96 fixes
+three live QA issues of the deployed harness (§15.1): the Arrival backdrop,
+the release to the Footer and the readout.** None of the approved render plates and no
 camera data exist yet. The production homepage runs the approved
 Scene 3 with the portal orbit (`aa9ae55`). Tier B code loads only in
 development or a preview build, and only with `?atriumOrbit=1`. Nothing here
@@ -29,11 +31,13 @@ With the gate shut, production keeps today's Scene 3 unchanged, including
 | **Room labels** | PASS 6A.75: from Living on, the existing four labels show in their existing placement (temporary preview positioning only, not matched to any future plate): the active room at full emphasis, the others quiet. |
 | **ENTER THE WORLD** | PASS 6A.75: hidden through Arrival and the room discovery. In the later part of the final Kitchen hold, after Kitchen has been readable alone, the existing `WorldGatewayLink` returns: eased by `roomOrbitProgress` and interactive by the end. It is the same element (one link, `/world`, its portal transition unchanged), still written only by the story timeline. The sequence is Arrival → Living → Bedroom → Bathroom → Kitchen → ENTER THE WORLD. |
 | **Bottom-right zone (spec §8 zone I)** | Room holds: the room thumbnail and `0n / 04` plus the room name. As the gateway returns in late Kitchen it takes the zone back: the indicator leaves first, then the gateway enters, so the two never overlap (phones: one column, so the counter keeps its own row above the gateway). |
+| **Exposure shade** | PASS 6A.96: the approved Atrium photograph stays in view for the whole harness. The approved shade is drawn in two parts: the zenith band (header readability) follows the bridge's exposure as before; the field that backs the copy shows only with the editorial UI. Arrival and the release therefore show the architecture, never an empty shaded field (§15.1). |
+| **Release** | PASS 6A.96: after the useful final state (Kitchen, then Kitchen with the gateway) and before the sticky stage leaves, a short scroll-driven release clears the copy, the CTA, the room labels, the indicator and the baseline, then the gateway. The stage reaches the Footer as a quiet architectural frame. Kitchen stays the active room; reverse scrolling rebuilds Gateway, then Kitchen (§15.1). |
 | **Exploration CTA** | Exactly one: EXPLORE THIS ROOM →, in the editorial block. |
 | **Runtime image format** | WebP only, the format `scripts/optimize-images.mjs` already writes. AVIF is not advertised and no AVIF tooling is added. Adding it later is one entry in `ATRIUM_ORBIT_ASSETS.formats`; the room model does not change. The spec (§13.3, §16) says the same since PASS 6A.75. |
 | **Masters** | The studio's PNG / TIFF masters (spec §13.1) stay source assets and are never served. |
 | **Progress** | `baseStoryProgress` and `roomOrbitProgress` are two separate normalised 0 → 1 domains (§6). |
-| **Orbit span and weights** | The 160svh span, the hold weights (including the longer Kitchen hold) and the move weights are PROVISIONAL. PASS 6B retunes them from the real camera angles and motion footage. |
+| **Orbit span and weights** | The 160svh span, the hold weights (including the longer Kitchen hold), the move weights and the release weight are PROVISIONAL. PASS 6B retunes them from the real camera angles and motion footage. |
 
 ## 1. Feature gate
 
@@ -45,8 +49,9 @@ With the gate shut, production keeps today's Scene 3 unchanged, including
 
 | Where | How to open it |
 | --- | --- |
-| Development | `yarn dev`, then `/?atriumOrbit=1` (add `&storyDebug=1` for the readout) |
-| Preview build | build with `VITE_ATRIUM_ORBIT_PREVIEW=1`, then `/?atriumOrbit=1`. The diagnostic panel shows; the `storyDebug` readout stays development-only, as before. |
+| Development | `yarn dev`, then `/?atriumOrbit=1`. Add `&storyDebug=1` for the story readout line (development-only, as before); it also shows the Tier B diagnostic panel. |
+| Preview build | build with `VITE_ATRIUM_ORBIT_PREVIEW=1`, then `/?atriumOrbit=1`: the clean review URL, with no diagnostic panel and no technical text over the design (PASS 6A.96). |
+| Engineering readout | `/?atriumOrbit=1&atriumOrbitDebug=1`, in development and in a preview build. Only this adds the diagnostic panel (§15). `atriumOrbitDebug=1` alone opens nothing. |
 | Production | Shut. The gate is a build-time constant, so production builds never request the controller (verified in the built client bundle; see §10). |
 
 The controller is reached only through a dynamic `import()` inside
@@ -81,7 +86,7 @@ frame:
 | `OrbitPlateStage` | child of `.hc-atrium-backdrop`, inside `[data-scene3-camera]` | at most the current and incoming `<picture>`; others `hidden` (no layer) |
 | `RoomEditorial` | after the approved `.hc-atrium-copy`, reusing its classes | eyebrow, `<h2>` "Enter" + `<em>` phrase, body copy once, "EXPLORE THIS ROOM ⟶" |
 | `RoomIndicator` | after the World gateway (spec §8 zone I) | round 192 px thumbnail (`.hc-atrium-preview` frame), `01 / 04`, room name |
-| Diagnostic | inside `.hc-worlds`, dev / preview only | e.g. "Bedroom production plate missing" |
+| Diagnostic | inside `.hc-worlds`; created only on explicit request (`diagnostics`, from `?atriumOrbitDebug=1`) | e.g. "Bedroom production plate missing" |
 
 While the controller is loaded, `.hc-worlds[data-atrium-orbit-preview]`
 hides the approved copy, and at Arrival (no `data-atrium-room`) the four
@@ -185,24 +190,30 @@ hold lengths and the move lengths once the real camera angles exist.
 `sampleOrbit(roomOrbitProgress, timeline)` is pure. It returns:
 
 - `roomOrbitProgress`, clamped;
-- `phase` (hold / move);
+- `phase` (hold / move / release);
 - `activeState`, `previousState`, `nextState`;
 - `transitionFrom`, `transitionTo`, `transitionIndex`;
-- `localTransitionProgress` and `holdProgress`.
+- `localTransitionProgress`, `holdProgress` and `releaseProgress` (PASS 6A.96).
 
 Reverse scrolling, reload, back/forward and landing mid-orbit all resolve to
 the same state. Only the preload order and `direction` use the previous
 sample. The UI switches at `uiSwitchAt` (0.5) of a move.
 
-**Timeline:** hold Arrival → move → hold Living → … → hold Kitchen.
-`ATRIUM_ORBIT_TIMING` uses relative weights, all PROVISIONAL:
+**Timeline:** hold Arrival → move → hold Living → … → hold Kitchen →
+release. `ATRIUM_ORBIT_TIMING` uses relative weights, all PROVISIONAL:
 
 | Segment | Weight | Share of the orbit span (provisional) |
 | --- | --- | --- |
 | Arrival hold | 0.35 (transitional) | ≈ 4% |
-| Living, Bedroom, Bathroom holds | 1 each | ≈ 11% each |
-| Kitchen final hold | 1.5 (longer, before the Footer; the number is provisional) | ≈ 17% |
-| Four moves | 4 in total, split by angle | ≈ 11% each while equal |
+| Living, Bedroom, Bathroom holds | 1 each | ≈ 10% each |
+| Kitchen final hold | 1.5 (the longest hold; the number is provisional) | ≈ 15% |
+| Four moves | 4 in total, split by angle | ≈ 10% each while equal |
+| Release (PASS 6A.96) | 1 (`release.weight`; 0 = no release) | ≈ 10% |
+
+The release is not a state: Kitchen stays the active room. It takes its
+share from the whole span, so every hold and move keeps its proportion and
+is about a tenth shorter than before PASS 6A.96 (Kitchen ≈ 219 px of scroll
+at 1440×900, from ≈ 244 px).
 
 These are placeholders for PASS 6B, not a design. The Arrival hold is a
 short visual settle, not a room; no final move weight is assigned until the
@@ -283,7 +294,7 @@ No client asset references the controller or its stylesheet (checked after
 
 ## 11. Lifecycle
 
-- `destroy()` removes the stage, copy, indicator and diagnostic, its attributes, and every image handler (`prepareSceneImage.destroy`).
+- `destroy()` removes the stage, copy, indicator and diagnostic (when one exists), its attributes, `--atrium-editorial`, the room labels' `inert` state it set, and every image handler (`prepareSceneImage.destroy`).
 - The timeline calls it on unmount, before restoring its saved attributes.
 - A hidden tab calls `suspend()`, which drops promoted layers.
 - An import that resolves after unmount is ignored.
@@ -302,6 +313,15 @@ only in late Kitchen, eased, pure forward / reverse, interactive by the end, aft
 one `WorldGatewayLink` to `/world`, never written by Tier B; no orbiting room
 portals or camera pan / zoom; every provisional number in
 `ATRIUM_ORBIT_TIMING`; WebP-only wording in the spec.
+
+PASS 6A.96 adds (§15.1): the two shade parts recompose to the approved
+shade on every layout, and the copy field shows only with the editorial UI;
+nothing in the preview hides, fades or moves the Atrium itself; the release
+is pure, eases each part out, holds a quiet frame before
+`roomOrbitProgress` = 1 and rebuilds in reverse; Kitchen stays readable
+(alone, then with the whole gateway); the readout exists only on explicit
+request, in the timeline's DOM double and in a second DOM double that runs
+the real controller.
 
 The mutation count for these checks is in §15.
 
@@ -333,19 +353,22 @@ timeline. It proves nothing about the future spatial composition.
 | What it proves | How |
 | --- | --- |
 | Sequence Arrival → Living → Bedroom → Bathroom → Kitchen → ENTER THE WORLD, forward and reverse | `sampleOrbit(roomOrbitProgress)` (pure) and `atriumGateway(sample, shown)` (pure) |
-| Holds and moves | the provisional weights in `ATRIUM_ORBIT_TIMING` (unchanged since 6A) plus `gateway`: within 0.50–0.85 of the Kitchen hold, the indicator eases out over the first half of that window (`handoff` 0.5) and the gateway eases in over the second; the gateway is interactive from half its opacity. All PROVISIONAL. |
+| Holds and moves | the provisional weights in `ATRIUM_ORBIT_TIMING` (the hold and move weights are unchanged since 6A; PASS 6A.96 appends the release, §15.1) plus `gateway`: within 0.50–0.85 of the Kitchen hold, the indicator eases out over the first half of that window (`handoff` 0.5) and the gateway eases in over the second; the gateway is interactive from half its opacity. All PROVISIONAL. |
 | Editorial sync | one shown state drives the title, counter, thumbnail, CTA route, label emphasis, gateway reveal and indicator cross-fade |
 | Arrival | architecture only, labels included (§0) |
 | Responsive and reduced UI states | the layouts of §9; reduced motion has no moves, so plain state changes, with the same late-Kitchen gateway |
 | Feature-gate safety | §1; production builds contain no Tier B code |
 
-**Development diagnostics** (the dashed monospace panel, preview only, not
-production UI): `roomOrbitProgress`, the current segment and its bounds,
-hold or move (`transitionFrom → transitionTo` with local progress), the
-shown state, the gateway reveal, the direction, and the missing plates and
-camera data.
+**Development diagnostics** (the dashed monospace panel, not production
+UI). Since PASS 6A.96 it exists only on explicit request,
+`?atriumOrbit=1&atriumOrbitDebug=1` (in development `&storyDebug=1` shows it
+too); the review URL `?atriumOrbit=1` has no such node. It reports
+`roomOrbitProgress`, the current segment and its bounds, hold, move
+(`transitionFrom → transitionTo` with local progress) or release, the shown
+state, the gateway reveal, the editorial presence, the direction, and the
+missing plates and camera data.
 
-**Checks:** all 64 deliberate breakages of the hook, the modules, the CSS and the spec wording were caught by `check:atrium-orbit-foundation` and `check:atrium-orbit`. 21 of them target the PASS 6A.75 locks.
+**Checks:** all 64 deliberate breakages of the hook, the modules, the CSS and the spec wording were caught by `check:atrium-orbit-foundation` and `check:atrium-orbit`. 21 of them target the PASS 6A.75 locks. PASS 6A.96: 13 further breakages (a shade stop, the shade without the editorial value, a hidden backdrop image, the readout on by default or always created or opened by the clean URL, the presence not written, the controller touching the backdrop, a gateway or copy that stays through the release, a release fade that runs to the very end, a shade during Arrival, an ignored baseline) were all caught.
 
 **Deliberately not built:**
 
@@ -363,6 +386,73 @@ camera data.
 
   PASS 6B may need these for per-plate anchors.
 - **Portal-specific, not reused:** `ORBIT` shapes, `portalBox`, `fitOrbit`, `worldsOrbitFrame` (portal placement, depth, scale, blur, z), `orbitFocus` turns, `ORBIT_DOORWAYS` and the exposure field, the camera breath and `orbitPose`, and the gateway quiet / return choreography.
+
+### 15.1 PASS 6A.96 — live harness QA
+
+Three issues seen in a recording of the deployed harness. The state
+sequence, the room model, the gateway and the 160svh span are unchanged.
+
+**A. Arrival backdrop.** The brown field was not a missing image or an
+unmounted layer: the photograph was decoded and painted throughout. It was
+the approved exposure shade (`.hc-atrium-backdrop::after`). That shade backs
+the copy: on phones it is up to 93% opaque over the lower two thirds
+(`#24190dec`), on tablets 60%. In production it arrives together with the
+copy. In orbit mode Arrival has no copy, so the shade reached full strength
+with nothing on it, until Living brought the copy in.
+
+| | Zenith band | Copy field |
+| --- | --- | --- |
+| Element | `::after` (as before) | `::before`, `z-index: 2` (above the plate stage) |
+| Purpose | keeps the ivory header readable | backs the copy |
+| Opacity | `--world-exposure` (unchanged story rule) | `--world-exposure` × `--atrium-editorial` |
+| Gradient | the approved vertical gradient up to its first transparent stop | the rest of it, plus the approved second layer |
+
+Scoped to `[data-atrium-orbit-preview]`, per layout (desktop, tablet, phone,
+short landscape). The cuts are at transparent stops, so with both parts
+whole every pixel equals the approved shade.
+
+`--atrium-editorial` is the one value the controller writes per frame
+(`atriumEditorial`, pure). It also carries the copy, the CTA, the room
+labels and the indicator, so none shows without the others:
+
+- Arrival: 0. Architecture only, at full exposure.
+- Arrival → Living: 0 until the UI switch, then eased to 1 over the rest of that move. Reduced motion has no move, so a plain change.
+- Rooms and room-to-room moves: 1 (the title still changes by a cut).
+- Release: eased to 0.
+
+The editorial UI takes focus from half its opacity
+(`editorialInteractiveAt`); below that the copy, the indicator and the room
+labels are `inert`.
+
+**B. Release to the Footer.** `roomOrbitProgress` reaches 1 exactly where
+the sticky stage starts to leave. Until now the final Kitchen state rode the
+stage out, so the headline slid under the persistent header, and stayed
+there at the end of the page. The release is the last segment of the
+timeline (`kind: 'release'`), not a state:
+
+| Share of the release | What happens |
+| --- | --- |
+| 0 → 0.5 (`editorialOut`) | the copy, CTA, room labels, indicator, baseline and the copy field leave |
+| 0.3 → 0.75 (`gatewayOut`) | the World gateway settles out; inert from half its opacity |
+| 0.75 → 1 | the quiet architectural frame, held while still sticky |
+
+`atriumRelease(sample)` is pure: no timer, autoplay or RAF. Reverse
+scrolling rebuilds Footer → quiet frame → Gateway → Kitchen. The timeline
+stays the only writer of the gateway and the baseline; the controller
+returns `gateway` and `baseline`. `data-atrium-release` (`leaving` /
+`quiet`) names the phase on `.hc-worlds`.
+
+Known and left as it is: while the stage leaves, the persistent header keeps
+its ivory ink until the stage has passed it (the approved header rule). Over
+the unshaded floor of the quiet frame that ink has less contrast than over
+the old shaded field.
+
+**C. Readout.** See *Development diagnostics* above and §1.
+
+**Browser QA** (a production build with the preview flag, Chromium, real
+compositor frames): 1440×900, 768×1024 and 390×844, forward and reverse,
+normal and reduced motion, plus 844×390. With the flag off, frames of the
+deployed build and of this one are identical.
 
 ## 16. Studio handoff and delivery intake (PASS 6A.9)
 
@@ -469,5 +559,5 @@ in writing.
 Phase 3 plates.
 
 Until then nothing provisional changes: the 160svh span, the hold weights,
-the move weights and the gateway reveal stay placeholders, and
+the move weights, the gateway reveal and the release stay placeholders, and
 `ATRIUM_ORBIT_CAMERA_DATA` stays `null`.

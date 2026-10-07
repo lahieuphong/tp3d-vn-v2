@@ -2,6 +2,7 @@ import {
   ATRIUM_ORBIT_STATES,
   ATRIUM_ORBIT_TRANSITIONS,
   atriumOrbitNeighbours,
+  atriumOrbitState,
   type AtriumOrbitStateId,
 } from './atrium-orbit-model';
 import { HOME_PRODUCTION } from './home-production';
@@ -21,7 +22,9 @@ import { editorial, span } from './home-motion';
  *
  * Holds (readable rests) and moves (camera transitions) are weighted
  * separately; moves are weighted by the real camera angles once the studio's
- * camera data exists. Holds, moves and the span length are retuned in 6B. */
+ * camera data exists. The span ends with a short release (PASS 6A.96) that
+ * clears the editorial UI before the sticky stage leaves for the Footer.
+ * Holds, moves, the release and the span length are retuned in 6B. */
 
 /** Relative weights (not percentages): the span is mapped onto their sum.
  * PROVISIONAL until the camera data and plates exist (PASS 6B tunes them). */
@@ -53,6 +56,21 @@ export type AtriumOrbitTiming = {
     handoff: number;
     interactiveAt: number;
   };
+  /** PASS 6A.96: the final release, after the useful Kitchen and gateway
+   * state and before the sticky stage leaves for the Footer. `weight` is
+   * relative, like the holds (0 = no release). The windows are shares of the
+   * release itself: the room editorial UI leaves over `editorialOut`, the
+   * World gateway settles out over `gatewayOut`, and what is left of the
+   * release after both is the quiet architectural frame the stage carries
+   * into the Footer. Kitchen stays the active room throughout. */
+  release: {
+    weight: number;
+    editorialOut: readonly [number, number];
+    gatewayOut: readonly [number, number];
+  };
+  /** The room editorial UI takes focus and clicks from this share of its own
+   * opacity (as it enters with Living and until it leaves in the release). */
+  editorialInteractiveAt: number;
 };
 
 export const ATRIUM_ORBIT_TIMING: AtriumOrbitTiming = {
@@ -66,6 +84,8 @@ export const ATRIUM_ORBIT_TIMING: AtriumOrbitTiming = {
     handoff: 0.5,
     interactiveAt: 0.5,
   },
+  release: { weight: 1, editorialOut: [0, 0.5], gatewayOut: [0.3, 0.75] },
+  editorialInteractiveAt: 0.5,
 };
 
 /** Reduced motion: readable holds and plain plate changes; no camera move
@@ -110,7 +130,9 @@ export type AtriumOrbitSegment =
       to: AtriumOrbitStateId;
       start: number;
       end: number;
-    };
+    }
+  /** The final release: no new state, the last room stays active. */
+  | { kind: 'release'; state: AtriumOrbitStateId; start: number; end: number };
 
 export type AtriumOrbitTimeline = {
   segments: AtriumOrbitSegment[];
@@ -118,7 +140,8 @@ export type AtriumOrbitTimeline = {
   weighting: 'camera-angles' | 'provisional-equal';
 };
 
-/** Hold, move, hold … hold: Arrival, then each room, Kitchen last. */
+/** Hold, move, hold … hold: Arrival, then each room, Kitchen last; then the
+ * release that hands the stage to the Footer. */
 export function buildOrbitTimeline(
   timing: AtriumOrbitTiming,
   stepAngles: readonly number[] | null,
@@ -153,6 +176,15 @@ export function buildOrbitTimeline(
     });
     weights.push(moves[i]);
   });
+  if (timing.release.weight > 0) {
+    segments.push({
+      kind: 'release',
+      state: ATRIUM_ORBIT_STATES[ATRIUM_ORBIT_STATES.length - 1],
+      start: 0,
+      end: 0,
+    });
+    weights.push(timing.release.weight);
+  }
   const total = weights.reduce((a, b) => a + b, 0);
   let cursor = 0;
   segments.forEach((segment, i) => {
@@ -169,7 +201,7 @@ export function buildOrbitTimeline(
 export type AtriumOrbitSample = {
   /** The sampled position, clamped to 0 → 1. */
   roomOrbitProgress: number;
-  phase: 'hold' | 'move';
+  phase: 'hold' | 'move' | 'release';
   /** The one source of truth for title, counter, thumbnail, CTA, labels. */
   activeState: AtriumOrbitStateId;
   previousState: AtriumOrbitStateId | null;
@@ -177,10 +209,12 @@ export type AtriumOrbitSample = {
   transitionFrom: AtriumOrbitStateId | null;
   transitionTo: AtriumOrbitStateId | null;
   transitionIndex: number | null;
-  /** 0 → 1 across the current move (0 during holds). */
+  /** 0 → 1 across the current move (0 otherwise). */
   localTransitionProgress: number;
-  /** 0 → 1 across the current hold (0 during moves). */
+  /** 0 → 1 across the current hold (0 otherwise). */
   holdProgress: number;
+  /** 0 → 1 across the final release (0 before it). */
+  releaseProgress: number;
 };
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -199,7 +233,7 @@ export function sampleOrbit(
       ? clamp01((p - segment.start) / (segment.end - segment.start))
       : 1;
   const activeState =
-    segment.kind === 'hold'
+    segment.kind !== 'move'
       ? segment.state
       : local < timing.uiSwitchAt
         ? segment.from
@@ -216,6 +250,7 @@ export function sampleOrbit(
     transitionIndex: segment.kind === 'move' ? segment.transition : null,
     localTransitionProgress: segment.kind === 'move' ? local : 0,
     holdProgress: segment.kind === 'hold' ? local : 0,
+    releaseProgress: segment.kind === 'release' ? local : 0,
   };
 }
 
@@ -256,23 +291,66 @@ export function planPlates(input: {
   return { required, warm };
 }
 
+/** PASS 6A.96 — the final release, a pure function of the sampled position:
+ * what is left (1 → 0) of the room editorial UI and of the World gateway
+ * while the stage is still sticky. `quiet` is the architectural frame with
+ * neither, which is all the stage carries under the header into the Footer.
+ * No timer; reverse scrolling rebuilds Gateway, then Kitchen. */
+export function atriumRelease(
+  sample: AtriumOrbitSample,
+  timing: AtriumOrbitTiming = ATRIUM_ORBIT_TIMING,
+): { editorial: number; gateway: number; quiet: boolean } {
+  const r = sample.phase === 'release' ? sample.releaseProgress : 0;
+  const { editorialOut, gatewayOut } = timing.release;
+  const left = (window: readonly [number, number]) =>
+    1 - editorial(span(r, window[0], window[1]));
+  const state = { editorial: left(editorialOut), gateway: left(gatewayOut) };
+  return { ...state, quiet: state.editorial === 0 && state.gateway === 0 };
+}
+
+/** PASS 6A.96 — how present the room editorial UI is (copy, CTA, room
+ * labels, indicator, and the exposure shade that backs the copy), from the
+ * sampled position and the state the UI shows. Arrival has none. It enters
+ * with the first public room, over the rest of the move after the UI
+ * switch, stays whole through the rooms and leaves in the release. */
+export function atriumEditorial(
+  sample: AtriumOrbitSample,
+  shownState: AtriumOrbitStateId,
+  timing: AtriumOrbitTiming = ATRIUM_ORBIT_TIMING,
+): { presence: number; interactive: boolean } {
+  const entering =
+    sample.phase === 'move' &&
+    sample.transitionFrom !== null &&
+    !atriumOrbitState(sample.transitionFrom).editorial;
+  const presence = !atriumOrbitState(shownState).editorial
+    ? 0
+    : (entering
+        ? editorial(span(sample.localTransitionProgress, timing.uiSwitchAt, 1))
+        : 1) * atriumRelease(sample, timing).editorial;
+  return { presence, interactive: presence >= timing.editorialInteractiveAt };
+}
+
 /** PASS 6A.75 — the existing WorldGatewayLink's return, a pure function of
  * the sampled position and the state the UI shows (the one active-room
- * authority): 0 everywhere except the later part of the Kitchen hold, eased
- * to 1 by the end of the orbit. No timer; reverse scrolling hides it again. */
+ * authority): 0 everywhere except the later part of the Kitchen hold, where
+ * it eases to 1; it then settles out in the release (PASS 6A.96). No timer;
+ * reverse scrolling hides it again. */
 export function atriumGateway(
   sample: AtriumOrbitSample,
   shownState: AtriumOrbitStateId,
   timing: AtriumOrbitTiming = ATRIUM_ORBIT_TIMING,
 ): { reveal: number; indicator: number; interactive: boolean } {
   const { revealFrom, revealTo, handoff, interactiveAt } = timing.gateway;
-  const t =
-    shownState === 'kitchen' &&
-    sample.phase === 'hold' &&
-    sample.activeState === 'kitchen'
-      ? span(sample.holdProgress, revealFrom, revealTo)
-      : 0;
-  const reveal = editorial(span(t, handoff, 1));
+  const kitchen = shownState === 'kitchen' && sample.activeState === 'kitchen';
+  const t = !kitchen
+    ? 0
+    : sample.phase === 'release'
+      ? 1
+      : sample.phase === 'hold'
+        ? span(sample.holdProgress, revealFrom, revealTo)
+        : 0;
+  const reveal =
+    editorial(span(t, handoff, 1)) * atriumRelease(sample, timing).gateway;
   return {
     reveal,
     indicator: 1 - editorial(span(t, 0, handoff)),

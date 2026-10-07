@@ -1103,9 +1103,11 @@ for (const source of [...LAB_FILES.map(code), html]) {
     // TP3D PASS 6A adds only the dormant Tier B hook (development / preview
     // gate, shut in production builds); PASS 6A.5 names its two progress
     // domains; PASS 6A.75 lets that hook supply the World gateway's
-    // late-Kitchen reveal (no-op without Tier B). Base-journey digest still
-    // PASS 15.
-    'components/home/experience/home-story-timeline.ts': '3b03e20a84edd716',
+    // late-Kitchen reveal (no-op without Tier B); PASS 6A.96 lets it also
+    // supply what the final release leaves of the baseline, and passes it
+    // the explicit readout request (?atriumOrbitDebug=1), both no-ops
+    // without Tier B. Base-journey digest still PASS 15.
+    'components/home/experience/home-story-timeline.ts': '553c21bc3b93f2d3',
     'components/home/experience/continuous-breeze.tsx': '80f5ac52eee64916',
     'components/home/experience/breeze-renderer.ts': 'aa615ba1520bea94',
     'components/home/experience/breeze-geometry.ts': '8e8d627818928972',

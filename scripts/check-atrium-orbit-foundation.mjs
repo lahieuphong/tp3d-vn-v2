@@ -12,6 +12,13 @@
  * still /world) returns only in late Kitchen; room previews stay inside the
  * small indicator, never orbiting portals; no camera data, no pan / zoom /
  * rotation of the Atrium photograph; WebP-only documented consistently.
+ * PASS 6A.96 (live harness QA) locks: the approved Atrium stays in view for
+ * the whole harness (the copy's exposure shade follows the editorial UI, so
+ * Arrival and the release never show an empty shaded field); a final,
+ * scroll-driven release clears the editorial UI and the gateway before the
+ * sticky stage leaves for the Footer, and rebuilds them in reverse; the
+ * engineering readout exists only on explicit request. The real controller
+ * runs here in a small owned DOM double.
  * The timeline hook itself is checked in check-atrium-orbit. Nothing here
  * can validate how the future orbit looks: the render plates do not exist.
  * Generated camera rigs below are random test data, never product values. */
@@ -29,7 +36,9 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runInNewContext } from 'node:vm';
 import sharp from 'sharp';
+import ts from 'typescript';
 import { loadStoryMath } from './load-story-math.mjs';
 import {
   DELIVERY_ROOT,
@@ -396,10 +405,18 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
   assert.ok(TIMING.holds.kitchen > TIMING.holds.room, 'Kitchen holds longer');
   assert.equal(REDUCED.movement, 0, 'reduced motion plays no camera move');
   const kinds = (t) =>
-    t.segments.map((s) => (s.kind === 'hold' ? s.state : `${s.from}>${s.to}`));
-  const expected = STATES.flatMap((id, i) =>
+    t.segments.map((s) =>
+      s.kind === 'hold'
+        ? s.state
+        : s.kind === 'release'
+          ? `release:${s.state}`
+          : `${s.from}>${s.to}`,
+    );
+  const states = STATES.flatMap((id, i) =>
     i < 4 ? [id, `${id}>${STATES[i + 1]}`] : [id],
   );
+  // PASS 6A.96: the span ends with the release; Kitchen stays the room.
+  const expected = [...states, 'release:kitchen'];
   const contiguous = (t) => {
     assert.equal(t.segments[0].start, 0);
     assert.equal(t.segments.at(-1).end, 1);
@@ -409,9 +426,38 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     });
   };
   const provisional = buildOrbitTimeline(TIMING, null);
-  same(kinds(provisional), expected, 'hold, move, … , Kitchen hold');
+  same(kinds(provisional), expected, 'hold, move, … , Kitchen hold, release');
   assert.equal(provisional.weighting, 'provisional-equal');
   contiguous(provisional);
+  // The release is small and comes after the useful final state: Kitchen
+  // keeps the longest hold and stays longer than the release. Without a
+  // release weight the timeline is the five states alone.
+  {
+    const length = (s) => s.end - s.start;
+    const hold = (id) =>
+      provisional.segments.find((s) => s.kind === 'hold' && s.state === id);
+    const release = provisional.segments.at(-1);
+    assert.ok(TIMING.release.weight > 0, 'a release exists');
+    assert.ok(length(release) > 0.05 && length(release) < 0.15, 'small');
+    assert.ok(length(hold('kitchen')) > length(release), 'Kitchen outlasts it');
+    for (const id of ROOMS.slice(0, 3))
+      assert.ok(length(hold('kitchen')) > length(hold(id)), 'longest hold');
+    // Kitchen is not shortened to make room: every hold and move keeps its
+    // share of what the release leaves.
+    const bare = buildOrbitTimeline(
+      { ...TIMING, release: { ...TIMING.release, weight: 0 } },
+      null,
+    );
+    same(kinds(bare), states, 'no release weight: the five states alone');
+    contiguous(bare);
+    const kept = 1 - length(release);
+    provisional.segments
+      .slice(0, -1)
+      .forEach((s, i) =>
+        near(length(s), length(bare.segments[i]) * kept, 'same proportions'),
+      );
+    assert.ok(length(hold('kitchen')) > 0.85 * length(bare.segments.at(-1)));
+  }
   const moves = (t) =>
     t.segments.filter((s) => s.kind === 'move').map((s) => s.end - s.start);
   const holds = (t) =>
@@ -458,10 +504,18 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     for (const s of t.segments) {
       const mid = sampleOrbit((s.start + s.end) / 2, t);
       assert.equal(mid.phase, s.kind);
+      if (s.kind !== 'release') assert.equal(mid.releaseProgress, 0);
       if (s.kind === 'hold') {
         assert.equal(mid.activeState, s.state);
         assert.equal(mid.transitionFrom, null);
         near(mid.holdProgress, 0.5, 'hold progress', 1e-9);
+      } else if (s.kind === 'release') {
+        // The release adds no state: Kitchen is still the active room.
+        assert.equal(mid.activeState, 'kitchen');
+        assert.equal(mid.transitionFrom, null);
+        assert.equal(mid.transitionIndex, null);
+        assert.equal(mid.holdProgress, 0);
+        near(mid.releaseProgress, 0.5, 'release progress', 1e-9);
       } else {
         assert.equal(mid.transitionFrom, s.from);
         assert.equal(mid.transitionTo, s.to);
@@ -535,9 +589,12 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
   assert.ok(G.handoff > 0 && G.handoff < 1);
   for (const timing of [TIMING, REDUCED]) {
     const t = buildOrbitTimeline(timing, null);
-    const kitchen = t.segments.at(-1);
+    // PASS 6A.96: the Kitchen hold is followed by the release only.
+    const kitchen = t.segments.at(-2);
+    const release = t.segments.at(-1);
     assert.equal(kitchen.kind, 'hold');
     assert.equal(kitchen.state, 'kitchen');
+    assert.equal(release.kind, 'release');
     const positions = Array.from({ length: 4001 }, (_, i) => i / 4000);
     const frames = positions.map((p) => {
       const sample = sampleOrbit(p, t, timing);
@@ -551,18 +608,33 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
       const local = (f.p - kitchen.start) / (kitchen.end - kitchen.start);
       if (f.p < kitchen.start || local < G.revealFrom)
         assert.equal(f.reveal, 0, `no gateway at ${f.p}`);
-      if (local >= G.revealTo) assert.equal(f.reveal, 1);
+      if (local >= G.revealTo && f.p < release.start) assert.equal(f.reveal, 1);
       assert.equal(f.interactive, f.reveal >= G.interactiveAt);
     }
+    const untilRelease = frames.filter((f) => f.p < release.start);
     assert.ok(
-      frames.every((f, i) => !i || f.reveal >= frames[i - 1].reveal),
+      untilRelease.every((f, i) => !i || f.reveal >= frames[i - 1].reveal),
       'the reveal only grows forward (and shrinks in reverse)',
+    );
+    // The useful final state, before the release: the gateway owns zone I.
+    const whole = untilRelease.at(-1);
+    same(
+      [whole.reveal, whole.indicator, whole.interactive],
+      [1, 0, true],
+      'Kitchen with the whole gateway: the gateway owns zone I',
+    );
+    // PASS 6A.96: it then settles out; the indicator does not come back.
+    const releasing = frames.filter((f) => f.p >= release.start);
+    assert.ok(releasing.every((f) => f.indicator === 0));
+    assert.ok(
+      releasing.every((f, i) => !i || f.reveal <= releasing[i - 1].reveal),
+      'the gateway only leaves in the release',
     );
     const end = frames.at(-1);
     same(
       [end.reveal, end.indicator, end.interactive],
-      [1, 0, true],
-      'the final frame: the gateway owns zone I',
+      [0, 0, false],
+      'the final frame is quiet: no gateway, no indicator',
     );
     // Zone I hand-off: the indicator leaves before the gateway enters; the
     // two never show at once, and the indicator is whole before the window.
@@ -597,8 +669,165 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     );
     // One authority: while the UI still shows another room (an undecoded
     // Kitchen plate), the gateway does not return.
-    assert.equal(atriumGateway(sampleOrbit(1, t), 'bathroom').reveal, 0);
-    assert.equal(atriumGateway(sampleOrbit(1, t), 'kitchen').reveal, 1);
+    const settled = sampleOrbit(release.start - 1e-6, t, timing);
+    assert.equal(atriumGateway(settled, 'bathroom', timing).reveal, 0);
+    assert.equal(atriumGateway(settled, 'kitchen', timing).reveal, 1);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 5c. PASS 6A.96: the editorial presence and the final release. One value
+// carries the copy, CTA, room labels, indicator and the copy's exposure
+// shade: none through Arrival (the Atrium stays in view), whole through the
+// rooms, gone before the sticky stage leaves. Pure: reverse rebuilds it.
+// ---------------------------------------------------------------------------
+{
+  const {
+    buildOrbitTimeline,
+    sampleOrbit,
+    atriumGateway,
+    atriumRelease,
+    atriumEditorial,
+  } = progress;
+  const R = TIMING.release;
+  for (const window of [R.editorialOut, R.gatewayOut])
+    assert.ok(window[0] >= 0 && window[0] < window[1] && window[1] < 1);
+  assert.ok(
+    R.editorialOut[1] <= R.gatewayOut[1] &&
+      R.editorialOut[0] <= R.gatewayOut[0],
+    'the copy leaves first, the gateway settles out last',
+  );
+  assert.ok(
+    TIMING.editorialInteractiveAt > 0 && TIMING.editorialInteractiveAt <= 1,
+  );
+  for (const timing of [TIMING, REDUCED]) {
+    const t = buildOrbitTimeline(timing, null);
+    const release = t.segments.at(-1);
+    const kitchen = t.segments.at(-2);
+    const positions = Array.from({ length: 8001 }, (_, i) => i / 8000);
+    const frame = (p) => {
+      const sample = sampleOrbit(p, t, timing);
+      return {
+        p,
+        sample,
+        release: atriumRelease(sample, timing),
+        ui: atriumEditorial(sample, sample.activeState, timing),
+        gateway: atriumGateway(sample, sample.activeState, timing),
+      };
+    };
+    const frames = positions.map(frame);
+    const strip = ({ release, ui, gateway }) => ({ release, ui, gateway });
+    same(
+      frames.map(strip),
+      [...positions].reverse().map(frame).reverse().map(strip),
+      'Footer → quiet frame → Gateway → Kitchen: the same frames in reverse',
+    );
+    for (const f of frames) {
+      const { presence, interactive } = f.ui;
+      assert.ok(presence >= 0 && presence <= 1);
+      assert.equal(interactive, presence >= timing.editorialInteractiveAt);
+      // Arrival: no editorial UI, so no copy shade over the Atrium.
+      if (f.sample.activeState === 'arrival')
+        assert.equal(presence, 0, `Arrival is architecture only at ${f.p}`);
+      // Whole through every room hold and every room-to-room move.
+      if (
+        f.p < release.start &&
+        (f.sample.phase === 'hold'
+          ? f.sample.activeState !== 'arrival'
+          : f.sample.transitionFrom !== 'arrival')
+      )
+        assert.equal(presence, 1, `the room UI is whole at ${f.p}`);
+      if (f.p < release.start)
+        same(f.release, { editorial: 1, gateway: 1, quiet: false });
+      assert.equal(
+        f.release.quiet,
+        f.release.editorial === 0 && f.release.gateway === 0,
+      );
+    }
+    // Living brings the UI in from nothing, after the UI switch only.
+    const entering = frames.filter(
+      (f) => f.sample.phase === 'move' && f.sample.transitionFrom === 'arrival',
+    );
+    if (timing.movement > 0) {
+      assert.ok(entering.length > 100);
+      for (const f of entering)
+        if (f.sample.localTransitionProgress < timing.uiSwitchAt)
+          assert.equal(f.ui.presence, 0);
+      assert.ok(
+        entering.every(
+          (f, i) => !i || f.ui.presence >= entering[i - 1].ui.presence,
+        ),
+      );
+      assert.ok(
+        entering.some((f) => f.ui.presence > 0.2 && f.ui.presence < 0.8),
+        'eased in, never a pop',
+      );
+    } else assert.equal(entering.length, 0, 'reduced motion: a plain change');
+    // The release: each part only leaves, in small steps, and the quiet
+    // frame is held before roomOrbitProgress = 1 (the sticky stage's exit).
+    const releasing = frames.filter((f) => f.p >= release.start);
+    const local = (f) => (f.p - release.start) / (release.end - release.start);
+    for (const key of ['editorial', 'gateway']) {
+      assert.ok(
+        releasing.every(
+          (f, i) => !i || f.release[key] <= releasing[i - 1].release[key],
+        ),
+        `${key} only leaves`,
+      );
+      assert.ok(
+        releasing.every(
+          (f, i) => !i || releasing[i - 1].release[key] - f.release[key] < 0.05,
+        ),
+        `${key} eases out`,
+      );
+      const [from, to] = R[`${key}Out`];
+      for (const f of releasing) {
+        if (local(f) <= from) assert.equal(f.release[key], 1);
+        if (local(f) >= to) assert.equal(f.release[key], 0);
+      }
+    }
+    for (const f of releasing) {
+      assert.equal(f.sample.activeState, 'kitchen', 'still Kitchen');
+      assert.equal(f.ui.presence, f.release.editorial);
+      assert.equal(f.gateway.reveal, f.release.gateway);
+      assert.equal(f.gateway.indicator, 0, 'the indicator is already gone');
+    }
+    const quiet = releasing.filter((f) => f.release.quiet);
+    assert.ok(quiet.length >= 0.2 * releasing.length, 'a held quiet frame');
+    assert.ok(quiet[0].p < 1, 'quiet before the stage leaves');
+    assert.ok(
+      quiet.every(
+        (f) =>
+          f.ui.presence === 0 &&
+          !f.ui.interactive &&
+          f.gateway.reveal === 0 &&
+          !f.gateway.interactive,
+      ),
+      'nothing editorial is left, and nothing takes focus',
+    );
+    same(strip(frames.at(-1)), {
+      release: { editorial: 0, gateway: 0, quiet: true },
+      ui: { presence: 0, interactive: false },
+      gateway: { reveal: 0, indicator: 0, interactive: false },
+    });
+    // Kitchen stays readable: alone first, then with the whole gateway,
+    // and only then the release.
+    const inKitchen = frames.filter(
+      (f) => f.p >= kitchen.start && f.p < kitchen.end,
+    );
+    const alone = inKitchen.filter(
+      (f) => f.ui.presence === 1 && f.gateway.reveal === 0,
+    );
+    const withGateway = inKitchen.filter(
+      (f) => f.ui.presence === 1 && f.gateway.reveal === 1,
+    );
+    assert.ok(alone.length >= 0.4 * inKitchen.length, 'Kitchen alone');
+    assert.ok(withGateway.length >= 0.1 * inKitchen.length, 'then the gateway');
+    assert.ok(inKitchen.every((f) => f.ui.presence === 1));
+    // One authority: the presence follows the state the UI shows.
+    const mid = sampleOrbit((kitchen.start + kitchen.end) / 2, t, timing);
+    assert.equal(atriumEditorial(mid, 'arrival', timing).presence, 0);
+    assert.equal(atriumEditorial(mid, 'kitchen', timing).presence, 1);
   }
 }
 
@@ -633,7 +862,8 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
       const all = [...result.required, ...result.warm];
       assert.ok(all.length <= 4 && new Set(all).size === all.length);
       assert.ok(all.length < STATES.length, 'never every plate');
-      if (s.kind === 'hold') {
+      // The release shows the Kitchen plate, like the Kitchen hold.
+      if (s.kind !== 'move') {
         same(result.required, [s.state]);
         const ahead =
           direction === 'forward' ? sample.nextState : sample.previousState;
@@ -840,7 +1070,8 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
   for (const s of t.segments) {
     const p = (s.start + s.end) / 2;
     const sample = sampleOrbit(p, t);
-    if (s.kind === 'hold') {
+    // Holds and the release rest on one plate: no transition to play.
+    if (s.kind !== 'move') {
       assert.equal(
         plateTransitionInput(sample, 'forward', angles, 'desktop'),
         null,
@@ -1098,7 +1329,7 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
   );
   assert.match(
     css,
-    /\.hc-room-orbit-indicator \{\s*opacity: var\(--atrium-indicator, 1\);/,
+    /\.hc-room-orbit-indicator \{\s*opacity: calc\(var\(--atrium-indicator, 1\) \* var\(--atrium-editorial, 0\)\);/,
     'the indicator yields zone I to the returning gateway',
   );
   // The Atrium photograph is a static backdrop in this harness: Tier B never
@@ -1122,7 +1353,7 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
   ])
     assert.doesNotMatch(
       sources[name],
-      /revealFrom:|revealTo:|interactiveAt:|holds:|movement:|uiSwitchAt:/,
+      /revealFrom:|revealTo:|interactiveAt:|holds:|movement:|uiSwitchAt:|editorialOut:|gatewayOut:|editorialInteractiveAt:|weight:/,
       `${name}: timing only in ATRIUM_ORBIT_TIMING`,
     );
   // WebP-only runtime, documented consistently.
@@ -1150,6 +1381,623 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
   };
   for (const dir of ['app/', 'components/', 'lib/', 'hooks/']) scan(dir);
   same(importers, [`${EXPERIENCE}home-story-timeline.ts`]);
+}
+
+// ---------------------------------------------------------------------------
+// 9b. PASS 6A.96: live harness QA. (A) The approved Atrium stays in view for
+// the whole harness: the exposure shade is drawn in two parts, and the part
+// that backs the copy follows the editorial UI. (B) The final release.
+// (C) The engineering readout only on explicit request. Source rules first,
+// then the real controller in a small owned DOM double.
+// ---------------------------------------------------------------------------
+{
+  const BACKDROP = '.hc-atrium-backdrop';
+  const PREVIEW = `.home-story-stage .hc-worlds[data-atrium-orbit-preview] ${BACKDROP}`;
+  const MEDIA = {
+    base: null,
+    tablet: '(min-width: 768px) and (max-width: 1199px)',
+    phone: '(max-width: 767px)',
+    landscape:
+      '(max-width: 1199px) and (max-height: 540px) and (orientation: landscape)',
+  };
+  // Top-level rules and one level of @media, in source order.
+  const rules = (text) => {
+    const css = text.replace(/\/\*[\s\S]*?\*\//g, '');
+    const out = [];
+    const walk = (from, to, media) => {
+      let at = from;
+      while (at < to) {
+        const open = css.indexOf('{', at);
+        if (open < 0 || open >= to) break;
+        let depth = 1,
+          close = open + 1;
+        for (; depth && close < to; close++)
+          depth += css[close] === '{' ? 1 : css[close] === '}' ? -1 : 0;
+        const head = css.slice(at, open).replace(/\s+/g, ' ').trim();
+        if (head.startsWith('@media'))
+          walk(open + 1, close - 1, head.slice(6).trim());
+        else
+          out.push({
+            media,
+            selector: head,
+            body: css.slice(open + 1, close - 1),
+          });
+        at = close;
+      }
+    };
+    walk(0, css.length, null);
+    return out;
+  };
+  const declarations = (body) =>
+    Object.fromEntries(
+      body
+        .split(';')
+        .map((d) => d.replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .map((d) => [
+          d.slice(0, d.indexOf(':')).trim(),
+          d.slice(d.indexOf(':') + 1).trim(),
+        ]),
+    );
+  // "linear-gradient(a, b c%), linear-gradient(…)" → [{ angle, stops }].
+  const gradients = (value) =>
+    [...value.matchAll(/linear-gradient\(([^()]*)\)/g)].map(([, inner]) => {
+      const [angle, ...stops] = inner
+        .split(',')
+        .map((part) => part.replace(/\s+/g, ' ').trim());
+      return { angle, stops };
+    });
+  const shade = (list, media, selector) => {
+    const found = list.filter(
+      (rule) => rule.media === media && rule.selector === selector,
+    );
+    assert.equal(found.length, 1, `${selector} @ ${media ?? 'base'}`);
+    return found[0];
+  };
+  const preview = rules(read(`${EXPERIENCE}atrium-orbit-preview.css`));
+  const chapter = rules(read(`${EXPERIENCE}worlds-chapter.css`));
+  const storyCss = rules(read(`${EXPERIENCE}home-story.css`));
+  const approved = {
+    base: shade(chapter, MEDIA.base, `${BACKDROP}::after`),
+    tablet: shade(chapter, MEDIA.tablet, `${BACKDROP}::after`),
+    phone: shade(chapter, MEDIA.phone, `${BACKDROP}::after`),
+    landscape: shade(
+      storyCss,
+      MEDIA.landscape,
+      `.home-story-stage ${BACKDROP}::after`,
+    ),
+  };
+  // (A) Drawn apart, the two parts are exactly the approved shade: the
+  // zenith band is the approved vertical gradient up to its first
+  // transparent stop, the copy field is the rest (from its last transparent
+  // stop) and any second layer. Nothing lies between the two cuts, so with
+  // both whole every pixel is the approved one.
+  for (const [layout, media] of Object.entries(MEDIA)) {
+    const [vertical, ...others] = gradients(
+      declarations(approved[layout].body).background,
+    );
+    assert.equal(vertical.angle, '180deg', layout);
+    const clear = vertical.stops
+      .map((stop, i) => (stop.startsWith('transparent') ? i : -1))
+      .filter((i) => i >= 0);
+    assert.ok(clear.length >= 1 && clear[0] === 1, `${layout}: a zenith band`);
+    assert.ok(
+      vertical.stops
+        .slice(clear[0], clear.at(-1) + 1)
+        .every((stop) => stop.startsWith('transparent')),
+      `${layout}: the cut is lossless`,
+    );
+    const zenith = declarations(
+      shade(preview, media, `${PREVIEW}::after`).body,
+    );
+    const field = declarations(
+      shade(preview, media, `${PREVIEW}::before`).body,
+    );
+    same(
+      gradients(zenith.background),
+      [{ angle: '180deg', stops: vertical.stops.slice(0, clear[0] + 1) }],
+      `${layout}: the zenith band keeps the header readable`,
+    );
+    same(
+      gradients(field.background),
+      [
+        { angle: '180deg', stops: vertical.stops.slice(clear.at(-1)) },
+        ...others,
+      ],
+      `${layout}: the copy field is the rest of the approved shade`,
+    );
+    // The zenith band changes its gradient only: it keeps following the
+    // bridge's exposure through the unchanged story rule.
+    same(Object.keys(zenith), ['background'], layout);
+    if (layout !== 'base')
+      same(Object.keys(field), ['background'], `${layout}: gradient only`);
+  }
+  same(
+    declarations(
+      shade(storyCss, null, `.home-story-stage ${BACKDROP}::after`).body,
+    ),
+    { opacity: 'var(--world-exposure, 1)' },
+    'the exposure rule is the approved one',
+  );
+  // The copy field shows only with the editorial UI, above every plate.
+  const field = declarations(shade(preview, null, `${PREVIEW}::before`).body);
+  assert.equal(
+    field.opacity,
+    'calc(var(--world-exposure, 1) * var(--atrium-editorial, 0))',
+    'no copy, no copy shade: Arrival and the release show the Atrium',
+  );
+  same(
+    [field.content, field.position, field.inset, field['z-index']],
+    ["''", 'absolute', '0', '2'],
+  );
+  // Later rules win at equal specificity: short landscape comes last.
+  const order = Object.values(MEDIA).map((media) =>
+    preview.findIndex(
+      (rule) => rule.media === media && rule.selector === `${PREVIEW}::before`,
+    ),
+  );
+  assert.ok(
+    order.every((index, i) => index >= 0 && (!i || index > order[i - 1])),
+  );
+  // Nothing in the preview hides, fades or moves the Atrium itself: the only
+  // backdrop rules are the two shade parts above.
+  for (const rule of preview) {
+    if (
+      /hc-atrium-(camera|backdrop)|hc-scene-picture|scene3/.test(rule.selector)
+    )
+      assert.match(
+        rule.selector,
+        /^\.home-story-stage \.hc-worlds\[data-atrium-orbit-preview\] \.hc-atrium-backdrop::(before|after)$/,
+        rule.selector,
+      );
+    if (/^\.(home-story-stage )?\.?hc-worlds(\[[^\]]*\])*$/.test(rule.selector))
+      assert.doesNotMatch(
+        rule.body,
+        /\b(display|visibility|opacity|clip-path|background)\s*:/,
+        'the Atrium section is never hidden by the preview',
+      );
+  }
+  // One value carries the whole editorial UI in and out.
+  same(
+    declarations(
+      shade(
+        preview,
+        null,
+        '.home-story-stage .hc-worlds[data-atrium-orbit-preview] > :is(.hc-room-orbit-copy, .hc-atrium-rooms)',
+      ).body,
+    ),
+    { opacity: 'var(--atrium-editorial, 0)' },
+  );
+  same(
+    declarations(shade(preview, MEDIA.phone, '.hc-room-orbit-indicator').body)
+      .opacity,
+    'var(--atrium-editorial, 0)',
+    'phones: the indicator keeps its place but leaves with the copy',
+  );
+  const controllerSource = read(`${EXPERIENCE}atrium-orbit-controller.ts`);
+  assert.match(
+    controllerSource,
+    /property\(worlds, '--atrium-editorial', presence\.toFixed\(4\)\)/,
+  );
+  // (C) Off by default; the node is created only on explicit request.
+  assert.match(
+    controllerSource,
+    /\{ diagnostics = false \}: AtriumOrbitOptions = \{\},/,
+  );
+  assert.match(
+    controllerSource,
+    /const diagnostic = diagnostics\s*\? element\('p', 'hc-room-orbit-diagnostic'\)\s*: null;/,
+  );
+  assert.equal(
+    controllerSource.match(/hc-room-orbit-diagnostic/g).length,
+    1,
+    'one readout node, in one place',
+  );
+
+  // The real controller in a small owned DOM double.
+  class Style {
+    values = new Map();
+    setProperty(name, value) {
+      this.values.set(name, value);
+    }
+    getPropertyValue(name) {
+      return this.values.get(name) ?? '';
+    }
+    removeProperty(name) {
+      this.values.delete(name);
+    }
+  }
+  class Node {
+    attrs = new Map();
+    style = new Style();
+    children = [];
+    parentNode = null;
+    dataset = {};
+    hidden = false;
+    inert = false;
+    textContent = '';
+    queries = {};
+    constructor(tag, className = '') {
+      this.tagName = tag.toUpperCase();
+      this.className = className;
+    }
+    setAttribute(name, value) {
+      this.attrs.set(name, String(value));
+    }
+    getAttribute(name) {
+      return this.attrs.has(name) ? this.attrs.get(name) : null;
+    }
+    hasAttribute(name) {
+      return this.attrs.has(name);
+    }
+    removeAttribute(name) {
+      this.attrs.delete(name);
+    }
+    appendChild(child) {
+      return this.insertBefore(child, null);
+    }
+    insertBefore(child, reference) {
+      child.remove();
+      child.parentNode = this;
+      const at = reference ? this.children.indexOf(reference) : -1;
+      if (at < 0) this.children.push(child);
+      else this.children.splice(at, 0, child);
+      return child;
+    }
+    get nextSibling() {
+      const siblings = this.parentNode?.children ?? [];
+      return siblings[siblings.indexOf(this) + 1] ?? null;
+    }
+    remove() {
+      if (!this.parentNode) return;
+      const siblings = this.parentNode.children;
+      siblings.splice(siblings.indexOf(this), 1);
+      this.parentNode = null;
+    }
+    querySelector(selector) {
+      return this.queries[selector] ?? null;
+    }
+    querySelectorAll(selector) {
+      return this.queries[selector] ?? [];
+    }
+  }
+  const tree = (node) => [node, ...node.children.flatMap(tree)];
+  const byClass = (root, name) =>
+    tree(root).filter((node) => node.className.split(' ').includes(name));
+  const allText = (root) =>
+    tree(root)
+      .map((node) => node.textContent)
+      .join(' ');
+  const controllerModule = (() => {
+    const loaded = { exports: {} };
+    runInNewContext(
+      ts.transpileModule(controllerSource, {
+        compilerOptions: {
+          target: ts.ScriptTarget.ES2022,
+          module: ts.ModuleKind.CommonJS,
+        },
+      }).outputText,
+      {
+        module: loaded,
+        exports: loaded.exports,
+        console: { warn: () => assert.fail('no camera warning: data is null') },
+        document: { createElement: (tag) => new Node(tag) },
+        require(specifier) {
+          if (specifier === './atrium-orbit-preview.css') return {};
+          if (specifier === './scene-image')
+            return {
+              // Decoded at once: the indicator thumbnails are small.
+              prepareSceneImage: (image, callbacks) => ({
+                start: () => callbacks.ready(),
+                destroy() {},
+              }),
+            };
+          return loadStoryMath(specifier.slice(2));
+        },
+      },
+    );
+    return loaded.exports;
+  })();
+  const harness = (options) => {
+    const worlds = new Node('section', 'hc-chapter hc-worlds');
+    const camera = worlds.appendChild(new Node('div', 'hc-atrium-camera'));
+    const backdrop = camera.appendChild(new Node('div', 'hc-atrium-backdrop'));
+    const picture = backdrop.appendChild(
+      new Node('picture', 'hc-scene-picture'),
+    );
+    const image = picture.appendChild(new Node('img'));
+    image.setAttribute('src', '/images/home-chapters/worlds-atrium.webp');
+    const copy = worlds.appendChild(new Node('div', 'hc-atrium-copy'));
+    const eyebrow = copy.appendChild(new Node('p', 'hc-eyebrow'));
+    eyebrow.textContent = '3D WORLDS';
+    const body = copy.appendChild(new Node('p', 'hc-body'));
+    body.textContent = 'Step inside our interiors.';
+    copy.queries = {
+      '.hc-eyebrow:not(.hc-signoff)': eyebrow,
+      '.hc-body': body,
+    };
+    const rooms = worlds.appendChild(new Node('nav', 'hc-atrium-rooms'));
+    const links = ROOMS.map((room) => {
+      const link = rooms.appendChild(new Node('a', 'hc-atrium-room-link'));
+      link.dataset.room = room;
+      link.setAttribute('href', `/worlds/${room}`);
+      return link;
+    });
+    const gateway = worlds.appendChild(new Node('a', 'hc-atrium-cta'));
+    gateway.setAttribute('href', '/world');
+    worlds.appendChild(new Node('div', 'hc-atrium-baseline'));
+    worlds.queries = {
+      '.hc-atrium-backdrop': backdrop,
+      '.hc-atrium-copy': copy,
+      '.hc-atrium-cta': gateway,
+      '.hc-atrium-rooms': rooms,
+      '.hc-atrium-rooms a[data-room]': links,
+    };
+    let wakes = 0;
+    const controller = controllerModule.createAtriumOrbitController(
+      worlds,
+      () => wakes++,
+      ...(options ? [options] : []),
+    );
+    const untouched = json([
+      [...backdrop.attrs],
+      [...image.attrs],
+      [...camera.attrs],
+      [...gateway.attrs],
+    ]);
+    return {
+      worlds,
+      controller,
+      rooms,
+      gateway,
+      one(name) {
+        const found = byClass(worlds, name);
+        assert.equal(found.length, 1, name);
+        return found[0];
+      },
+      at: (roomOrbitProgress, baseStoryProgress = 1, reduced = false) =>
+        controller.update({
+          baseStoryProgress,
+          roomOrbitProgress,
+          width: 1440,
+          height: 900,
+          reduced,
+        }),
+      // The Atrium photograph and its camera are never touched: no style,
+      // no attribute, no `hidden`; the backdrop only gains the plate stage.
+      atriumIntact() {
+        for (const node of [camera, backdrop, picture, image, gateway]) {
+          assert.equal(node.style.values.size, 0, `${node.className} style`);
+          assert.equal(node.hidden, false);
+          assert.equal(node.inert, false);
+        }
+        assert.equal(
+          json([
+            [...backdrop.attrs],
+            [...image.attrs],
+            [...camera.attrs],
+            [...gateway.attrs],
+          ]),
+          untouched,
+        );
+        same(
+          backdrop.children.map((node) => node.className),
+          ['hc-scene-picture', 'hc-room-orbit-stage'],
+        );
+        assert.equal(picture.children[0], image, 'the approved plate stays');
+      },
+    };
+  };
+  const READOUT =
+    /DEVELOPMENT PREVIEW|roomOrbitProgress|segment \d|plate missing|Camera data|gateway reveal/;
+  const positions = Array.from({ length: 801 }, (_, i) => i / 800);
+  const { buildOrbitTimeline, sampleOrbit, atriumGateway, atriumRelease } =
+    progress;
+
+  // (C) The review URL (no option, or diagnostics: false): the harness runs
+  // and no technical text is ever in the page.
+  for (const options of [undefined, {}, { diagnostics: false }]) {
+    const h = harness(options);
+    assert.ok(h.worlds.hasAttribute('data-atrium-orbit-preview'), 'harness on');
+    for (const p of positions) {
+      h.at(p);
+      assert.equal(
+        byClass(h.worlds, 'hc-room-orbit-diagnostic').length,
+        0,
+        'clean preview: no readout node',
+      );
+      assert.doesNotMatch(allText(h.worlds), READOUT, `clean at ${p}`);
+    }
+    h.atriumIntact();
+  }
+  // (C) Explicit debug: the readout exists, is decorative, and reports the
+  // position, the segment, the hold / move / release, the gateway reveal,
+  // the missing plates and the missing camera data.
+  {
+    const h = harness({ diagnostics: true });
+    const readout = h.one('hc-room-orbit-diagnostic');
+    assert.equal(readout.parentNode, h.worlds);
+    assert.equal(readout.getAttribute('aria-hidden'), 'true');
+    const t = buildOrbitTimeline(TIMING, null);
+    const mid = (segment) => (segment.start + segment.end) / 2;
+    const text = (p) => {
+      h.at(p);
+      return readout.textContent;
+    };
+    for (const segment of t.segments) {
+      const line = text(mid(segment));
+      assert.match(line, /^DEVELOPMENT PREVIEW · Tier B interaction harness/);
+      assert.match(line, /roomOrbitProgress \d\.\d{4} · segment \d+\/10 \[/);
+      assert.match(line, /gateway reveal \d\.\d{3}/);
+      assert.match(line, /editorial \d\.\d{3}/);
+      assert.match(line, /Camera data missing: provisional-equal weighting/);
+      assert.match(
+        line,
+        segment.kind === 'hold'
+          ? new RegExp(`hold ${segment.state} · 0\\.500 · UI ${segment.state}`)
+          : segment.kind === 'move'
+            ? new RegExp(`move ${segment.from} → ${segment.to} · local 0\\.500`)
+            : /release kitchen · 0\.500 · UI kitchen/,
+      );
+    }
+    assert.match(
+      text(0),
+      /Arrival production plate missing \(approved Atrium shown\)/,
+    );
+    for (const [index, room] of ROOMS.entries())
+      assert.match(
+        text(mid(t.segments[2 + 2 * index])),
+        new RegExp(
+          `${room[0].toUpperCase()}${room.slice(1)} production plate missing`,
+        ),
+      );
+    assert.match(
+      text(1),
+      /release kitchen · 1\.000 · UI kitchen · quiet frame/,
+    );
+    h.atriumIntact();
+    h.controller.destroy();
+    assert.equal(byClass(h.worlds, 'hc-room-orbit-diagnostic').length, 0);
+  }
+
+  // (A) + (B) The whole harness, forward and in reverse.
+  for (const reduced of [false, true]) {
+    const timing = reduced ? REDUCED : TIMING;
+    const t = buildOrbitTimeline(timing, null);
+    const release = t.segments.at(-1);
+    const h = harness();
+    const copy = h.one('hc-room-orbit-copy');
+    const indicator = h.one('hc-room-orbit-indicator');
+    const title = h.one('hc-room-orbit-title');
+    const snapshot = (p, base = 1) => {
+      const frame = h.at(p, base, reduced);
+      return {
+        frame,
+        presence: h.worlds.style.getPropertyValue('--atrium-editorial'),
+        room: h.worlds.getAttribute('data-atrium-room'),
+        release: h.worlds.getAttribute('data-atrium-release'),
+        hidden: [copy.hidden, indicator.hidden],
+        inert: [copy.inert, indicator.inert, h.rooms.inert],
+        title: allText(title).replace(/\s+/g, ' ').trim(),
+        indicator: allText(indicator).replace(/\s+/g, ' ').trim(),
+        yield: indicator.style.getPropertyValue('--atrium-indicator'),
+      };
+    };
+    // Scene 2 → reveal → Arrival: before the orbit there is no editorial
+    // UI and no copy shade, at any point of the approved journey.
+    for (const base of [0, 0.3, 0.64, 0.72, 0.81, 0.865, 0.915, 0.99, 1]) {
+      const s = snapshot(0, base);
+      same(
+        [s.presence, s.room, s.release, s.hidden, s.inert],
+        ['0.0000', null, null, [true, true], [true, true, true]],
+        `architecture only at base ${base}`,
+      );
+      same(s.frame, { gateway: 0, gatewayInteractive: false, baseline: 1 });
+      h.atriumIntact();
+    }
+    const forward = positions.map((p) => snapshot(p));
+    const reverse = [...positions]
+      .reverse()
+      .map((p) => snapshot(p))
+      .reverse();
+    same(forward, reverse, 'the harness rebuilds every frame in reverse');
+    h.atriumIntact();
+    forward.forEach((s, i) => {
+      const p = positions[i];
+      const sample = sampleOrbit(p, t, timing);
+      const expected = progress.atriumEditorial(
+        sample,
+        sample.activeState,
+        timing,
+      );
+      const gateway = atriumGateway(sample, sample.activeState, timing);
+      const out = atriumRelease(sample, timing);
+      // One state drives everything; the release adds none.
+      const room = sample.activeState === 'arrival' ? null : sample.activeState;
+      assert.equal(s.room, room, `room at ${p}`);
+      assert.equal(
+        s.presence,
+        expected.presence.toFixed(4),
+        `presence at ${p}`,
+      );
+      same(s.hidden, [!room, !room]);
+      same(s.inert, Array(3).fill(!expected.interactive), `focus at ${p}`);
+      same(s.frame, {
+        gateway: gateway.reveal,
+        gatewayInteractive: gateway.interactive,
+        baseline: out.editorial,
+      });
+      assert.equal(s.yield, gateway.indicator.toFixed(4));
+      assert.equal(
+        s.release,
+        sample.phase !== 'release' ? null : out.quiet ? 'quiet' : 'leaving',
+      );
+      if (room) {
+        const { phrase, counter, label } =
+          model.atriumOrbitState(room).editorial;
+        assert.equal(s.title, `Enter ${phrase}`);
+        assert.equal(s.indicator, `${counter} ${label}`);
+      } else same([s.title, s.indicator], ['Enter', '']);
+    });
+    // The rooms in order, once each; the release keeps Kitchen.
+    same([...new Set(forward.map((s) => s.room))], [null, ...ROOMS]);
+    assert.ok(
+      forward
+        .filter((_, i) => positions[i] >= release.start)
+        .every((s) => s.room === 'kitchen' && s.title === 'Enter the kitchen.'),
+    );
+    // (B) Before the sticky stage leaves: nothing visible, nothing focusable.
+    const end = forward.at(-1);
+    same(
+      [end.presence, end.release, end.inert, end.frame],
+      [
+        '0.0000',
+        'quiet',
+        [true, true, true],
+        { gateway: 0, gatewayInteractive: false, baseline: 0 },
+      ],
+      'the stage reaches the Footer as a quiet architectural frame',
+    );
+    const quiet = forward.filter((s) => s.release === 'quiet');
+    assert.ok(quiet.length >= 10, 'the quiet frame is held');
+    assert.ok(
+      quiet.every((s) => s.presence === '0.0000' && s.frame.gateway === 0),
+    );
+    const leaving = forward.filter((s) => s.release === 'leaving');
+    assert.ok(leaving.length >= 20);
+    assert.ok(
+      leaving.every(
+        (s, i) => !i || Number(s.presence) <= Number(leaving[i - 1].presence),
+      ),
+    );
+    // Whole through the rooms: the copy shade is back with the copy.
+    assert.ok(
+      forward.some((s) => s.room === 'living' && s.presence === '1.0000') &&
+        forward.some((s) => s.room === 'kitchen' && s.presence === '1.0000'),
+    );
+    // Destroyed: every trace is gone and the labels take focus again.
+    h.at(1, 1, reduced);
+    assert.ok(h.rooms.inert);
+    h.controller.destroy();
+    assert.equal(
+      tree(h.worlds).filter((node) => /hc-room-orbit-/.test(node.className))
+        .length,
+      0,
+    );
+    same(
+      [...h.worlds.attrs.keys()].filter((name) =>
+        name.startsWith('data-atrium-'),
+      ),
+      [],
+    );
+    assert.equal(h.worlds.style.getPropertyValue('--atrium-editorial'), '');
+    assert.equal(h.rooms.inert, false);
+    same(h.controller.update({}), {
+      gateway: 0,
+      gatewayInteractive: false,
+      baseline: 1,
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1737,7 +2585,11 @@ console.log(
     'four rooms), WebP-only runtime plates, separate base / room orbit ' +
     'progress domains, gated orbit-mode UI (Arrival hides the room labels; ' +
     'the one WorldGatewayLink returns in late Kitchen; no orbiting room ' +
-    'portals, no camera pan / zoom), camera JSON contract with ' +
+    'portals, no camera pan / zoom), the approved Atrium in view for the ' +
+    'whole harness (copy shade = approved shade, shown only with the ' +
+    'editorial UI), a scroll-driven release to a quiet frame before the ' +
+    'sticky stage leaves (exact in reverse), the readout only on explicit ' +
+    'request, camera JSON contract with ' +
     'validation that never throws (random rigs, every error and warning), ' +
     'signed-angle weights ∝ |Δ| with a floor and order kept, holds weighted ' +
     'apart from moves, a stateless sampler identical forward / reverse / ' +

@@ -488,6 +488,7 @@ function story({
     wrappers,
     links,
     gateway,
+    baseline,
     header,
     window,
     document,
@@ -1281,8 +1282,9 @@ for (const tall of [false, true]) {
     'import.meta.env.VITE_ATRIUM_ORBIT_PREVIEW',
     "'1'",
   );
-  // The stub answers with the real pure gateway reveal (PASS 6A.75): the
-  // timeline stays the World gateway's only writer.
+  // The stub answers with the real pure gateway reveal (PASS 6A.75) and the
+  // real pure release (PASS 6A.96): the timeline stays the only writer of
+  // the World gateway and of the baseline.
   const tierB = loadStoryMath('atrium-orbit-progress');
   const tierBTimeline = tierB.buildOrbitTimeline(
     tierB.ATRIUM_ORBIT_TIMING,
@@ -1294,13 +1296,17 @@ for (const tall of [false, true]) {
       sample,
       sample.activeState,
     );
-    return { gateway: reveal, gatewayInteractive: interactive };
+    return {
+      gateway: reveal,
+      gatewayInteractive: interactive,
+      baseline: tierB.atriumRelease(sample).editorial,
+    };
   };
   const stub = () => {
     const record = { created: [], updates: [], suspended: 0, destroyed: 0 };
     record.module = {
-      createAtriumOrbitController(worlds, wake) {
-        record.created.push({ worlds, wake });
+      createAtriumOrbitController(worlds, wake, options) {
+        record.created.push({ worlds, wake, options });
         return {
           update: (input) => {
             record.updates.push({ ...input });
@@ -1335,6 +1341,55 @@ for (const tall of [false, true]) {
     assert.equal(h.tierBRequests(), 0, 'only ?atriumOrbit=1 loads Tier B');
     h.dispose();
   }
+  // PASS 6A.96: ?atriumOrbit=1 is the clean review URL. The engineering
+  // readout needs its own explicit parameter, which never opens the harness
+  // by itself; the development-only ?storyDebug=1 does not open it in a
+  // preview build either.
+  for (const [search, requests, diagnostics] of [
+    ['?atriumOrbit=1', 1, false],
+    ['?atriumOrbit=1&atriumOrbitDebug=1', 1, true],
+    ['?atriumOrbitDebug=1&atriumOrbit=1', 1, true],
+    ['?atriumOrbit=1&atriumOrbitDebug=0', 1, false],
+    ['?atriumOrbit=1&atriumOrbitDebug', 1, false],
+    ['?atriumOrbit=1&storyDebug=1', 1, false],
+    ['?atriumOrbitDebug=1', 0, null],
+    ['?atriumOrbit=0&atriumOrbitDebug=1', 0, null],
+  ]) {
+    const record = stub();
+    const h = story({
+      source: previewSource,
+      tierB: { search, controller: record.module },
+    });
+    await microtasks();
+    assert.equal(h.tierBRequests(), requests, search);
+    assert.equal(record.created.length, requests, search);
+    if (requests)
+      same(record.created[0].options, { diagnostics }, `readout: ${search}`);
+    h.dispose();
+  }
+  // A production build has no readout at any URL: the gate never opens.
+  {
+    const record = stub();
+    const h = story({
+      tierB: {
+        search: '?atriumOrbit=1&atriumOrbitDebug=1',
+        controller: record.module,
+      },
+    });
+    await microtasks();
+    assert.equal(h.tierBRequests(), 0, 'production never loads the readout');
+    h.dispose();
+  }
+  assert.match(
+    timelineSource,
+    /const debug =\s*import\.meta\.env\.DEV &&\s*new URLSearchParams\(window\.location\.search\)\.get\('storyDebug'\) === '1'/,
+    'storyDebug stays development-only',
+  );
+  assert.match(
+    timelineSource,
+    /createAtriumOrbitController\(worlds, schedule, \{\s*diagnostics:\s*!!debug \|\|\s*new URLSearchParams\(window\.location\.search\)\.get\(\s*'atriumOrbitDebug',\s*\) === '1',\s*\}\)/,
+    'the readout: explicit ?atriumOrbitDebug=1, or development storyDebug',
+  );
   // Preview with ?atriumOrbit=1.
   {
     const record = stub();
@@ -1349,6 +1404,7 @@ for (const tall of [false, true]) {
     assert.equal(h.tierBRequests(), 1);
     assert.equal(record.created.length, 1, 'one controller');
     assert.equal(record.created[0].worlds, h.worlds);
+    same(record.created[0].options, { diagnostics: false }, 'clean preview');
     const span = h.span();
     const orbitSpan = h.orbitSpan();
     // The approved journey is untouched up to p = 1, except the World
@@ -1411,10 +1467,16 @@ for (const tall of [false, true]) {
       'the controller receives sampled values only',
     );
     // PASS 6A.75: ENTER THE WORLD returns only in the later part of the
-    // Kitchen hold, eased by roomOrbitProgress, and is interactive by the
-    // end; reverse scrolling hides it again (pure, no timer).
+    // Kitchen hold, eased by roomOrbitProgress, and is interactive once
+    // whole. PASS 6A.96: it then settles out in the final release, together
+    // with the baseline, so the stage reaches the Footer as a quiet frame.
+    // Reverse scrolling rebuilds every step (pure, no timer).
     {
-      const kitchen = tierBTimeline.segments.at(-1);
+      const release = tierBTimeline.segments.at(-1);
+      const kitchen = tierBTimeline.segments.at(-2);
+      assert.equal(release.kind, 'release');
+      same([kitchen.kind, kitchen.state], ['hold', 'kitchen']);
+      assert.equal(release.end, 1, 'the release ends where the stage leaves');
       const revealFrom =
         kitchen.start +
         tierB.ATRIUM_ORBIT_TIMING.gateway.revealFrom *
@@ -1426,33 +1488,92 @@ for (const tall of [false, true]) {
           o,
           opacity: h.gateway.style.getPropertyValue('opacity'),
           inert: h.gateway.inert,
+          baseline: h.baseline.style.getPropertyValue('opacity'),
           expected,
           roomOrbitProgress: update.roomOrbitProgress,
         };
       };
-      const forward = steps(0, 1, 60).map(gatewayAt);
-      const reverse = steps(1, 0, 60).map(gatewayAt).reverse();
-      same(forward, reverse, 'the gateway reveal is a pure function');
+      const positions = [
+        ...steps(0, 1, 60),
+        ...steps(kitchen.start, 1, 240),
+        kitchen.end,
+      ].sort((a, b) => a - b);
+      const forward = positions.map(gatewayAt);
+      const reverse = [...positions].reverse().map(gatewayAt).reverse();
+      same(forward, reverse, 'gateway and release are pure functions');
       for (const g of forward) {
         assert.equal(g.opacity, g.expected.gateway.toFixed(5));
         assert.equal(g.inert, !g.expected.gatewayInteractive);
+        assert.equal(g.baseline, g.expected.baseline.toFixed(5));
         if (g.roomOrbitProgress < revealFrom)
           assert.equal(g.opacity, '0.00000', `hidden at ${g.o}`);
+        if (g.roomOrbitProgress <= release.start)
+          assert.equal(g.baseline, '1.00000', `baseline whole at ${g.o}`);
       }
-      assert.ok(
-        forward.every(
-          (g, i) => !i || Number(g.opacity) >= Number(forward[i - 1].opacity),
-        ),
-        'never pops back while scrolling forward',
+      const before = forward.filter(
+        (g) => g.roomOrbitProgress <= release.start,
       );
+      const during = forward.filter(
+        (g) => g.roomOrbitProgress >= release.start,
+      );
+      assert.ok(
+        before.every(
+          (g, i) => !i || Number(g.opacity) >= Number(before[i - 1].opacity),
+        ),
+        'never pops back while scrolling forward to the release',
+      );
+      // The useful final state: Kitchen with the whole, interactive gateway.
+      // (Scroll positions are whole pixels: within a few of the boundary.)
+      const whole = before.at(-1);
+      assert.ok(release.start - whole.roomOrbitProgress < 3 / orbitSpan);
+      assert.equal(whole.opacity, '1.00000', 'whole before the release');
+      assert.equal(whole.inert, false, 'interactive before the release');
+      assert.ok(during.length > 60, 'the release is sampled finely');
+      for (const key of ['opacity', 'baseline']) {
+        assert.ok(
+          during.every(
+            (g, i) => !i || Number(g[key]) <= Number(during[i - 1][key]),
+          ),
+          `${key} only leaves in the release`,
+        );
+        assert.ok(
+          during.every(
+            (g, i) => !i || Number(during[i - 1][key]) - Number(g[key]) < 0.12,
+          ),
+          `${key} eases out, never a cut`,
+        );
+      }
+      // Before the sticky stage leaves (roomOrbitProgress = 1) nothing is
+      // left: no gateway, no baseline, and the gateway takes no focus.
       const end = forward.at(-1);
-      assert.equal(end.opacity, '1.00000', 'fully visible at the end');
-      assert.equal(end.inert, false, 'interactive at the end');
-      at(1);
+      assert.equal(end.roomOrbitProgress, 1);
+      same(
+        [end.opacity, end.baseline, end.inert],
+        ['0.00000', '0.00000', true],
+      );
+      const quiet = during.filter(
+        (g) => g.opacity === '0.00000' && g.baseline === '0.00000',
+      );
+      assert.ok(
+        quiet.length > 20 && quiet[0].roomOrbitProgress < 0.99,
+        'the quiet frame is held before the stage leaves',
+      );
+      at(release.start);
       assert.equal(h.gateway.getAttribute('aria-hidden'), 'false');
+      at(1);
+      assert.equal(h.gateway.getAttribute('aria-hidden'), 'true');
       at(0);
       assert.equal(h.gateway.getAttribute('aria-hidden'), 'true');
       assert.ok(revealFrom > kitchen.start, 'Kitchen is readable alone first');
+      // Past the orbit (the stage is leaving) the quiet frame holds: no
+      // editorial element returns while it slides under the header.
+      for (const beyond of [1.02, 1.2, 1.6]) {
+        h.scroll(Math.round(span + beyond * orbitSpan));
+        assert.equal(record.updates.at(-1).roomOrbitProgress, 1);
+        assert.equal(h.gateway.style.getPropertyValue('opacity'), '0.00000');
+        assert.equal(h.baseline.style.getPropertyValue('opacity'), '0.00000');
+        assert.ok(h.gateway.inert);
+      }
     }
     // A decoded plate wakes the one RAF once; the story comes back to rest.
     const before = h.rafCalls();

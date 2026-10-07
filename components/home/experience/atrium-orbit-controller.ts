@@ -19,7 +19,9 @@ import {
 import {
   ATRIUM_ORBIT_TIMING,
   ATRIUM_ORBIT_TIMING_REDUCED,
+  atriumEditorial,
   atriumGateway,
+  atriumRelease,
   buildOrbitTimeline,
   planPlates,
   sampleOrbit,
@@ -49,7 +51,9 @@ import './atrium-orbit-preview.css';
  *   RoomEditorial     the approved copy block's classes: "Enter" + phrase,
  *                     body copy once, "EXPLORE THIS ROOM";
  *   RoomIndicator     round thumbnail + "01 / 04 LIVING" (spec §8 zone I);
- *   Diagnostic        a development notice naming what is missing.
+ *   Diagnostic        an engineering readout naming the position and what
+ *                     is missing; only on explicit request (`diagnostics`,
+ *                     ?atriumOrbitDebug=1), never on the review URL.
  * Every element derives from ONE state per frame (`show`).
  *
  * Orbit-mode UI model (PASS 6A.5, owner decisions of PASS 6A.75). While this
@@ -63,14 +67,20 @@ import './atrium-orbit-preview.css';
  *   Bedroom, Bathroom  the same model, 02–03 / 04;
  *   Kitchen   04 / 04, readable alone first; in the later part of its hold
  *             the existing WorldGatewayLink returns (`atriumGateway`) and
- *             the indicator yields its zone to it.
- * The gateway itself is still written only by the timeline (opacity and
- * inert); this controller only supplies the reveal. Without the controller,
- * Scene 3 is the production fallback.
+ *             the indicator yields its zone to it;
+ *   Release   (PASS 6A.96) still Kitchen: the copy, CTA, labels, indicator
+ *             and baseline leave, then the gateway, so the sticky stage
+ *             carries a quiet architectural frame into the Footer.
+ * The gateway and the baseline are still written only by the timeline
+ * (opacity and inert); this controller only supplies their values. Without
+ * the controller, Scene 3 is the production fallback.
  *
  * PASS 6A.75 is an interaction harness, not the visual orbit: the approved
  * Atrium photograph stays a static backdrop (never panned, zoomed or
- * rotated), and no room imagery moves through space. */
+ * rotated), and no room imagery moves through space. PASS 6A.96 keeps that
+ * photograph in view for the whole harness: the exposure shade that backs
+ * the copy follows the editorial UI (`--atrium-editorial`), so Arrival and
+ * the release show the architecture, never an empty shaded field. */
 
 export type AtriumOrbitInput = {
   /** 0 → 1 over the approved journey's own span (the timeline's p). */
@@ -82,8 +92,18 @@ export type AtriumOrbitInput = {
   reduced: boolean;
 };
 
-/** What the timeline needs back: the World gateway's reveal (0 → 1). */
-export type AtriumOrbitFrame = { gateway: number; gatewayInteractive: boolean };
+/** What the timeline needs back: the World gateway's reveal (0 → 1) and what
+ * the release leaves of the approved baseline (1 → 0). */
+export type AtriumOrbitFrame = {
+  gateway: number;
+  gatewayInteractive: boolean;
+  baseline: number;
+};
+
+export type AtriumOrbitOptions = {
+  /** The engineering readout. Off unless explicitly requested. */
+  diagnostics?: boolean;
+};
 
 export type AtriumOrbitController = ReturnType<
   typeof createAtriumOrbitController
@@ -104,10 +124,13 @@ type Thumb = {
 export function createAtriumOrbitController(
   worlds: HTMLElement,
   wake: () => void,
+  { diagnostics = false }: AtriumOrbitOptions = {},
 ) {
   const backdrop = worlds.querySelector<HTMLElement>('.hc-atrium-backdrop');
   const copy = worlds.querySelector<HTMLElement>('.hc-atrium-copy');
   const gateway = worlds.querySelector<HTMLElement>('.hc-atrium-cta');
+  const roomLabels = worlds.querySelector<HTMLElement>('.hc-atrium-rooms');
+  const roomLabelsInert = roomLabels?.hasAttribute('inert') ?? false;
   const links = [
     ...worlds.querySelectorAll<HTMLAnchorElement>(
       '.hc-atrium-rooms a[data-room]',
@@ -206,9 +229,15 @@ export function createAtriumOrbitController(
   if (gateway?.parentNode) gateway.parentNode.insertBefore(indicator, gateway);
   else insertAfter(editorial, indicator);
 
-  const diagnostic = element('p', 'hc-room-orbit-diagnostic');
-  diagnostic.setAttribute('aria-hidden', 'true');
-  add(worlds, diagnostic);
+  // The readout exists only on explicit request: the review URL shows the
+  // design, with no technical text over it.
+  const diagnostic = diagnostics
+    ? element('p', 'hc-room-orbit-diagnostic')
+    : null;
+  if (diagnostic) {
+    diagnostic.setAttribute('aria-hidden', 'true');
+    add(worlds, diagnostic);
+  }
 
   const mode =
     readiness.desktopComplete && stepAngles ? 'plates' : 'diagnostic';
@@ -218,16 +247,23 @@ export function createAtriumOrbitController(
   const thumbs = new Map<AtriumRoomId, Thumb>();
   let destroyed = false;
   let reduced: boolean | null = null;
-  let timeline = buildOrbitTimeline(ATRIUM_ORBIT_TIMING, stepAngles);
+  let timing = ATRIUM_ORBIT_TIMING;
+  let timeline = buildOrbitTimeline(timing, stepAngles);
   let transition = selectPlateTransition(false);
   let direction: AtriumOrbitDirection = 'forward';
   let lastRoomOrbitProgress: number | null = null;
-  let sample: AtriumOrbitSample = sampleOrbit(0, timeline);
+  let sample: AtriumOrbitSample = sampleOrbit(0, timeline, timing);
   let held: AtriumOrbitStateId | null = null;
   let shown: AtriumOrbitStateId | null = null;
   let moving = false;
   let lastDiagnostic = '';
-  let frame: AtriumOrbitFrame = { gateway: 0, gatewayInteractive: false };
+  let presence = 0;
+  const rest: AtriumOrbitFrame = {
+    gateway: 0,
+    gatewayInteractive: false,
+    baseline: 1,
+  };
+  let frame = rest;
   const viewport = { width: 1, height: 1 };
 
   /** Create and start one plate on demand; never for a missing plate. */
@@ -430,6 +466,7 @@ export function createAtriumOrbitController(
   };
 
   const paintDiagnostic = () => {
+    if (!diagnostic) return;
     const lines = [
       'DEVELOPMENT PREVIEW · Tier B interaction harness · not production',
     ];
@@ -444,8 +481,10 @@ export function createAtriumOrbitController(
       `roomOrbitProgress ${sample.roomOrbitProgress.toFixed(4)} · segment ${index + 1}/${timeline.segments.length} [${segment.start.toFixed(3)}–${segment.end.toFixed(3)}]`,
       sample.phase === 'move'
         ? `move ${sample.transitionFrom} → ${sample.transitionTo} · local ${sample.localTransitionProgress.toFixed(3)} · UI ${shown}`
-        : `hold ${sample.activeState} · ${sample.holdProgress.toFixed(3)} · UI ${shown}`,
-      `gateway reveal ${frame.gateway.toFixed(3)}${frame.gatewayInteractive ? ' · interactive' : ''} · ${direction}`,
+        : sample.phase === 'release'
+          ? `release ${sample.activeState} · ${sample.releaseProgress.toFixed(3)} · UI ${shown}${frame.gateway === 0 && presence === 0 ? ' · quiet frame' : ''}`
+          : `hold ${sample.activeState} · ${sample.holdProgress.toFixed(3)} · UI ${shown}`,
+      `gateway reveal ${frame.gateway.toFixed(3)}${frame.gatewayInteractive ? ' · interactive' : ''} · editorial ${presence.toFixed(3)} · ${direction}`,
     );
     const wantedIds = new Set(
       sample.phase === 'move'
@@ -471,13 +510,11 @@ export function createAtriumOrbitController(
 
   return {
     update(input: AtriumOrbitInput): AtriumOrbitFrame {
-      if (destroyed) return { gateway: 0, gatewayInteractive: false };
+      if (destroyed) return rest;
       if (input.reduced !== reduced) {
         reduced = input.reduced;
-        timeline = buildOrbitTimeline(
-          reduced ? ATRIUM_ORBIT_TIMING_REDUCED : ATRIUM_ORBIT_TIMING,
-          stepAngles,
-        );
+        timing = reduced ? ATRIUM_ORBIT_TIMING_REDUCED : ATRIUM_ORBIT_TIMING;
+        timeline = buildOrbitTimeline(timing, stepAngles);
         transition = selectPlateTransition(reduced);
       }
       viewport.width = input.width;
@@ -491,7 +528,7 @@ export function createAtriumOrbitController(
         direction =
           roomOrbitProgress > lastRoomOrbitProgress ? 'forward' : 'reverse';
       lastRoomOrbitProgress = roomOrbitProgress;
-      sample = sampleOrbit(roomOrbitProgress, timeline);
+      sample = sampleOrbit(roomOrbitProgress, timeline, timing);
       // Nothing is requested before Scene 3 approaches; never all plates.
       const plan = planPlates({
         baseStoryProgress,
@@ -502,9 +539,28 @@ export function createAtriumOrbitController(
       for (const id of plan.warm) plate(id, 'low');
       show(paintPlates());
       // The World gateway follows the same shown state (one authority).
-      const next = atriumGateway(sample, shown ?? sample.activeState);
-      frame = { gateway: next.reveal, gatewayInteractive: next.interactive };
+      const state = shown ?? sample.activeState;
+      const next = atriumGateway(sample, state, timing);
+      const release = atriumRelease(sample, timing);
+      const ui = atriumEditorial(sample, state, timing);
+      presence = ui.presence;
+      frame = {
+        gateway: next.reveal,
+        gatewayInteractive: next.interactive,
+        baseline: release.editorial,
+      };
       property(indicator, '--atrium-indicator', next.indicator.toFixed(4));
+      // One value fades the copy, CTA, room labels, indicator and the
+      // exposure shade behind the copy: none of them without the others.
+      property(worlds, '--atrium-editorial', presence.toFixed(4));
+      for (const node of [editorial, indicator, roomLabels])
+        if (node && node.inert !== !ui.interactive)
+          node.inert = !ui.interactive;
+      attr(
+        worlds,
+        'data-atrium-release',
+        sample.phase !== 'release' ? null : release.quiet ? 'quiet' : 'leaving',
+      );
       paintDiagnostic();
       return frame;
     },
@@ -519,12 +575,14 @@ export function createAtriumOrbitController(
       const step =
         s.phase === 'move'
           ? `${s.transitionFrom}→${s.transitionTo} ${s.localTransitionProgress.toFixed(3)}`
-          : `hold ${s.holdProgress.toFixed(3)}`;
+          : s.phase === 'release'
+            ? `release ${s.releaseProgress.toFixed(3)}`
+            : `hold ${s.holdProgress.toFixed(3)}`;
       const assets = ATRIUM_ORBIT_STATES.map(
         (id) =>
           `${id.slice(0, 3)}:${ATRIUM_ORBIT_PLATES[id].desktop === 'available' ? (plates.get(id)?.state ?? 'idle') : 'missing'}`,
       ).join(' ');
-      return `Tier B ${mode} · roomOrbit ${s.roomOrbitProgress.toFixed(4)} · ${s.activeState} (${step}) · ${direction} · UI ${shown} · plates ${assets} · cameras ${cameras.status} · ${timeline.weighting} · gateway ${frame.gateway.toFixed(3)}${moving ? ' · blending' : ''}`;
+      return `Tier B ${mode} · roomOrbit ${s.roomOrbitProgress.toFixed(4)} · ${s.activeState} (${step}) · ${direction} · UI ${shown} · plates ${assets} · cameras ${cameras.status} · ${timeline.weighting} · gateway ${frame.gateway.toFixed(3)} · editorial ${presence.toFixed(3)}${moving ? ' · blending' : ''}`;
     },
     destroy() {
       if (destroyed) return;
@@ -534,13 +592,17 @@ export function createAtriumOrbitController(
       plates.clear();
       thumbs.clear();
       for (const node of [stage, editorial, indicator, diagnostic])
-        node.remove();
+        node?.remove();
       for (const name of [
         'data-atrium-orbit-preview',
         'data-atrium-room',
         'data-atrium-layout',
+        'data-atrium-release',
       ])
         worlds.removeAttribute(name);
+      worlds.style.removeProperty('--atrium-editorial');
+      if (roomLabels && roomLabels.inert !== roomLabelsInert)
+        roomLabels.inert = roomLabelsInert;
       for (const link of links) link.removeAttribute('data-atrium-current');
     },
   };

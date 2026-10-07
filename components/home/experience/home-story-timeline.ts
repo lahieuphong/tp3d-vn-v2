@@ -547,7 +547,7 @@ export function createHomeStoryTimeline(
         : p <= bridgeTiming.exitStart
           ? tpTiming.settle
           : Math.min(p, bridgeTiming.settled);
-    const signature = `${visualProgress}/${orbitProgress}/${state.chapter}/${still}/${ready}/${sceneImage}/${theme}/${geometry.width}/${geometry.height}${tierB ? `/${tierB.gateway}/${tierB.gatewayInteractive}` : ''}`;
+    const signature = `${visualProgress}/${orbitProgress}/${state.chapter}/${still}/${ready}/${sceneImage}/${theme}/${geometry.width}/${geometry.height}${tierB ? `/${tierB.gateway}/${tierB.gatewayInteractive}/${tierB.baseline}` : ''}`;
     if (camera) {
       property(
         camera,
@@ -700,8 +700,15 @@ export function createHomeStoryTimeline(
           (
             reveal.opacity *
             // The World gateway quietens while the rooms are explored; under
-            // Tier B (dormant) it returns only in late Kitchen.
-            (gateway ? (tierB ? tierB.gateway : orbit.gatewayOpacity) : 1)
+            // Tier B (dormant) it returns only in late Kitchen, and the
+            // baseline leaves with the editorial UI in the final release.
+            (gateway
+              ? tierB
+                ? tierB.gateway
+                : orbit.gatewayOpacity
+              : tierB && node.tagName !== 'A'
+                ? tierB.baseline
+                : 1)
           ).toFixed(5),
         );
         property(
@@ -875,6 +882,9 @@ export function createHomeStoryTimeline(
   // preview build (VITE_ATRIUM_ORBIT_PREVIEW=1) and loaded only with
   // ?atriumOrbit=1, so the production homepage never requests it. Any
   // failure keeps the approved Scene 3. docs/TANPHONG_ATRIUM_ORBIT_IMPLEMENTATION.md
+  // PASS 6A.96: that URL is the clean review preview. The engineering
+  // readout needs its own explicit &atriumOrbitDebug=1 (in development,
+  // ?storyDebug=1 keeps showing it too).
   if (
     (import.meta.env.DEV ||
       import.meta.env.VITE_ATRIUM_ORBIT_PREVIEW === '1') &&
@@ -883,7 +893,13 @@ export function createHomeStoryTimeline(
     void import('./atrium-orbit-controller').then(
       ({ createAtriumOrbitController }) => {
         if (disposed) return;
-        roomOrbit = createAtriumOrbitController(worlds, schedule);
+        roomOrbit = createAtriumOrbitController(worlds, schedule, {
+          diagnostics:
+            !!debug ||
+            new URLSearchParams(window.location.search).get(
+              'atriumOrbitDebug',
+            ) === '1',
+        });
         resize();
       },
       () => {},
