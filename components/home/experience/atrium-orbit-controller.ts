@@ -1,0 +1,547 @@
+import {
+  ATRIUM_ORBIT_STATES,
+  ATRIUM_ORBIT_TITLE_LEAD,
+  ATRIUM_ROOMS,
+  type AtriumOrbitStateId,
+  type AtriumRoomId,
+} from './atrium-orbit-model';
+import { validateAtriumOrbitCameras } from './atrium-orbit-cameras';
+import {
+  ATRIUM_ORBIT_CAMERA_DATA,
+  ATRIUM_ORBIT_PLATES,
+  atriumOrbitLayout,
+  atriumOrbitReadiness,
+  atriumOrbitRecord,
+  plateOrientation,
+  plateSources,
+  type AtriumOrbitRecord,
+} from './atrium-orbit-manifest';
+import {
+  ATRIUM_ORBIT_TIMING,
+  ATRIUM_ORBIT_TIMING_REDUCED,
+  atriumGateway,
+  buildOrbitTimeline,
+  planPlates,
+  sampleOrbit,
+  type AtriumOrbitDirection,
+  type AtriumOrbitSample,
+} from './atrium-orbit-progress';
+import {
+  PLATE_REST,
+  plateTransitionInput,
+  selectPlateTransition,
+  type PlateLayer,
+} from './atrium-orbit-transition';
+import { prepareSceneImage, type SceneImagePreparation } from './scene-image';
+import './atrium-orbit-preview.css';
+
+/** TP3D PASS 6A — the Tier B room orbit shell (development / preview only).
+ *
+ * Loaded by home-story-timeline.ts through a dynamic import behind the
+ * Tier B gate, so production builds never request it. It owns no scroll,
+ * wheel or resize listener, no timer and no animation frame: the master
+ * timeline calls `update` from its one render, and decoded plates call
+ * `wake` (the timeline's schedule) once.
+ *
+ * Structure (imperative, like the rest of Scene 3's runtime):
+ *   OrbitPlateStage   inside the approved Atrium backdrop, so the bridge's
+ *                     exposure, camera and reveal apply to every plate;
+ *   RoomEditorial     the approved copy block's classes: "Enter" + phrase,
+ *                     body copy once, "EXPLORE THIS ROOM";
+ *   RoomIndicator     round thumbnail + "01 / 04 LIVING" (spec §8 zone I);
+ *   Diagnostic        a development notice naming what is missing.
+ * Every element derives from ONE state per frame (`show`).
+ *
+ * Orbit-mode UI model (PASS 6A.5, owner decisions of PASS 6A.75). While this
+ * controller is loaded (`.hc-worlds[data-atrium-orbit-preview]`) the
+ * approved "Enter the worlds." copy never shows:
+ *   Arrival   architecture only: no room labels, no editorial copy, no
+ *             counter, thumbnail, CTA or indicator, no ENTER THE WORLD;
+ *   Living    the first public room: 3D WORLDS, "Enter the living room.",
+ *             body, EXPLORE THIS ROOM →, the indicator 01 / 04 LIVING, and
+ *             the room labels (active full, the others quiet);
+ *   Bedroom, Bathroom  the same model, 02–03 / 04;
+ *   Kitchen   04 / 04, readable alone first; in the later part of its hold
+ *             the existing WorldGatewayLink returns (`atriumGateway`) and
+ *             the indicator yields its zone to it.
+ * The gateway itself is still written only by the timeline (opacity and
+ * inert); this controller only supplies the reveal. Without the controller,
+ * Scene 3 is the production fallback.
+ *
+ * PASS 6A.75 is an interaction harness, not the visual orbit: the approved
+ * Atrium photograph stays a static backdrop (never panned, zoomed or
+ * rotated), and no room imagery moves through space. */
+
+export type AtriumOrbitInput = {
+  /** 0 → 1 over the approved journey's own span (the timeline's p). */
+  baseStoryProgress: number;
+  /** 0 → 1 over the appended orbit span; 0 until baseStoryProgress = 1. */
+  roomOrbitProgress: number;
+  width: number;
+  height: number;
+  reduced: boolean;
+};
+
+/** What the timeline needs back: the World gateway's reveal (0 → 1). */
+export type AtriumOrbitFrame = { gateway: number; gatewayInteractive: boolean };
+
+export type AtriumOrbitController = ReturnType<
+  typeof createAtriumOrbitController
+>;
+
+type PlateState = 'loading' | 'ready' | 'failed';
+type Plate = {
+  picture: HTMLPictureElement;
+  preparation: SceneImagePreparation;
+  state: PlateState;
+};
+type Thumb = {
+  image: HTMLImageElement;
+  preparation: SceneImagePreparation;
+  ready: boolean;
+};
+
+export function createAtriumOrbitController(
+  worlds: HTMLElement,
+  wake: () => void,
+) {
+  const backdrop = worlds.querySelector<HTMLElement>('.hc-atrium-backdrop');
+  const copy = worlds.querySelector<HTMLElement>('.hc-atrium-copy');
+  const gateway = worlds.querySelector<HTMLElement>('.hc-atrium-cta');
+  const links = [
+    ...worlds.querySelectorAll<HTMLAnchorElement>(
+      '.hc-atrium-rooms a[data-room]',
+    ),
+  ];
+  // Routes are the rendered room links' own hrefs (worldsChapterOptions).
+  const routes: Partial<Record<AtriumRoomId, string>> = {};
+  for (const link of links) {
+    const room = ATRIUM_ROOMS.find((id) => id === link.dataset.room);
+    const href = link.getAttribute('href');
+    if (room && href) routes[room] = href;
+  }
+  const records = Object.fromEntries(
+    ATRIUM_ORBIT_STATES.map((id) => [id, atriumOrbitRecord(id, routes)]),
+  ) as Record<AtriumOrbitStateId, AtriumOrbitRecord>;
+  const cameras = validateAtriumOrbitCameras(ATRIUM_ORBIT_CAMERA_DATA);
+  const stepAngles = cameras.status === 'valid' ? cameras.stepAngles : null;
+  const readiness = atriumOrbitReadiness();
+  if (cameras.status === 'invalid')
+    console.warn('[Tier B] camera data rejected', cameras.errors);
+  if (cameras.status !== 'missing' && cameras.warnings.length)
+    console.warn('[Tier B] camera data warnings', cameras.warnings);
+
+  const element = <K extends keyof HTMLElementTagNameMap>(
+    tag: K,
+    className = '',
+    text = '',
+  ) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text) node.textContent = text;
+    return node;
+  };
+  const attr = (node: Element, name: string, value: string | null) => {
+    if (node.getAttribute(name) === value) return;
+    if (value === null) node.removeAttribute(name);
+    else node.setAttribute(name, value);
+  };
+  const property = (node: HTMLElement, name: string, value: string) => {
+    if (node.style.getPropertyValue(name) !== value)
+      node.style.setProperty(name, value);
+  };
+  const add = (parent: Node, ...children: Node[]) => {
+    for (const child of children) parent.appendChild(child);
+  };
+  const insertAfter = (reference: Node, node: Node) =>
+    reference.parentNode?.insertBefore(node, reference.nextSibling);
+  const text = (node: Element | null | undefined) =>
+    (node?.textContent ?? '').replace(/\s+/g, ' ').trim();
+
+  // OrbitPlateStage. Decorative (the backdrop is aria-hidden); at most the
+  // current and the incoming plate are displayed, the rest stay unrendered.
+  const stage = element('div', 'hc-room-orbit-stage');
+  if (backdrop) add(backdrop, stage);
+
+  // RoomEditorial. One title: the stable lead and the changing phrase.
+  const editorial = element('div', 'hc-atrium-copy hc-room-orbit-copy');
+  const phrase = element('em');
+  const title = element('h2', 'hc-room-orbit-title');
+  add(
+    title,
+    element('span', '', ATRIUM_ORBIT_TITLE_LEAD),
+    element('br'),
+    phrase,
+  );
+  const cta = element('a', 'hc-link hc-room-orbit-cta', 'EXPLORE THIS ROOM');
+  const ctaRoom = element('span', 'hc-room-orbit-sr');
+  const arrow = element('span', '', '⟶');
+  arrow.setAttribute('aria-hidden', 'true');
+  add(cta, ctaRoom, arrow);
+  add(
+    editorial,
+    element(
+      'p',
+      'hc-eyebrow',
+      text(copy?.querySelector('.hc-eyebrow:not(.hc-signoff)')),
+    ),
+    title,
+    // The body copy is the same for every room: rendered once.
+    element('p', 'hc-body', text(copy?.querySelector('.hc-body'))),
+    cta,
+  );
+  editorial.hidden = true;
+  if (copy) insertAfter(copy, editorial);
+
+  // RoomIndicator + RoomThumbnail.
+  const indicator = element('div', 'hc-room-orbit-indicator');
+  const thumbFrame = element('span', 'hc-atrium-preview hc-room-orbit-thumb');
+  thumbFrame.setAttribute('aria-hidden', 'true');
+  const counter = element('span', 'hc-room-orbit-counter');
+  const label = element('span', 'hc-room-orbit-label');
+  add(indicator, thumbFrame, counter, label);
+  indicator.hidden = true;
+  // Before the gateway: on phones (one column) the counter sits above the
+  // gateway's slot; elsewhere both share zone I and cross-fade.
+  if (gateway?.parentNode) gateway.parentNode.insertBefore(indicator, gateway);
+  else insertAfter(editorial, indicator);
+
+  const diagnostic = element('p', 'hc-room-orbit-diagnostic');
+  diagnostic.setAttribute('aria-hidden', 'true');
+  add(worlds, diagnostic);
+
+  const mode =
+    readiness.desktopComplete && stepAngles ? 'plates' : 'diagnostic';
+  attr(worlds, 'data-atrium-orbit-preview', mode);
+
+  const plates = new Map<AtriumOrbitStateId, Plate>();
+  const thumbs = new Map<AtriumRoomId, Thumb>();
+  let destroyed = false;
+  let reduced: boolean | null = null;
+  let timeline = buildOrbitTimeline(ATRIUM_ORBIT_TIMING, stepAngles);
+  let transition = selectPlateTransition(false);
+  let direction: AtriumOrbitDirection = 'forward';
+  let lastRoomOrbitProgress: number | null = null;
+  let sample: AtriumOrbitSample = sampleOrbit(0, timeline);
+  let held: AtriumOrbitStateId | null = null;
+  let shown: AtriumOrbitStateId | null = null;
+  let moving = false;
+  let lastDiagnostic = '';
+  let frame: AtriumOrbitFrame = { gateway: 0, gatewayInteractive: false };
+  const viewport = { width: 1, height: 1 };
+
+  /** Create and start one plate on demand; never for a missing plate. */
+  const plate = (id: AtriumOrbitStateId, priority: 'auto' | 'low') => {
+    const existing = plates.get(id);
+    if (existing) return existing;
+    const sources = plateSources(id);
+    if (!sources) return null;
+    const picture = element('picture', 'hc-room-orbit-plate');
+    picture.dataset.plate = id;
+    picture.hidden = true;
+    for (const choice of sources.sources) {
+      const source = element('source');
+      if (choice.media) source.media = choice.media;
+      source.type = choice.type;
+      source.sizes = choice.sizes;
+      source.dataset.srcset = choice.srcset;
+      add(picture, source);
+    }
+    const image = element('img');
+    image.alt = '';
+    image.width = sources.fallback.width;
+    image.height = sources.fallback.height;
+    image.sizes = sources.fallback.sizes;
+    image.decoding = 'async';
+    image.loading = 'lazy';
+    image.dataset.src = sources.fallback.src;
+    add(picture, image);
+    add(stage, picture);
+    const entry: Plate = {
+      picture,
+      state: 'loading',
+      preparation: prepareSceneImage(
+        image,
+        {
+          ready() {
+            entry.state = 'ready';
+            if (!destroyed) wake();
+          },
+          failed() {
+            // No broken image: a failed plate is simply never displayed.
+            entry.state = 'failed';
+            if (!destroyed) wake();
+          },
+        },
+        priority,
+      ),
+    };
+    plates.set(id, entry);
+    entry.preparation.start();
+    return entry;
+  };
+  const ready = (id: AtriumOrbitStateId) => plates.get(id)?.state === 'ready';
+  type Layer = [AtriumOrbitStateId, PlateLayer];
+  const strongest = (layers: Layer[]) =>
+    layers.reduce<Layer | null>(
+      (a, b) => (!a || b[1].opacity > a[1].opacity ? b : a),
+      null,
+    )?.[0] ?? null;
+
+  const thumb = (room: AtriumRoomId) => {
+    const existing = thumbs.get(room);
+    if (existing) return existing;
+    const source = records[room].thumbnail;
+    if (!source) return null;
+    const image = element('img');
+    image.alt = '';
+    image.width = source.width;
+    image.height = source.height;
+    image.decoding = 'async';
+    image.loading = 'lazy';
+    image.dataset.src = source.src;
+    image.hidden = true;
+    add(thumbFrame, image);
+    const entry: Thumb = {
+      image,
+      ready: false,
+      preparation: prepareSceneImage(
+        image,
+        {
+          ready() {
+            entry.ready = true;
+            if (!destroyed) paintThumbs();
+          },
+          failed() {
+            entry.ready = false;
+            if (!destroyed) paintThumbs();
+          },
+        },
+        'low',
+      ),
+    };
+    thumbs.set(room, entry);
+    entry.preparation.start();
+    return entry;
+  };
+  const paintThumbs = () => {
+    const room = shown ? records[shown].room : null;
+    for (const [id, entry] of thumbs)
+      entry.image.hidden = !(id === room && entry.ready);
+  };
+
+  /** Decode before display. Every plate the transition wants must be
+   * decoded, or the last fully drawn plate holds at rest; a missing
+   * Arrival is the approved Atrium already under the stage. */
+  const paintPlates = () => {
+    const input = plateTransitionInput(
+      sample,
+      direction,
+      stepAngles,
+      plateOrientation(viewport.width, viewport.height),
+    );
+    const pose = input ? transition(input) : null;
+    const wanted: Layer[] =
+      input && pose
+        ? [
+            [input.from, pose.from],
+            [input.to, pose.to],
+          ]
+        : [[sample.activeState, PLATE_REST]];
+    const visible = wanted.filter(([, layer]) => layer.opacity > 0);
+    const lead = strongest(visible);
+    let layers = visible;
+    if (!lead) layers = [];
+    else if (visible.every(([id]) => ready(id))) held = lead;
+    else
+      layers =
+        held && ready(held) && lead !== 'arrival' ? [[held, PLATE_REST]] : [];
+    moving = layers.length > 1;
+    for (const [id, entry] of plates) {
+      const layer = layers.find(([state]) => state === id)?.[1] ?? null;
+      if (entry.picture.hidden !== !layer) entry.picture.hidden = !layer;
+      if (!layer) {
+        property(entry.picture, 'will-change', 'auto');
+        continue;
+      }
+      attr(
+        entry.picture,
+        'data-plate-role',
+        input && id === input.incoming ? 'incoming' : 'current',
+      );
+      property(entry.picture, 'opacity', layer.opacity.toFixed(4));
+      property(
+        entry.picture,
+        'transform',
+        layer.x === 0 && layer.y === 0 && layer.scale === 1
+          ? 'none'
+          : `translate3d(${(layer.x * 100).toFixed(3)}%, ${(layer.y * 100).toFixed(3)}%, 0) scale(${layer.scale.toFixed(5)})`,
+      );
+      // Only a blend promotes layers; a resting plate is never a layer.
+      property(
+        entry.picture,
+        'will-change',
+        moving ? 'opacity, transform' : 'auto',
+      );
+    }
+    // The UI follows the drawn plate. Without a complete delivery the UI
+    // follows the scroll sample (preview of the sync, with the diagnostic).
+    return (
+      strongest(layers) ??
+      (readiness.desktopComplete ? 'arrival' : sample.activeState)
+    );
+  };
+
+  /** The one source of truth for title, counter, label, thumbnail, CTA and
+   * room-label emphasis. Writes only when the state changes; no live
+   * region, so screen readers are never flooded while scrolling. */
+  const show = (id: AtriumOrbitStateId) => {
+    if (id === shown) return;
+    shown = id;
+    const record = records[id];
+    const room = record.editorial;
+    attr(worlds, 'data-atrium-room', record.room);
+    editorial.hidden = indicator.hidden = !room;
+    for (const link of links)
+      attr(
+        link,
+        'data-atrium-current',
+        record.room && link.dataset.room === record.room ? '' : null,
+      );
+    if (!room || !record.room) {
+      // Arrival: no editorial UI. Cleared, so the DOM never depends on the
+      // path that reached this position.
+      phrase.textContent = counter.textContent = label.textContent = '';
+      ctaRoom.textContent = '';
+      cta.removeAttribute('href');
+      paintThumbs();
+      return;
+    }
+    phrase.textContent = room.phrase;
+    counter.textContent = room.counter;
+    label.textContent = room.label;
+    ctaRoom.textContent = `, ${room.label}`;
+    cta.hidden = !record.route;
+    if (record.route) cta.href = record.route;
+    thumb(record.room);
+    const next = record.next ? records[record.next].room : null;
+    if (next) thumb(next);
+    paintThumbs();
+  };
+
+  const paintDiagnostic = () => {
+    const lines = [
+      'DEVELOPMENT PREVIEW · Tier B interaction harness · not production',
+    ];
+    // State readout: position, segment boundaries, transition, gateway.
+    // The sampler's own rule: the first segment not yet ended, else the last.
+    const found = timeline.segments.findIndex(
+      (segment) => sample.roomOrbitProgress < segment.end,
+    );
+    const index = found < 0 ? timeline.segments.length - 1 : found;
+    const segment = timeline.segments[index];
+    lines.push(
+      `roomOrbitProgress ${sample.roomOrbitProgress.toFixed(4)} · segment ${index + 1}/${timeline.segments.length} [${segment.start.toFixed(3)}–${segment.end.toFixed(3)}]`,
+      sample.phase === 'move'
+        ? `move ${sample.transitionFrom} → ${sample.transitionTo} · local ${sample.localTransitionProgress.toFixed(3)} · UI ${shown}`
+        : `hold ${sample.activeState} · ${sample.holdProgress.toFixed(3)} · UI ${shown}`,
+      `gateway reveal ${frame.gateway.toFixed(3)}${frame.gatewayInteractive ? ' · interactive' : ''} · ${direction}`,
+    );
+    const wantedIds = new Set(
+      sample.phase === 'move'
+        ? [sample.transitionFrom!, sample.transitionTo!]
+        : [sample.activeState],
+    );
+    for (const id of wantedIds)
+      if (ATRIUM_ORBIT_PLATES[id].desktop !== 'available')
+        lines.push(
+          `${id === 'arrival' ? 'Arrival' : records[id].editorial!.label} production plate missing${id === 'arrival' ? ' (approved Atrium shown)' : ''}`,
+        );
+      else if (plates.get(id)?.state === 'failed')
+        lines.push(`${id} plate failed to load (holding)`);
+    if (cameras.status !== 'valid')
+      lines.push(
+        `Camera data ${cameras.status}: ${timeline.weighting} weighting`,
+      );
+    const value = lines.join('\n');
+    if (value === lastDiagnostic) return;
+    lastDiagnostic = value;
+    diagnostic.textContent = value;
+  };
+
+  return {
+    update(input: AtriumOrbitInput): AtriumOrbitFrame {
+      if (destroyed) return { gateway: 0, gatewayInteractive: false };
+      if (input.reduced !== reduced) {
+        reduced = input.reduced;
+        timeline = buildOrbitTimeline(
+          reduced ? ATRIUM_ORBIT_TIMING_REDUCED : ATRIUM_ORBIT_TIMING,
+          stepAngles,
+        );
+        transition = selectPlateTransition(reduced);
+      }
+      viewport.width = input.width;
+      viewport.height = input.height;
+      attr(worlds, 'data-atrium-layout', atriumOrbitLayout(input.width));
+      const { baseStoryProgress, roomOrbitProgress } = input;
+      if (
+        lastRoomOrbitProgress !== null &&
+        roomOrbitProgress !== lastRoomOrbitProgress
+      )
+        direction =
+          roomOrbitProgress > lastRoomOrbitProgress ? 'forward' : 'reverse';
+      lastRoomOrbitProgress = roomOrbitProgress;
+      sample = sampleOrbit(roomOrbitProgress, timeline);
+      // Nothing is requested before Scene 3 approaches; never all plates.
+      const plan = planPlates({
+        baseStoryProgress,
+        sample,
+        direction,
+      });
+      for (const id of plan.required) plate(id, 'auto');
+      for (const id of plan.warm) plate(id, 'low');
+      show(paintPlates());
+      // The World gateway follows the same shown state (one authority).
+      const next = atriumGateway(sample, shown ?? sample.activeState);
+      frame = { gateway: next.reveal, gatewayInteractive: next.interactive };
+      property(indicator, '--atrium-indicator', next.indicator.toFixed(4));
+      paintDiagnostic();
+      return frame;
+    },
+    /** Hidden tab: drop any promoted plate layer at once. */
+    suspend() {
+      moving = false;
+      for (const entry of plates.values())
+        property(entry.picture, 'will-change', 'auto');
+    },
+    debug() {
+      const s = sample;
+      const step =
+        s.phase === 'move'
+          ? `${s.transitionFrom}→${s.transitionTo} ${s.localTransitionProgress.toFixed(3)}`
+          : `hold ${s.holdProgress.toFixed(3)}`;
+      const assets = ATRIUM_ORBIT_STATES.map(
+        (id) =>
+          `${id.slice(0, 3)}:${ATRIUM_ORBIT_PLATES[id].desktop === 'available' ? (plates.get(id)?.state ?? 'idle') : 'missing'}`,
+      ).join(' ');
+      return `Tier B ${mode} · roomOrbit ${s.roomOrbitProgress.toFixed(4)} · ${s.activeState} (${step}) · ${direction} · UI ${shown} · plates ${assets} · cameras ${cameras.status} · ${timeline.weighting} · gateway ${frame.gateway.toFixed(3)}${moving ? ' · blending' : ''}`;
+    },
+    destroy() {
+      if (destroyed) return;
+      destroyed = true;
+      for (const entry of plates.values()) entry.preparation.destroy();
+      for (const entry of thumbs.values()) entry.preparation.destroy();
+      plates.clear();
+      thumbs.clear();
+      for (const node of [stage, editorial, indicator, diagnostic])
+        node.remove();
+      for (const name of [
+        'data-atrium-orbit-preview',
+        'data-atrium-room',
+        'data-atrium-layout',
+      ])
+        worlds.removeAttribute(name);
+      for (const link of links) link.removeAttribute('data-atrium-current');
+    },
+  };
+}

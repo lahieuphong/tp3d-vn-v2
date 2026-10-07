@@ -18,8 +18,13 @@ import { loadStoryMath } from './load-story-math.mjs';
 const read = (path) =>
   readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const EXPERIENCE = 'components/home/experience/';
+// Production build values: the dormant Tier B gate (PASS 6A) stays shut.
+const productionEnv = (text) =>
+  text
+    .replaceAll('import.meta.env.DEV', 'false')
+    .replaceAll('import.meta.env.VITE_ATRIUM_ORBIT_PREVIEW', 'undefined');
 const transpile = (text) =>
-  ts.transpileModule(text.replaceAll('import.meta.env.DEV', 'false'), {
+  ts.transpileModule(productionEnv(text), {
     compilerOptions: {
       target: ts.ScriptTarget.ES2022,
       module: ts.ModuleKind.CommonJS,
@@ -124,6 +129,9 @@ function story({
   orbit = true,
   reduced = false,
   initialScroll = 0,
+  // PASS 6A: { search, controller } opens the page as ?atriumOrbit=1 with
+  // a stub Tier B controller module (`controller: null` = import fails).
+  tierB = null,
 } = {}) {
   let vw = width,
     vh = height,
@@ -244,7 +252,12 @@ function story({
       assert.fail(`scroll never activates ${this.name}`);
     }
   }
-  const window = Object.assign(new Events(), { scrollY: initialScroll });
+  const window = Object.assign(
+    new Events(),
+    { scrollY: initialScroll },
+    tierB ? { location: { search: tierB.search } } : {},
+  );
+  let tierBRequests = 0;
   window.scrollTo = window.scrollBy = () =>
     assert.fail('the orbit never corrects native scroll');
   const document = Object.assign(new Events(), {
@@ -381,6 +394,12 @@ function story({
             };
           },
         };
+      if (path === './atrium-orbit-controller') {
+        // Counted: a failure inside the import would be swallowed.
+        tierBRequests++;
+        if (!tierB?.controller) throw new Error('no Tier B module');
+        return tierB.controller;
+      }
       assert.match(
         path,
         /^\.\/(home-production|home-motion|home-story-frame|atmospheric-bridge-frame|worlds-orbit)$/,
@@ -391,6 +410,7 @@ function story({
     window,
     document,
     navigator: {},
+    URLSearchParams,
     ResizeObserver: class {
       constructor(fn) {
         this.fn = fn;
@@ -491,6 +511,7 @@ function story({
       media['(prefers-reduced-motion: reduce)'].emit('change');
       settle();
     },
+    tierBRequests: () => tierBRequests,
     listenerCount: () =>
       emitters.reduce(
         (n, e) => n + [...e.listeners.values()].reduce((a, s) => a + s.size, 0),
@@ -1248,6 +1269,232 @@ for (const tall of [false, true]) {
   assert.doesNotMatch(orbitCss, /rotate|perspective|skew|matrix3d/);
   assert.doesNotMatch(timelineSource, /rotate\(|perspective\(|skew\(/);
 }
+// ---------------------------------------------------------------------------
+// PASS 6A. The dormant Tier B hook. Production builds keep the gate shut
+// (the module is never requested; every write above is unchanged). With
+// the preview gate open and ?atriumOrbit=1, the one timeline feeds the
+// controller from the same appended span and the portal orbit stands down.
+// ---------------------------------------------------------------------------
+{
+  const microtasks = () => new Promise((resolve) => setImmediate(resolve));
+  const previewSource = timelineSource.replaceAll(
+    'import.meta.env.VITE_ATRIUM_ORBIT_PREVIEW',
+    "'1'",
+  );
+  // The stub answers with the real pure gateway reveal (PASS 6A.75): the
+  // timeline stays the World gateway's only writer.
+  const tierB = loadStoryMath('atrium-orbit-progress');
+  const tierBTimeline = tierB.buildOrbitTimeline(
+    tierB.ATRIUM_ORBIT_TIMING,
+    null,
+  );
+  const tierBFrame = (roomOrbitProgress) => {
+    const sample = tierB.sampleOrbit(roomOrbitProgress, tierBTimeline);
+    const { reveal, interactive } = tierB.atriumGateway(
+      sample,
+      sample.activeState,
+    );
+    return { gateway: reveal, gatewayInteractive: interactive };
+  };
+  const stub = () => {
+    const record = { created: [], updates: [], suspended: 0, destroyed: 0 };
+    record.module = {
+      createAtriumOrbitController(worlds, wake) {
+        record.created.push({ worlds, wake });
+        return {
+          update: (input) => {
+            record.updates.push({ ...input });
+            return tierBFrame(input.roomOrbitProgress);
+          },
+          suspend: () => record.suspended++,
+          debug: () => 'stub',
+          destroy: () => record.destroyed++,
+        };
+      },
+    };
+    return record;
+  };
+  // Production: the gate is shut before the URL is even read.
+  for (const search of ['?atriumOrbit=1', '']) {
+    const h = story({ tierB: { search, controller: stub().module } });
+    await microtasks();
+    h.settle();
+    h.scroll(Math.round(h.span() + 0.5 * h.orbitSpan()));
+    assert.equal(h.tierBRequests(), 0, 'production never requests Tier B');
+    assert.equal(h.worlds.getAttribute('data-room-orbit'), '');
+    h.dispose();
+  }
+  // Preview without the query parameter: the approved Scene 3 only.
+  {
+    const record = stub();
+    const h = story({
+      source: previewSource,
+      tierB: { search: '?storyDebug=1', controller: record.module },
+    });
+    await microtasks();
+    assert.equal(h.tierBRequests(), 0, 'only ?atriumOrbit=1 loads Tier B');
+    h.dispose();
+  }
+  // Preview with ?atriumOrbit=1.
+  {
+    const record = stub();
+    const shut = story();
+    const h = story({
+      source: previewSource,
+      tierB: { search: '?atriumOrbit=1', controller: record.module },
+    });
+    await microtasks();
+    h.settle();
+    shut.settle();
+    assert.equal(h.tierBRequests(), 1);
+    assert.equal(record.created.length, 1, 'one controller');
+    assert.equal(record.created[0].worlds, h.worlds);
+    const span = h.span();
+    const orbitSpan = h.orbitSpan();
+    // The approved journey is untouched up to p = 1, except the World
+    // gateway: orbit mode keeps it hidden through Arrival (PASS 6A.75).
+    const withoutGateway = (trace) =>
+      trace.filter(([name]) => name !== 'gateway');
+    for (const y of steps(0, span, 24).map(Math.round)) {
+      h.scroll(y);
+      shut.scroll(y);
+      same(
+        withoutGateway(h.trace({ base: true })),
+        withoutGateway(shut.trace({ base: true })),
+        `base ${y}`,
+      );
+      assert.equal(h.gateway.style.getPropertyValue('opacity'), '0.00000');
+      assert.ok(h.gateway.inert, 'no ENTER THE WORLD during Arrival');
+      const last = record.updates.at(-1);
+      assert.equal(last.roomOrbitProgress, 0, 'no room progress before p = 1');
+      assert.equal(
+        last.baseStoryProgress.toFixed(5),
+        h.root.dataset.storyProgress,
+      );
+    }
+    // The appended span drives Tier B; the portals stand down.
+    const at = (o) => {
+      h.scroll(Math.round(span + o * orbitSpan));
+      return record.updates.at(-1);
+    };
+    const forward = steps(0, 1, 40).map((o) => at(o).roomOrbitProgress);
+    const reverse = steps(1, 0, 40).map((o) => at(o).roomOrbitProgress);
+    same(forward, [...reverse].reverse(), 'progress is a pure function');
+    // PASS 6A.5: two separate normalised domains. The base story progress
+    // never runs past 1; the room orbit starts only once it has reached 1.
+    for (const update of record.updates) {
+      assert.ok(update.baseStoryProgress >= 0 && update.baseStoryProgress <= 1);
+      assert.ok(update.roomOrbitProgress >= 0 && update.roomOrbitProgress <= 1);
+      if (update.roomOrbitProgress > 0)
+        assert.equal(update.baseStoryProgress, 1, 'orbit only after p = 1');
+    }
+    assert.equal(forward[0], 0);
+    assert.equal(forward.at(-1), 1);
+    assert.ok(forward.every((v, i) => i === 0 || v >= forward[i - 1]));
+    // Portal positions are no longer driven (a value written before the
+    // import resolved is inert: CSS reads it only in [data-room-orbit]).
+    const portals = () =>
+      h.wrappers.map((node) => [
+        node.style.getPropertyValue('--orbit-x'),
+        node.style.getPropertyValue('--orbit-y'),
+        node.style.getPropertyValue('--orbit-scale'),
+      ]);
+    at(0.2);
+    const early = portals();
+    at(0.8);
+    same(portals(), early, 'the portals stand down under Tier B');
+    assert.equal(h.worlds.getAttribute('data-room-orbit'), null);
+    assert.equal(h.worlds.getAttribute('data-orbit-room'), null);
+    same(
+      Object.keys(record.updates.at(-1)).sort(),
+      ['baseStoryProgress', 'height', 'reduced', 'roomOrbitProgress', 'width'],
+      'the controller receives sampled values only',
+    );
+    // PASS 6A.75: ENTER THE WORLD returns only in the later part of the
+    // Kitchen hold, eased by roomOrbitProgress, and is interactive by the
+    // end; reverse scrolling hides it again (pure, no timer).
+    {
+      const kitchen = tierBTimeline.segments.at(-1);
+      const revealFrom =
+        kitchen.start +
+        tierB.ATRIUM_ORBIT_TIMING.gateway.revealFrom *
+          (kitchen.end - kitchen.start);
+      const gatewayAt = (o) => {
+        const update = at(o);
+        const expected = tierBFrame(update.roomOrbitProgress);
+        return {
+          o,
+          opacity: h.gateway.style.getPropertyValue('opacity'),
+          inert: h.gateway.inert,
+          expected,
+          roomOrbitProgress: update.roomOrbitProgress,
+        };
+      };
+      const forward = steps(0, 1, 60).map(gatewayAt);
+      const reverse = steps(1, 0, 60).map(gatewayAt).reverse();
+      same(forward, reverse, 'the gateway reveal is a pure function');
+      for (const g of forward) {
+        assert.equal(g.opacity, g.expected.gateway.toFixed(5));
+        assert.equal(g.inert, !g.expected.gatewayInteractive);
+        if (g.roomOrbitProgress < revealFrom)
+          assert.equal(g.opacity, '0.00000', `hidden at ${g.o}`);
+      }
+      assert.ok(
+        forward.every(
+          (g, i) => !i || Number(g.opacity) >= Number(forward[i - 1].opacity),
+        ),
+        'never pops back while scrolling forward',
+      );
+      const end = forward.at(-1);
+      assert.equal(end.opacity, '1.00000', 'fully visible at the end');
+      assert.equal(end.inert, false, 'interactive at the end');
+      at(1);
+      assert.equal(h.gateway.getAttribute('aria-hidden'), 'false');
+      at(0);
+      assert.equal(h.gateway.getAttribute('aria-hidden'), 'true');
+      assert.ok(revealFrom > kitchen.start, 'Kitchen is readable alone first');
+    }
+    // A decoded plate wakes the one RAF once; the story comes back to rest.
+    const before = h.rafCalls();
+    record.created[0].wake();
+    assert.equal(h.rafCalls(), before + 1);
+    h.settle();
+    h.document.hidden = true;
+    h.document.emit('visibilitychange');
+    assert.equal(record.suspended, 1, 'a hidden tab suspends Tier B');
+    h.document.hidden = false;
+    h.document.emit('visibilitychange');
+    h.settle();
+    h.dispose();
+    shut.dispose();
+    assert.equal(record.destroyed, 1, 'destroyed with the story');
+    assert.equal(h.listenerCount(), 0, 'every listener is removed');
+  }
+  // A late import never resurrects Tier B after Home unmounts.
+  {
+    const record = stub();
+    const h = story({
+      source: previewSource,
+      tierB: { search: '?atriumOrbit=1', controller: record.module },
+    });
+    h.dispose();
+    await microtasks();
+    assert.equal(record.created.length, 0, 'disposed before the import');
+  }
+  // A failed import keeps the approved Scene 3 and its portal orbit.
+  {
+    const h = story({
+      source: previewSource,
+      tierB: { search: '?atriumOrbit=1', controller: null },
+    });
+    await microtasks();
+    h.settle();
+    h.scroll(Math.round(h.span() + 0.5 * h.orbitSpan()));
+    assert.equal(h.tierBRequests(), 1);
+    assert.equal(h.worlds.getAttribute('data-room-orbit'), '');
+    h.dispose();
+  }
+}
 {
   // Everything the PASS must not touch is byte-identical to PASS 15
   // (d1a6a78): Intro, Arrival, Perspective, Breeze, Atmosphere renderer and
@@ -1282,7 +1529,12 @@ for (const tall of [false, true]) {
     'data/home-chapters.ts',
     'data/world-building.ts',
   ]
-    .filter((path) => !PASS.has(path))
+    // PASS 6A's dormant Tier B modules are new files, checked by
+    // check:atrium-orbit-foundation; everything else stays byte-identical.
+    .filter(
+      (path) =>
+        !PASS.has(path) && !path.startsWith(`${EXPERIENCE}atrium-orbit-`),
+    )
     .map((path) => [
       path,
       createHash('sha256')
@@ -1305,5 +1557,6 @@ console.log(
     `${ORBIT.shapes.desktop.scale.join('–')}, breath ≤ ${1 + ORBIT.breath}, ` +
     `ellipse ${Math.round(g.layout.radiusX)}×${Math.round(g.layout.radiusY)}px ` +
     `at 1440×900, portals fitted in bounds on 12 viewports, one owner, ` +
-    `0 RAF at rest, hrefs and gateway unchanged.`,
+    `0 RAF at rest, hrefs and gateway unchanged; the Tier B hook is shut ` +
+    `in production and drives one dormant controller in preview.`,
 );

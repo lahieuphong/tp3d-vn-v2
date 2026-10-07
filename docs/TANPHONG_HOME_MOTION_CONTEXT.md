@@ -782,3 +782,67 @@ or Three.js; rooms come from `data/world-building.ts`. The root layout's
 `EditorialChrome` hides `SiteHeader` and `SiteFooter` on `/world` and
 `/world/*`. `check-world-gateway` and the `/` and `/world` blocks in
 `check-site` lock this.
+
+## 36. TP3D PASS 6A — dormant Tier B room orbit foundation (not deployed)
+
+Full contract: `docs/TANPHONG_ATRIUM_ORBIT_IMPLEMENTATION.md`; render
+contract: `docs/TANPHONG_ATRIUM_ORBIT_ASSET_SPEC.md`.
+
+**Production is unchanged.** The deployed homepage still runs the approved
+Scene 3 with the portal orbit (`aa9ae55`).
+
+**Gate.** The only production source change is a gated hook in
+`home-story-timeline.ts`. The gate is
+`(import.meta.env.DEV || import.meta.env.VITE_ATRIUM_ORBIT_PREVIEW === '1')`
+and `?atriumOrbit=1`; only then does it dynamically import
+`atrium-orbit-controller.ts`. The gate is shut in production builds.
+`check:atrium-orbit` keeps the base-journey digest (`11b1a49bdceb01ae`) and
+the protected-files digest (`d8922fdb98a3c952`). `check:lab` re-pins the
+timeline lock to `0e1c49fea94ce229`.
+
+**Modules.** New, in `components/home/experience/`:
+
+- `atrium-orbit-model` (Arrival → Living → Bedroom → Bathroom → Kitchen);
+- `-cameras` (the camera JSON contract and validation);
+- `-progress` (holds weighted apart from moves, signed-angle weights, a stateless sampler, preload plan);
+- `-manifest` (the only plate naming; every plate `missing`);
+- `-transition` (extension point and a provisional cut);
+- `-controller` and `-preview.css` (dev / preview shell).
+
+**Behaviour in preview.**
+
+- **One scroll source.** Tier B samples the same appended 160svh span after `p = 1`, and the portal orbit stands down.
+- **Nothing new running.** No new listener, observer, timer or RAF.
+- **No stand-in imagery.** No plate is requested or substituted; a development diagnostic names the missing plates.
+
+**Not validated.** The orbit's look, the transitions and the timing cannot be
+judged until the approved plates exist.
+
+## 37. TP3D PASS 6A.5 — Tier B decisions locked (not deployed)
+
+Recorded in `docs/TANPHONG_ATRIUM_ORBIT_IMPLEMENTATION.md` §0. All apply only
+in orbit mode, i.e. while the gated Tier B controller is loaded; production
+Scene 3 is unchanged.
+
+- **Arrival** is a visual transition with no editorial UI: no copy, counter, CTA or indicator, and no "ARRIVAL" / "00 / 05".
+- **Living** is the first editorial hold; Bedroom, Bathroom and Kitchen use the same model (`0n / 04`).
+- **ENTER THE WORLD** is hidden throughout orbit mode, so it never competes with the room indicator in the bottom-right zone. The only exploration CTA is EXPLORE THIS ROOM →.
+- **Plates** are WebP only at runtime (AVIF is not advertised); the PNG / TIFF masters are never served.
+- **Progress.** `baseStoryProgress` and `roomOrbitProgress` are separate 0 → 1 domains. The 160svh orbit span and every hold and move weight remain provisional.
+
+## 38. TP3D PASS 6A.75 — Tier B interaction harness (not deployed)
+
+Owner decisions are recorded in `docs/TANPHONG_ATRIUM_ORBIT_IMPLEMENTATION.md` §0 and §15. In orbit mode only:
+
+- Arrival also hides the four room labels.
+- The existing `WorldGatewayLink` (one link, `/world`) returns in the later part of the Kitchen hold, eased by `roomOrbitProgress` and written only by the story timeline. This replaces the 6A.5 rule that kept it hidden throughout orbit mode.
+
+The asset spec now states WebP only for the runtime. The Atrium photograph stays a static backdrop, and the final visual orbit waits for the approved plates and `world-atrium-cameras.json`.
+
+## 39. TP3D PASS 6A.9 — studio handoff and delivery intake (not deployed)
+
+Documentation and tooling only; no runtime code in the production bundle changed.
+
+- `docs/TANPHONG_ATRIUM_STUDIO_HANDOFF.md` is the brief for the external studio; `docs/TANPHONG_ATRIUM_DELIVERY_CHECKLIST.md` is our review checklist.
+- Deliveries land in `work/atrium-orbit/studio/{phase-1,phase-2,final}/` (git-ignored). `yarn check:atrium-orbit-assets` validates them manually and reports NOT READY while none exists.
+- PASS 6B.1 (real camera calibration) may begin once the Phase 1 package is complete and validates with no blocking errors (`docs/TANPHONG_ATRIUM_ORBIT_IMPLEMENTATION.md` §17).

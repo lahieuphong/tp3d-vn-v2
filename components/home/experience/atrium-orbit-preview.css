@@ -1,0 +1,159 @@
+/* TP3D PASS 6A — Tier B room orbit preview. Loaded only with
+   atrium-orbit-controller.ts (development / preview builds, ?atriumOrbit=1);
+   production never requests it. Layout reuses the approved Scene 3 classes
+   until the plates arrive; nothing here is a final transition. */
+
+/* OrbitPlateStage: a child of the approved backdrop, so the bridge's
+   exposure shade (the backdrop's ::after) and camera apply to every plate.
+   Plates use the backdrop's own cover crop until 6B sets per-view anchors. */
+.hc-room-orbit-stage {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  pointer-events: none;
+}
+.hc-room-orbit-plate,
+.hc-room-orbit-plate img {
+  position: absolute;
+  inset: 0;
+}
+.hc-room-orbit-plate[data-plate-role='incoming'] {
+  z-index: 1;
+}
+
+/* Orbit-mode UI model (PASS 6A.5, owner decisions of PASS 6A.75). Scoped
+   to the preview attribute, so the production fallback is untouched.
+   - The approved "Enter the worlds." copy never shows in orbit mode.
+   - Arrival is architecture only: the four room labels are hidden (and out
+     of the tab order) until the first public room, Living, begins.
+   - ENTER THE WORLD is not styled here: the story timeline keeps writing
+     its opacity and inert state, now from the late-Kitchen reveal. */
+.home-story-stage
+  .hc-worlds[data-atrium-orbit-preview]
+  > .hc-atrium-copy:not(.hc-room-orbit-copy) {
+  display: none;
+}
+.home-story-stage
+  .hc-worlds[data-atrium-orbit-preview]:not([data-atrium-room])
+  > .hc-atrium-rooms {
+  visibility: hidden;
+}
+.hc-room-orbit-copy[hidden],
+.hc-room-orbit-indicator[hidden],
+.hc-room-orbit-cta[hidden] {
+  display: none;
+}
+.hc-room-orbit-title em {
+  white-space: nowrap;
+}
+.hc-worlds .hc-room-orbit-cta {
+  gap: 14px;
+  margin-top: 14px;
+  font-size: clamp(8px, 0.52vw, 11px);
+}
+.hc-room-orbit-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* RoomIndicator: spec §8 zone I, today's gateway position. As the World
+   gateway returns in late Kitchen it takes this zone back: the indicator
+   leaves first, then the gateway enters (--atrium-indicator, set per frame
+   from the same reveal). */
+.hc-room-orbit-indicator {
+  opacity: var(--atrium-indicator, 1);
+  position: absolute;
+  z-index: 10;
+  right: 4.5%;
+  bottom: 11%;
+  display: flex;
+  align-items: center;
+  gap: 17px;
+  min-height: 48px;
+  font: 500 clamp(8px, 0.52vw, 11px)/1.5 var(--hc-sans);
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 8px #24190d55;
+}
+.hc-room-orbit-thumb img {
+  position: absolute;
+  inset: 0;
+}
+
+/* Room-label emphasis follows the same state as the title. */
+.hc-worlds[data-atrium-room] .hc-atrium-room-link {
+  --room-label-opacity: 0.55;
+}
+.hc-worlds[data-atrium-room] .hc-atrium-room-link[data-atrium-current] {
+  --room-label-opacity: 1;
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  .hc-room-orbit-indicator {
+    right: 6%;
+    bottom: 15%;
+    gap: 12px;
+  }
+}
+@media (max-width: 767px) {
+  .hc-room-orbit-indicator {
+    position: relative;
+    inset: auto;
+    opacity: 1;
+    gap: 15px;
+    font-size: 8px;
+  }
+  .hc-room-orbit-indicator .hc-room-orbit-thumb {
+    width: 48px;
+  }
+}
+@media (max-width: 1199px) and (max-height: 540px) and (orientation: landscape) {
+  .home-story-stage .hc-chapter.hc-worlds .hc-room-orbit-indicator {
+    position: absolute;
+    inset: auto 6% max(24px, 8svh) auto;
+    gap: 12px;
+    opacity: var(--atrium-indicator, 1);
+  }
+  .home-story-stage .hc-chapter.hc-worlds .hc-room-orbit-thumb {
+    width: 46px;
+  }
+}
+
+/* Reduced-motion foundation: the preview keeps a span for readable holds
+   and plain plate changes (no camera move). Provisional, like the timing. */
+@media (prefers-reduced-motion: reduce) {
+  .home-story:has(.hc-worlds[data-atrium-orbit-preview]) {
+    --story-orbit-height: 160svh;
+  }
+}
+
+/* Development diagnostic: plainly not architecture and never production. */
+/* Scoped under .hc-worlds to outrank `.hc-worlds p { max-width: none }`. */
+.hc-worlds .hc-room-orbit-diagnostic {
+  position: absolute;
+  z-index: 40;
+  top: 14%;
+  left: 50%;
+  width: max-content;
+  max-width: min(92vw, 560px);
+  margin: 0;
+  padding: 10px 14px;
+  transform: translateX(-50%);
+  border: 1px dashed #e7b75a;
+  background: #121212d9;
+  color: #f3c86b;
+  font:
+    500 11px/1.55 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+  letter-spacing: 0;
+  text-shadow: none;
+  white-space: pre-line;
+  pointer-events: none;
+}

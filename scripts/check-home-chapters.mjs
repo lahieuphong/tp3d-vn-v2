@@ -12,7 +12,10 @@ const source = readFileSync(
   'utf8',
 );
 const { outputText } = ts.transpileModule(
-  source.replaceAll('import.meta.env.DEV', 'false'),
+  source
+    .replaceAll('import.meta.env.DEV', 'false')
+    // PASS 6A: production builds keep the Tier B gate shut.
+    .replaceAll('import.meta.env.VITE_ATRIUM_ORBIT_PREVIEW', 'undefined'),
   {
     compilerOptions: {
       target: ts.ScriptTarget.ES2022,

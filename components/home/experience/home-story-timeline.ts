@@ -215,6 +215,11 @@ export function createHomeStoryTimeline(
     (navigator as Navigator & { connection?: { saveData?: boolean } })
       .connection?.saveData === true;
   const discoveryInteraction = createRoomDiscovery(worlds);
+  // TP3D PASS 6A — the dormant Tier B room orbit (development / preview
+  // only, see the gate below). Null on the production homepage.
+  let roomOrbit: ReturnType<
+    typeof import('./atrium-orbit-controller').createAtriumOrbitController
+  > | null = null;
   const request = () => {
     if (!disposed && !document.hidden && !frame)
       frame = requestAnimationFrame(step);
@@ -387,6 +392,8 @@ export function createHomeStoryTimeline(
     const scroll = document.documentElement.hasAttribute('data-home-intro')
       ? 0
       : window.scrollY;
+    // baseStoryProgress: 0 → 1 over the approved journey's own span, clamped
+    // (it stays 1 through the appended orbit span; it never runs past 1).
     const p = clamp((scroll - geometry.top) / geometry.span);
     if (p >= HOME_PRODUCTION.scenePreload) preparedImage?.start();
     const state = homeStoryFrame(p);
@@ -401,7 +408,7 @@ export function createHomeStoryTimeline(
     // The room orbit samples its own appended span, only after the approved
     // journey has ended (p = 1). Reduced motion has no orbit span.
     const tier = orbitTier(geometry.width, geometry.height, still);
-    const orbitEnabled = tier !== 'reduced' && geometry.orbit > 0;
+    const orbitEnabled = tier !== 'reduced' && geometry.orbit > 0 && !roomOrbit;
     const orbitProgress =
       orbitEnabled && sceneImage === 'ready'
         ? clamp((scroll - geometry.top - geometry.span) / geometry.orbit)
@@ -468,6 +475,22 @@ export function createHomeStoryTimeline(
       // the World: room previews never swap into it.
       orbit: orbit.orbit,
     });
+    // Tier B (dormant: null): roomOrbitProgress is a separate 0 → 1 domain
+    // over the appended span (geometry.orbit), 0 until p = 1.
+    const roomOrbitProgress =
+      roomOrbit && geometry.orbit > 0 && sceneImage === 'ready'
+        ? clamp((scroll - geometry.top - geometry.span) / geometry.orbit)
+        : 0;
+    // Tier B returns the World gateway's late-Kitchen reveal; this timeline
+    // stays the gateway's only writer.
+    const tierB =
+      roomOrbit?.update({
+        baseStoryProgress: p,
+        roomOrbitProgress,
+        width: geometry.width,
+        height: geometry.height,
+        reduced: still,
+      }) ?? null;
     const ivory = past ? 0 : bridge.headerIvory;
     const theme = ivory === 1 ? 'dark' : ivory > 0 ? 'bridge' : 'light';
     if (initialPaints > 0) {
@@ -524,7 +547,7 @@ export function createHomeStoryTimeline(
         : p <= bridgeTiming.exitStart
           ? tpTiming.settle
           : Math.min(p, bridgeTiming.settled);
-    const signature = `${visualProgress}/${orbitProgress}/${state.chapter}/${still}/${ready}/${sceneImage}/${theme}/${geometry.width}/${geometry.height}`;
+    const signature = `${visualProgress}/${orbitProgress}/${state.chapter}/${still}/${ready}/${sceneImage}/${theme}/${geometry.width}/${geometry.height}${tierB ? `/${tierB.gateway}/${tierB.gatewayInteractive}` : ''}`;
     if (camera) {
       property(
         camera,
@@ -665,6 +688,7 @@ export function createHomeStoryTimeline(
       if (architecture)
         property(architecture, 'opacity', bridge.scene2Opacity.toFixed(5));
       for (const node of worldReveals) {
+        const gateway = node.tagName === 'A' && !node.dataset.room;
         const reveal = worldReveal(
           bridgeProgress,
           Number(node.dataset.chapterReveal),
@@ -675,10 +699,9 @@ export function createHomeStoryTimeline(
           'opacity',
           (
             reveal.opacity *
-            // The World gateway quietens while the rooms are explored.
-            (node.tagName === 'A' && !node.dataset.room
-              ? orbit.gatewayOpacity
-              : 1)
+            // The World gateway quietens while the rooms are explored; under
+            // Tier B (dormant) it returns only in late Kitchen.
+            (gateway ? (tierB ? tierB.gateway : orbit.gatewayOpacity) : 1)
           ).toFixed(5),
         );
         property(
@@ -689,7 +712,12 @@ export function createHomeStoryTimeline(
             : `translate3d(0, ${reveal.y.toFixed(3)}px, 0)`,
         );
         property(node, '--room-reveal', reveal.opacity.toFixed(5));
-        if (node.tagName === 'A') expose(node, reveal.interactive);
+        if (node.tagName === 'A')
+          expose(
+            node,
+            reveal.interactive &&
+              (!gateway || !tierB || tierB.gatewayInteractive),
+          );
       }
       expose(story!, bridge.scene2Visible);
       expose(discovery, state.chapter === 'arrival');
@@ -781,7 +809,7 @@ export function createHomeStoryTimeline(
       }
     }
     if (debug) {
-      debugNarrative = `bridge ${bridgeProgress.toFixed(4)} (native ${progress}) · ${bridge.phase} · ${motion.phase} · TP ${pose.phase} · Breeze ${motion.approach.toFixed(3)}/${motion.through.toFixed(3)} · Scene3 ${worldPose.scale.toFixed(4)} · camera ${cameraMass.scale.toFixed(4)} · mass ${cameraResponse.active || architectureResponse.active ? 'settling' : 'rest'}`;
+      debugNarrative = `bridge ${bridgeProgress.toFixed(4)} (native ${progress}) · ${bridge.phase} · ${motion.phase} · TP ${pose.phase} · Breeze ${motion.approach.toFixed(3)}/${motion.through.toFixed(3)} · Scene3 ${worldPose.scale.toFixed(4)} · camera ${cameraMass.scale.toFixed(4)} · mass ${cameraResponse.active || architectureResponse.active ? 'settling' : 'rest'}${roomOrbit ? ` · ${roomOrbit.debug()}` : ''}`;
       debug.textContent = debugLine();
     }
     // Reveal the sampled restored frame, never the default scene first.
@@ -807,6 +835,7 @@ export function createHomeStoryTimeline(
       cancelAnimationFrame(frame);
       frame = 0;
       discoveryInteraction.suspend();
+      roomOrbit?.suspend();
       skyBridge?.suspend();
       heroDepth.suspend();
       for (const node of [camera, architecture, sharedTP])
@@ -842,12 +871,31 @@ export function createHomeStoryTimeline(
         },
       })
     : null;
+  // TP3D PASS 6A — Tier B gate. Compiled in only for development or a
+  // preview build (VITE_ATRIUM_ORBIT_PREVIEW=1) and loaded only with
+  // ?atriumOrbit=1, so the production homepage never requests it. Any
+  // failure keeps the approved Scene 3. docs/TANPHONG_ATRIUM_ORBIT_IMPLEMENTATION.md
+  if (
+    (import.meta.env.DEV ||
+      import.meta.env.VITE_ATRIUM_ORBIT_PREVIEW === '1') &&
+    new URLSearchParams(window.location.search).get('atriumOrbit') === '1'
+  )
+    void import('./atrium-orbit-controller').then(
+      ({ createAtriumOrbitController }) => {
+        if (disposed) return;
+        roomOrbit = createAtriumOrbitController(worlds, schedule);
+        resize();
+      },
+      () => {},
+    );
   render();
   return () => {
     if (disposed) return;
     disposed = true;
     preparedImage?.destroy();
     discoveryInteraction.destroy();
+    roomOrbit?.destroy();
+    roomOrbit = null;
     skyBridge?.destroy();
     heroDepth.destroy();
     cancelAnimationFrame(frame);
