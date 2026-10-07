@@ -116,7 +116,7 @@ export function WorldsChapter() {
         data-chapter-reveal="9"
       >
         <span>SCROLL TO DISCOVER</span>
-        <span>SPACES SHAPED BY A NEW BREEZE</span>
+        <span>REAL SPACES, REAL PERSPECTIVE.</span>
       </div>
     </section>
   );

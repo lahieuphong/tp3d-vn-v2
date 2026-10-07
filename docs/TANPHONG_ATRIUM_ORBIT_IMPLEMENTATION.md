@@ -7,7 +7,9 @@ IMPLEMENTED: it waits for the real camera plates. PASS 6A.9 adds the studio
 handoff, the delivery intake contract (§16) and the PASS 6B.1 entry criteria
 (§17); PASS 6A.95 locks the master storage policy (§16); PASS 6A.96 fixes
 three live QA issues of the deployed harness (§15.1): the Arrival backdrop,
-the release to the Footer and the readout.** None of the approved render plates and no
+the release to the Footer and the readout. PASS 6B.0 draws a first orbit on
+comp plates cut from the room design comps (§15.2): provisional, preview
+only, and replaced view by view when studio plates are accepted.** None of the approved render plates and no
 camera data exist yet. The production homepage runs the approved
 Scene 3 with the portal orbit (`aa9ae55`). Tier B code loads only in
 development or a preview build, and only with `?atriumOrbit=1`. Nothing here
@@ -83,7 +85,7 @@ frame:
 
 | Part | Placement | Content |
 | --- | --- | --- |
-| `OrbitPlateStage` | child of `.hc-atrium-backdrop`, inside `[data-scene3-camera]` | at most the current and incoming `<picture>`; others `hidden` (no layer) |
+| `OrbitPlateStage` | child of `.hc-atrium-backdrop`, inside `[data-scene3-camera]` | at most the two `<picture>` plates of a move; others `hidden` (no layer). Since PASS 6B.0 these are comp plates (§15.2) |
 | `RoomEditorial` | after the approved `.hc-atrium-copy`, reusing its classes | eyebrow, `<h2>` "Enter" + `<em>` phrase, body copy once, "EXPLORE THIS ROOM ⟶" |
 | `RoomIndicator` | after the World gateway (spec §8 zone I) | round 192 px thumbnail (`.hc-atrium-preview` frame), `01 / 04`, room name |
 | Diagnostic | inside `.hc-worlds`; created only on explicit request (`diagnostics`, from `?atriumOrbitDebug=1`) | e.g. "Bedroom production plate missing" |
@@ -204,16 +206,22 @@ release. `ATRIUM_ORBIT_TIMING` uses relative weights, all PROVISIONAL:
 
 | Segment | Weight | Share of the orbit span (provisional) |
 | --- | --- | --- |
-| Arrival hold | 0.35 (transitional) | ≈ 4% |
-| Living, Bedroom, Bathroom holds | 1 each | ≈ 10% each |
-| Kitchen final hold | 1.5 (the longest hold; the number is provisional) | ≈ 15% |
-| Four moves | 4 in total, split by angle | ≈ 10% each while equal |
-| Release (PASS 6A.96) | 1 (`release.weight`; 0 = no release) | ≈ 10% |
+| Arrival hold | 0.35 (transitional) | ≈ 3% |
+| Living, Bedroom, Bathroom holds | 1 each | ≈ 9% each |
+| Kitchen final hold | 1.5 (the longest hold; the number is provisional) | ≈ 13% |
+| Four moves | 6 in total since PASS 6B.0 (4 before), split by angle | ≈ 13% each while equal |
+| Release (PASS 6A.96) | 0.8 (`release.weight`; 0 = no release) | ≈ 7% |
 
 The release is not a state: Kitchen stays the active room. It takes its
-share from the whole span, so every hold and move keeps its proportion and
-is about a tenth shorter than before PASS 6A.96 (Kitchen ≈ 219 px of scroll
-at 1440×900, from ≈ 244 px).
+share from the whole span, so every hold and move keeps its proportion.
+
+Since PASS 6B.0 a move is real camera travel, so each one outlasts a room
+hold, and with plates the preview plays the orbit over a longer span
+(380svh, set in `atrium-orbit-preview.css` for
+`[data-atrium-orbit-preview='plates']` with motion allowed; production's
+`--story-orbit-height` stays 160svh, and so does reduced motion). At
+1440×900 that is ≈ 440 px of scroll per move, ≈ 294 px per room hold,
+≈ 440 px for Kitchen and ≈ 235 px for the release.
 
 These are placeholders for PASS 6B, not a design. The Arrival hold is a
 short visual settle, not a room; no final move weight is assigned until the
@@ -453,6 +461,77 @@ the old shaded field.
 compositor frames): 1440×900, 768×1024 and 390×844, forward and reverse,
 normal and reduced motion, plus 844×390. With the flag off, frames of the
 deployed build and of this one are identical.
+
+### 15.2 PASS 6B.0 — the orbit on comp plates
+
+The owner supplied four design comps, one per room (1672 × 941, the approved
+Atrium plate's own size), and asked for the orbit: from the wide Atrium,
+scrolling focuses each doorway in turn, and the views feel as if the camera
+travels around the Atrium. This is a first, provisional orbit. The studio
+contract (§16, §17) is unchanged: no studio plate is claimed, camera data
+stays `null`, and the comps are replaced view by view once studio plates
+are accepted (the handoff's rule against AI plates is about those).
+
+**Comp plates.** A comp carries the whole screen UI. The site draws that UI
+in HTML, so it is cut out of the picture: wordmark, navigation, title block,
+CTA, indicator and baselines. What belongs to the scene stays: the fascia
+labels over the doorways and the breeze line.
+
+| | |
+| --- | --- |
+| Status | `ATRIUM_ORBIT_PLATES[view].desktop = 'comp'` (not `'available'`); no portrait view |
+| Files | `public/images/home-chapters/world-atrium-<room>[-1280\|-720].webp` (1672 wide without a suffix), as the approved Atrium plate; `world-atrium-<room>-preview.webp` (192 px, the room's doorway) for the indicator |
+| Arrival | the approved Atrium's own files (`worlds-atrium*.webp`), drawn as a plate only while the camera leaves it |
+| Sources | outside Git: `work/atrium-orbit/comp-plates/` (`source/` the comps, `clean/` the cut-out PNGs, `clean.py` the OpenCV script that makes them) |
+| Readout | still reports "production plate missing (comp plate shown)" for every view |
+
+**A plate is a box.** Every plate is a box of the plate's ratio that covers
+the stage (the stage's height, at least its width), like the approved
+Atrium's cover crop. The controller poses it in shares of that box, so a
+move is the same share of the picture on every screen. A stage narrower
+than the plate is a window onto it (`plateWindow`): rooms centre their
+doorway (`ATRIUM_ORBIT_FOCUS`), Arrival repeats the approved crop.
+
+**Shots** (`ATRIUM_ORBIT_SHOTS`, one per transition, measured on the comps
+and PROVISIONAL like them):
+
+| Move | Shot | How it is drawn |
+| --- | --- | --- |
+| Arrival → Living | `push` | The wide plate grows at a steady rate about the Living doorway (to 3.75×, the size that doorway has in the Living view) while the doorway travels to where the Living view holds it. The Living plate lies whole beneath and takes over as the wide plate dissolves (0.66 → 0.98 of the move). |
+| Living → Bedroom, Bedroom → Bathroom, Bathroom → Kitchen | `pan` | Both plates travel left as one strip, `shift` apart (0.461, 0.415, 0.39 of a plate), which is how far the scene moves between the two views. The incoming plate lies on top and begins at a soft edge that rests on the stone pier between the two doorways: the one surface both views show alike, so the join is not seen. |
+
+The join (`ATRIUM_ORBIT_SEAM`) comes in from the stage's leading edge, rests
+on the pier for the middle of the move and leaves by the other edge. It is
+soft (±0.045 of a plate) only where both plates exist and a line again at
+either end, so the stage is covered by the two plates alone at every
+position. While it crosses a doorway on its way to or from the pier, that
+doorway's fascia label can show twice for a moment (two views of it): the
+comps are separate pictures, not one scene. Studio plates from one camera
+rig remove that.
+
+`orbitTransition` is pure: the same position draws the same frame in either
+direction (`over` and `lead` come from the frame, never from the travel
+direction). Reduced motion keeps `plainChange`: one plate, then the next,
+each at rest. The approved Atrium, its camera and its backdrop are never
+written; a resting Arrival is that photograph itself.
+
+**UI.** As in the comps: the CTA leads with a short rule; the indicator
+sets the counter over the room name beside a thumbnail of the room's own
+doorway. On the desktop layout the HTML room labels are dropped while
+plates are drawn (they are placed for the wide Atrium; each plate carries
+its own fascia labels in perspective); the grouped lists of the tablet and
+phone layouts stay. The right baseline reads REAL SPACES, REAL PERSPECTIVE.
+as in the comps (owner decision; it replaced SPACES SHAPED BY A NEW BREEZE).
+That element is shared markup (`worlds-chapter.tsx`), so the production
+Scene 3 reads the same, next to the copy block's own signoff REAL SPACES.
+REAL PERSPECTIVE.
+
+**Known limits.** Comps are 1672 px wide: soft on large or dense screens,
+and softer still in the push (the wide plate is enlarged up to 3.75×). The
+cut-outs are OpenCV inpainting, good under the HTML that covers them and
+visible on close inspection where a letter crossed a hard edge (the ceiling
+beam under the wordmark). On phones the copy shade covers most of the
+doorway, as it covers the wide Atrium today.
 
 ## 16. Studio handoff and delivery intake (PASS 6A.9)
 

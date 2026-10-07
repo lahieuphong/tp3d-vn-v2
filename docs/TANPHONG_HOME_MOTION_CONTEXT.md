@@ -206,7 +206,7 @@ Phase labels written to `main[data-bridge-phase]`: `SCENE2_HOLD` <0.48,
 - **One flat photographic plate**: `worlds-atrium.webp` **1672×941**, opaque. Sky, oculus, tree, planter, pool, floor and the four room openings are all in this single image. **There are no separated depth layers, no alpha cut-outs and no depth map.** No larger master exists (`assets/home-chapters/worlds-atrium.png` is also 1672×941).
 - Camera = CSS transform on `.hc-atrium-camera` (`translate3d + scale`) about the oculus sky centre (source px 836,110). `measureAtrium()` derives the sky-crop scale from a 160/168/176 source-px crop height (desktop/tablet/portrait): **5.88× at 1440×900, 5.35× at 820×1180 and 390×844**.
 - Desktop (≥1200): room labels are positioned in plate-cover coordinates and receive the same pose transform. <1200: labels become a grouped 2×2 overlay grid (no transform).
-- Copy: eyebrow "3D WORLDS", h2 "Enter / *the worlds.*", body, "REAL SPACES. REAL PERSPECTIVE.", CTA "EXPLORE 3D WORLDS ⟶" with circular preview, baseline "SCROLL TO DISCOVER · SPACES SHAPED BY A NEW BREEZE".
+- Copy: eyebrow "3D WORLDS", h2 "Enter / *the worlds.*", body, "REAL SPACES. REAL PERSPECTIVE.", CTA "EXPLORE 3D WORLDS ⟶" with circular preview, baseline "SCROLL TO DISCOVER · REAL SPACES, REAL PERSPECTIVE.".
 - Room discovery (`room-discovery.ts`): hover/focus sets `data-active-room`; 192 px previews decoded on intent (≥768). No pointer parallax on the photograph.
 - Final state verified: no cloud, no cloth, no TP, no portal object in Scene 3 (`breezeActive=false`, sky canvas hidden from p ≥ 0.723).
 

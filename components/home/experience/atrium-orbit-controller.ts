@@ -14,6 +14,7 @@ import {
   atriumOrbitRecord,
   plateOrientation,
   plateSources,
+  plateWindow,
   type AtriumOrbitRecord,
 } from './atrium-orbit-manifest';
 import {
@@ -29,7 +30,7 @@ import {
   type AtriumOrbitSample,
 } from './atrium-orbit-progress';
 import {
-  PLATE_REST,
+  plateRest,
   plateTransitionInput,
   selectPlateTransition,
   type PlateLayer,
@@ -75,12 +76,17 @@ import './atrium-orbit-preview.css';
  * (opacity and inert); this controller only supplies their values. Without
  * the controller, Scene 3 is the production fallback.
  *
- * PASS 6A.75 is an interaction harness, not the visual orbit: the approved
- * Atrium photograph stays a static backdrop (never panned, zoomed or
- * rotated), and no room imagery moves through space. PASS 6A.96 keeps that
- * photograph in view for the whole harness: the exposure shade that backs
- * the copy follows the editorial UI (`--atrium-editorial`), so Arrival and
- * the release show the architecture, never an empty shaded field. */
+ * PASS 6A.96 keeps the Atrium in view for the whole harness: the exposure
+ * shade that backs the copy follows the editorial UI (`--atrium-editorial`),
+ * so Arrival and the release show the architecture, never an empty shaded
+ * field.
+ *
+ * PASS 6B.0 draws the orbit on comp plates (atrium-orbit-manifest.ts). Each
+ * room is its own view of the Atrium, and the camera travels between them
+ * (atrium-orbit-transition.ts): this controller only poses the two plates a
+ * frame asks for. The approved Atrium itself is never moved: Arrival at
+ * rest IS that photograph, and the plate that pushes in from it is a second
+ * drawing of the same file, shown only while it travels. */
 
 export type AtriumOrbitInput = {
   /** 0 → 1 over the approved journey's own span (the timeline's p). */
@@ -239,8 +245,8 @@ export function createAtriumOrbitController(
     add(worlds, diagnostic);
   }
 
-  const mode =
-    readiness.desktopComplete && stepAngles ? 'plates' : 'diagnostic';
+  // Camera data only weights the moves: the plates alone decide the mode.
+  const mode = readiness.desktopComplete ? 'plates' : 'diagnostic';
   attr(worlds, 'data-atrium-orbit-preview', mode);
 
   const plates = new Map<AtriumOrbitStateId, Plate>();
@@ -318,11 +324,12 @@ export function createAtriumOrbitController(
   };
   const ready = (id: AtriumOrbitStateId) => plates.get(id)?.state === 'ready';
   type Layer = [AtriumOrbitStateId, PlateLayer];
-  const strongest = (layers: Layer[]) =>
-    layers.reduce<Layer | null>(
-      (a, b) => (!a || b[1].opacity > a[1].opacity ? b : a),
-      null,
-    )?.[0] ?? null;
+  const percent = (value: number) => `${(value * 100).toFixed(3)}%`;
+  /** A plate's soft edge as a mask across its own width. */
+  const maskOf = (edge: PlateLayer['edge']) =>
+    edge
+      ? `linear-gradient(90deg, transparent ${percent(edge[0])}, #000 ${percent(edge[1])})`
+      : 'none';
 
   const thumb = (room: AtriumRoomId) => {
     const existing = thumbs.get(room);
@@ -367,14 +374,20 @@ export function createAtriumOrbitController(
   };
 
   /** Decode before display. Every plate the transition wants must be
-   * decoded, or the last fully drawn plate holds at rest; a missing
-   * Arrival is the approved Atrium already under the stage. */
+   * decoded, or the last fully drawn plate holds at rest. Arrival at rest
+   * is the approved Atrium already under the stage, so it is not drawn a
+   * second time: its plate shows only while the camera leaves it. */
   const paintPlates = () => {
+    const window = plateWindow(viewport.width, viewport.height);
+    const layout = atriumOrbitLayout(viewport.width);
+    const rest = (id: AtriumOrbitStateId) => plateRest(id, window, layout);
     const input = plateTransitionInput(
       sample,
       direction,
       stepAngles,
       plateOrientation(viewport.width, viewport.height),
+      window,
+      layout,
     );
     const pose = input ? transition(input) : null;
     const wanted: Layer[] =
@@ -383,15 +396,26 @@ export function createAtriumOrbitController(
             [input.from, pose.from],
             [input.to, pose.to],
           ]
-        : [[sample.activeState, PLATE_REST]];
+        : [[sample.activeState, rest(sample.activeState)]];
     const visible = wanted.filter(([, layer]) => layer.opacity > 0);
-    const lead = strongest(visible);
+    // The view the frame shows, which the UI follows.
+    const lead =
+      input && pose && visible.length > 1
+        ? pose.lead === 'from'
+          ? input.from
+          : input.to
+        : (visible[0]?.[0] ?? null);
     let layers = visible;
+    let drawn: AtriumOrbitStateId | null = lead;
     if (!lead) layers = [];
     else if (visible.every(([id]) => ready(id))) held = lead;
-    else
-      layers =
-        held && ready(held) && lead !== 'arrival' ? [[held, PLATE_REST]] : [];
+    else {
+      drawn = held && ready(held) && lead !== 'arrival' ? held : null;
+      layers = drawn ? [[drawn, rest(drawn)]] : [];
+    }
+    if (layers.length === 1 && layers[0][0] === 'arrival' && !input)
+      layers = [];
+    const over = input && pose ? input[pose.over] : null;
     moving = layers.length > 1;
     for (const [id, entry] of plates) {
       const layer = layers.find(([state]) => state === id)?.[1] ?? null;
@@ -403,7 +427,7 @@ export function createAtriumOrbitController(
       attr(
         entry.picture,
         'data-plate-role',
-        input && id === input.incoming ? 'incoming' : 'current',
+        moving && id === over ? 'over' : 'under',
       );
       property(entry.picture, 'opacity', layer.opacity.toFixed(4));
       property(
@@ -411,9 +435,12 @@ export function createAtriumOrbitController(
         'transform',
         layer.x === 0 && layer.y === 0 && layer.scale === 1
           ? 'none'
-          : `translate3d(${(layer.x * 100).toFixed(3)}%, ${(layer.y * 100).toFixed(3)}%, 0) scale(${layer.scale.toFixed(5)})`,
+          : `translate(${percent(layer.x)}, ${percent(layer.y)}) scale(${layer.scale.toFixed(5)})`,
       );
-      // Only a blend promotes layers; a resting plate is never a layer.
+      const mask = maskOf(layer.edge);
+      property(entry.picture, '-webkit-mask-image', mask);
+      property(entry.picture, 'mask-image', mask);
+      // Only a move promotes layers; a resting plate is never a layer.
       property(
         entry.picture,
         'will-change',
@@ -423,8 +450,7 @@ export function createAtriumOrbitController(
     // The UI follows the drawn plate. Without a complete delivery the UI
     // follows the scroll sample (preview of the sync, with the diagnostic).
     return (
-      strongest(layers) ??
-      (readiness.desktopComplete ? 'arrival' : sample.activeState)
+      drawn ?? (readiness.desktopComplete ? 'arrival' : sample.activeState)
     );
   };
 
@@ -491,13 +517,15 @@ export function createAtriumOrbitController(
         ? [sample.transitionFrom!, sample.transitionTo!]
         : [sample.activeState],
     );
-    for (const id of wantedIds)
-      if (ATRIUM_ORBIT_PLATES[id].desktop !== 'available')
+    for (const id of wantedIds) {
+      const status = ATRIUM_ORBIT_PLATES[id].desktop;
+      if (status !== 'available')
         lines.push(
-          `${id === 'arrival' ? 'Arrival' : records[id].editorial!.label} production plate missing${id === 'arrival' ? ' (approved Atrium shown)' : ''}`,
+          `${id === 'arrival' ? 'Arrival' : records[id].editorial!.label} production plate missing${id === 'arrival' ? ' (approved Atrium shown)' : status === 'comp' ? ' (comp plate shown)' : ''}`,
         );
-      else if (plates.get(id)?.state === 'failed')
+      if (plates.get(id)?.state === 'failed')
         lines.push(`${id} plate failed to load (holding)`);
+    }
     if (cameras.status !== 'valid')
       lines.push(
         `Camera data ${cameras.status}: ${timeline.weighting} weighting`,
@@ -580,7 +608,7 @@ export function createAtriumOrbitController(
             : `hold ${s.holdProgress.toFixed(3)}`;
       const assets = ATRIUM_ORBIT_STATES.map(
         (id) =>
-          `${id.slice(0, 3)}:${ATRIUM_ORBIT_PLATES[id].desktop === 'available' ? (plates.get(id)?.state ?? 'idle') : 'missing'}`,
+          `${id.slice(0, 3)}:${ATRIUM_ORBIT_PLATES[id].desktop === 'missing' ? 'missing' : (plates.get(id)?.state ?? 'idle')}`,
       ).join(' ');
       return `Tier B ${mode} · roomOrbit ${s.roomOrbitProgress.toFixed(4)} · ${s.activeState} (${step}) · ${direction} · UI ${shown} · plates ${assets} · cameras ${cameras.status} · ${timeline.weighting} · gateway ${frame.gateway.toFixed(3)} · editorial ${presence.toFixed(3)}${moving ? ' · blending' : ''}`;
     },

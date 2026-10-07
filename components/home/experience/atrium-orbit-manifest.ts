@@ -53,9 +53,28 @@ export const ATRIUM_ORBIT_ASSETS = {
   cameras: 'world-atrium-cameras.json',
 } as const;
 
+/** PASS 6B.0 — comp plates. Until the studio renders exist, each room view
+ * is the design comp of that view (1672 × 941, the approved Atrium's own
+ * size) with its screen UI cut out: the header, title block, CTA, indicator
+ * and baselines are HTML, so they are not in the picture. What belongs to the
+ * scene stays (the fascia labels over the doorways, the breeze line).
+ * Arrival is the approved Atrium itself, drawn as a plate so the camera can
+ * leave it. Same naming and widths as the approved Atrium plate; the comps
+ * and the cut-out sources stay outside Git (`work/atrium-orbit/comp-plates`).
+ * An accepted studio plate replaces a comp by its status alone. */
+export const ATRIUM_ORBIT_COMP = {
+  widths: [1672, 1280, 720],
+  fallbackWidth: 1280,
+  intrinsic: [1672, 941],
+  sizes: '(max-aspect-ratio: 1672/941) 178svh, 100vw',
+  /** The approved Atrium's files (`worlds-atrium*.webp`). */
+  arrival: 'worlds-atrium',
+} as const;
+
 export type AtriumOrbitOrientation = keyof typeof ATRIUM_ORBIT_ASSETS.widths;
 export type AtriumOrbitFormat = (typeof ATRIUM_ORBIT_ASSETS.formats)[number];
-export type AtriumOrbitPlateStatus = 'missing' | 'available';
+/** 'comp' is provisional (above); 'available' is an accepted studio plate. */
+export type AtriumOrbitPlateStatus = 'missing' | 'comp' | 'available';
 
 /** Independent UI layout states, on the homepage's existing breakpoints.
  * Until the plates arrive each reuses the approved Scene 3 layout. */
@@ -72,18 +91,32 @@ export const plateOrientation = (
 ): AtriumOrbitOrientation =>
   width <= 767 && height >= width ? 'portrait' : 'desktop';
 
-/** Delivery status. Every plate is MISSING: the approved renders do not
- * exist yet (PASS 6B flips these after acceptance and optimisation). A
- * missing plate is never requested and never substituted. */
+/** Delivery status. No approved studio render exists yet (PASS 6B flips a
+ * view to 'available' after acceptance and optimisation). The desktop views
+ * are comp plates (PASS 6B.0); there is no portrait view, so a phone sees
+ * the desktop plate through its own window (`ATRIUM_ORBIT_FOCUS`). A missing
+ * plate is never requested and never substituted. */
 export const ATRIUM_ORBIT_PLATES: Record<
   AtriumOrbitStateId,
   Record<AtriumOrbitOrientation, AtriumOrbitPlateStatus>
 > = {
-  arrival: { desktop: 'missing', portrait: 'missing' },
-  living: { desktop: 'missing', portrait: 'missing' },
-  bedroom: { desktop: 'missing', portrait: 'missing' },
-  bathroom: { desktop: 'missing', portrait: 'missing' },
-  kitchen: { desktop: 'missing', portrait: 'missing' },
+  arrival: { desktop: 'comp', portrait: 'missing' },
+  living: { desktop: 'comp', portrait: 'missing' },
+  bedroom: { desktop: 'comp', portrait: 'missing' },
+  bathroom: { desktop: 'comp', portrait: 'missing' },
+  kitchen: { desktop: 'comp', portrait: 'missing' },
+};
+
+/** Where each view's subject stands across its plate (0 → 1): the middle of
+ * its doorway, measured on the comp plates. A stage narrower than the plate
+ * is a window onto it, centred here. Arrival keeps the approved Atrium's own
+ * crop instead (see `plateWindowStart`). */
+export const ATRIUM_ORBIT_FOCUS: Record<AtriumOrbitStateId, number> = {
+  arrival: 0.5,
+  living: 0.514,
+  bedroom: 0.517,
+  bathroom: 0.573,
+  kitchen: 0.6,
 };
 
 /** The validated contents of `world-atrium-cameras.json`, or null while
@@ -97,8 +130,9 @@ export type AtriumOrbitThumbnail = {
   height: number;
 };
 
-/** The small round indicator image. Reuses today's optimised 192px room
- * previews; never a full-size plate. */
+/** The small round indicator image: 192px, never a full-size plate. PASS
+ * 6B.0: the room's own doorway, cut from its comp plate, as the comps show
+ * it (`world-atrium-<room>-preview.webp`). */
 export const ATRIUM_ORBIT_THUMBNAILS: Record<
   AtriumRoomId,
   AtriumOrbitThumbnail
@@ -110,7 +144,7 @@ export const ATRIUM_ORBIT_THUMBNAILS: Record<
 };
 function thumbnail(room: AtriumRoomId): AtriumOrbitThumbnail {
   return {
-    src: `${ATRIUM_ORBIT_ASSETS.base}room-preview-${room}.webp`,
+    src: `${ATRIUM_ORBIT_ASSETS.base}${ATRIUM_ORBIT_ASSETS.stem}-${room}-preview.webp`,
     width: 192,
     height: 192,
   };
@@ -155,6 +189,37 @@ export type AtriumOrbitPlateSources = {
   fallback: { src: string; width: number; height: number; sizes: string };
 };
 
+/** A comp plate's file: the approved Atrium's naming, widest without a
+ * suffix. Arrival is the approved Atrium's own file. */
+export function compPlateFile(state: AtriumOrbitStateId, width: number) {
+  const { base, stem } = ATRIUM_ORBIT_ASSETS;
+  const { widths, arrival } = ATRIUM_ORBIT_COMP;
+  const name = state === 'arrival' ? arrival : `${stem}-${state}`;
+  return `${base}${name}${width === widths[0] ? '' : `-${width}`}.webp`;
+}
+
+function compPlateSources(state: AtriumOrbitStateId): AtriumOrbitPlateSources {
+  const { widths, fallbackWidth, intrinsic, sizes } = ATRIUM_ORBIT_COMP;
+  return {
+    sources: [
+      {
+        media: null,
+        type: 'image/webp',
+        srcset: widths
+          .map((w) => `${compPlateFile(state, w)} ${w}w`)
+          .join(', '),
+        sizes,
+      },
+    ],
+    fallback: {
+      src: compPlateFile(state, fallbackWidth),
+      width: intrinsic[0],
+      height: intrinsic[1],
+      sizes,
+    },
+  };
+}
+
 /** The <picture> description for one view, or null when its desktop plate
  * is missing (no partial or substituted plate). A missing portrait view
  * falls back to the desktop plate's crop. */
@@ -162,6 +227,7 @@ export function plateSources(
   state: AtriumOrbitStateId,
   status = ATRIUM_ORBIT_PLATES,
 ): AtriumOrbitPlateSources | null {
+  if (status[state].desktop === 'comp') return compPlateSources(state);
   if (status[state].desktop !== 'available') return null;
   const { formats, widths, portraitMedia, sizes, fallbackWidth, intrinsic } =
     ATRIUM_ORBIT_ASSETS;
@@ -240,7 +306,9 @@ export function atriumOrbitRecord(
   };
 }
 
-/** What a complete Tier B needs, and what is still missing. */
+/** What a complete Tier B needs, and what is still missing. `missing` is
+ * every view without an accepted studio plate (a comp plate is not one);
+ * `desktopComplete` says the orbit can be drawn, from comps or renders. */
 export function atriumOrbitReadiness(status = ATRIUM_ORBIT_PLATES) {
   const missing = ATRIUM_ORBIT_STATES.flatMap((id) =>
     (['desktop', 'portrait'] as const)
@@ -250,7 +318,39 @@ export function atriumOrbitReadiness(status = ATRIUM_ORBIT_PLATES) {
   return {
     missing,
     desktopComplete: ATRIUM_ORBIT_STATES.every(
-      (id) => status[id].desktop === 'available',
+      (id) => status[id].desktop !== 'missing',
     ),
   };
+}
+
+/** Every plate is a box of this ratio fitted to cover the stage, as the
+ * approved Atrium is. */
+export const ATRIUM_ORBIT_PLATE_RATIO =
+  ATRIUM_ORBIT_COMP.intrinsic[0] / ATRIUM_ORBIT_COMP.intrinsic[1];
+
+/** How much of a plate the stage shows: its width over the plate's (1 when
+ * the stage is at least as wide as the plate), and the same for height. */
+export type AtriumOrbitPlateWindow = { width: number; height: number };
+export function plateWindow(
+  stageWidth: number,
+  stageHeight: number,
+): AtriumOrbitPlateWindow {
+  const fit = stageWidth / Math.max(1, stageHeight) / ATRIUM_ORBIT_PLATE_RATIO;
+  return { width: Math.min(1, fit), height: Math.min(1, 1 / fit) };
+}
+
+/** Where the stage's window starts across a resting plate (0 → 1 − width).
+ * Rooms centre their doorway; Arrival repeats the approved Atrium's crop
+ * (object-position 50%, 51% on phones), so the plate lies exactly on it. */
+export function plateWindowStart(
+  state: AtriumOrbitStateId,
+  window: AtriumOrbitPlateWindow,
+  layout: AtriumOrbitLayout,
+) {
+  const slack = 1 - window.width;
+  if (state === 'arrival') return slack * (layout === 'mobile' ? 0.51 : 0.5);
+  return Math.min(
+    slack,
+    Math.max(0, ATRIUM_ORBIT_FOCUS[state] - window.width / 2),
+  );
 }

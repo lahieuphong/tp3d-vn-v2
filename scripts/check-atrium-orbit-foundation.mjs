@@ -19,6 +19,15 @@
  * sticky stage leaves for the Footer, and rebuilds them in reverse; the
  * engineering readout exists only on explicit request. The real controller
  * runs here in a small owned DOM double.
+ * PASS 6B.0 (the orbit on comp plates) locks: every desktop view is a comp
+ * plate named and sized like the approved Atrium plate, with nothing else in
+ * public/ and no studio plate claimed; the camera pushes in from the wide
+ * Atrium and then pans from doorway to doorway, two plates joined on the pier
+ * they share; the stage is covered at every position on every screen; the
+ * same position draws the same frame in either direction; reduced motion
+ * only changes plates; the approved Atrium itself is never moved; the longer
+ * orbit span exists in the preview alone. How the orbit looks is judged in
+ * the browser, not here.
  * The timeline hook itself is checked in check-atrium-orbit. Nothing here
  * can validate how the future orbit looks: the render plates do not exist.
  * Generated camera rigs below are random test data, never product values. */
@@ -880,7 +889,9 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
 }
 
 // ---------------------------------------------------------------------------
-// 7. The manifest: one naming source, nothing delivered, nothing invented.
+// 7. The manifest: one naming source. No studio plate is delivered; the
+// orbit is drawn on comp plates (PASS 6B.0), named and stored like the
+// approved Atrium plate, and nothing is invented.
 // ---------------------------------------------------------------------------
 {
   const {
@@ -889,9 +900,15 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     ATRIUM_ORBIT_CAMERA_DATA,
     ATRIUM_ORBIT_THUMBNAILS,
     ATRIUM_ORBIT_FASCIA,
+    ATRIUM_ORBIT_COMP: COMP,
+    ATRIUM_ORBIT_FOCUS,
+    ATRIUM_ORBIT_PLATE_RATIO,
     plateFile,
     plateFiles,
     plateSources,
+    compPlateFile,
+    plateWindow,
+    plateWindowStart,
     atriumOrbitRecord,
     atriumOrbitReadiness,
     atriumOrbitLayout,
@@ -909,29 +926,122 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
         ))
           assert.ok(exists(`public${file}`), `${file} is delivered`);
   }
+  // PASS 6B.0: no approved studio plate exists yet. Every desktop view is a
+  // comp plate; there is no portrait view.
   same(
     STATES.map((id) => ATRIUM_ORBIT_PLATES[id]),
-    STATES.map(() => ({ desktop: 'missing', portrait: 'missing' })),
-    'PASS 6A: no approved plate exists yet',
+    STATES.map(() => ({ desktop: 'comp', portrait: 'missing' })),
+    'comp plates, no studio plate',
   );
   assert.equal(ATRIUM_ORBIT_CAMERA_DATA, null, 'no camera data yet');
   assert.equal(
     cameras.validateAtriumOrbitCameras(ATRIUM_ORBIT_CAMERA_DATA).status,
     'missing',
   );
-  for (const id of STATES)
-    assert.equal(plateSources(id), null, 'not requested');
   const readiness = atriumOrbitReadiness();
-  assert.equal(readiness.missing.length, 10);
-  assert.equal(readiness.desktopComplete, false);
-  // No stand-in plates were created anywhere in the public tree.
-  assert.deepEqual(
-    readdirSync(
-      new URL('../public/images/home-chapters/', import.meta.url),
-    ).filter((name) => name.startsWith(`${ASSETS.stem}-`)),
-    [],
-    'no world-atrium-* stand-ins',
+  assert.equal(readiness.missing.length, 10, 'a comp is not a studio plate');
+  assert.equal(readiness.desktopComplete, true, 'the orbit can be drawn');
+  assert.equal(
+    atriumOrbitReadiness({
+      ...ATRIUM_ORBIT_PLATES,
+      bedroom: { desktop: 'missing', portrait: 'missing' },
+    }).desktopComplete,
+    false,
   );
+  // Comp plates: the approved Atrium's own size, widths and naming (widest
+  // without a suffix); Arrival IS the approved Atrium's files. Every file
+  // named exists, is WebP at exactly that width, and nothing else is there.
+  same([...COMP.widths], [1672, 1280, 720]);
+  same([...COMP.intrinsic], [1672, 941]);
+  near(ATRIUM_ORBIT_PLATE_RATIO, 1672 / 941, 'plate ratio');
+  const approved = JSON.parse(read('data/home-chapter-assets.json'))[
+    'worlds-atrium'
+  ];
+  same([approved.width, approved.height], [...COMP.intrinsic]);
+  same(
+    COMP.widths.map((w) => `${compPlateFile('arrival', w)} ${w}w`).sort(),
+    approved.srcSet.split(', ').sort(),
+    'Arrival is the approved Atrium plate',
+  );
+  assert.equal(
+    compPlateFile('bedroom', 1672),
+    '/images/home-chapters/world-atrium-bedroom.webp',
+  );
+  assert.equal(
+    compPlateFile('bedroom', 720),
+    '/images/home-chapters/world-atrium-bedroom-720.webp',
+  );
+  const expectedFiles = [];
+  for (const id of STATES) {
+    const sources = plateSources(id);
+    assert.ok(sources, `${id} is drawn`);
+    same(
+      sources.sources.map((s) => [s.media, s.type]),
+      [[null, 'image/webp']],
+    );
+    same(
+      sources.sources[0].srcset.split(', '),
+      COMP.widths.map((w) => `${compPlateFile(id, w)} ${w}w`),
+    );
+    same(sources.fallback, {
+      src: compPlateFile(id, COMP.fallbackWidth),
+      width: 1672,
+      height: 941,
+      sizes: COMP.sizes,
+    });
+    for (const w of COMP.widths) {
+      const file = compPlateFile(id, w);
+      assert.ok(exists(`public${file}`), `${file} exists`);
+      const meta = await sharp(
+        fileURLToPath(new URL(`../public${file}`, import.meta.url)),
+      ).metadata();
+      same([meta.format, meta.width], ['webp', w], file);
+      near(meta.width / meta.height, 1672 / 941, file, 0.003);
+      if (id !== 'arrival') expectedFiles.push(file.split('/').pop());
+    }
+  }
+  for (const room of ROOMS)
+    expectedFiles.push(ATRIUM_ORBIT_THUMBNAILS[room].src.split('/').pop());
+  same(
+    readdirSync(new URL('../public/images/home-chapters/', import.meta.url))
+      .filter((name) => name.startsWith(`${ASSETS.stem}-`))
+      .toSorted((a, b) => a.localeCompare(b)),
+    expectedFiles.toSorted((a, b) => a.localeCompare(b)),
+    'only the comp plates and their thumbnails: no other world-atrium-* file',
+  );
+  // Lossless sources and the comps themselves stay out of Git and of public/.
+  assert.ok(
+    readdirSync(new URL('../public/images/home-chapters/', import.meta.url))
+      .filter((name) => name.startsWith(`${ASSETS.stem}-`))
+      .every((name) => name.endsWith('.webp')),
+  );
+  // The stage is a window onto a plate: the whole plate when it is at least
+  // as wide, a centred window on the doorway when it is narrower; Arrival
+  // repeats the approved Atrium's crop (50%, 51% on phones).
+  same(plateWindow(1672, 941), { width: 1, height: 1 });
+  near(plateWindow(1440, 900).width, 1440 / (900 * (1672 / 941)), 'window');
+  assert.equal(plateWindow(1440, 900).height, 1);
+  assert.equal(plateWindow(2560, 1080).width, 1);
+  near(plateWindow(2560, 1080).height, (2560 / (1672 / 941)) ** -1 * 1080, 'h');
+  for (const [w, h] of [
+    [2560, 1080],
+    [1440, 900],
+    [768, 1024],
+    [390, 844],
+    [844, 390],
+  ]) {
+    const window = plateWindow(w, h);
+    const layout = atriumOrbitLayout(w);
+    for (const id of STATES) {
+      const start = plateWindowStart(id, window, layout);
+      assert.ok(start >= 0 && start + window.width <= 1 + 1e-12, `${id} ${w}`);
+      if (id === 'arrival')
+        near(start, (1 - window.width) * (w < 768 ? 0.51 : 0.5), 'crop');
+      else if (window.width < 0.5)
+        near(start + window.width / 2, ATRIUM_ORBIT_FOCUS[id], 'on the door');
+    }
+  }
+  assert.ok(ROOMS.every((id) => ATRIUM_ORBIT_FOCUS[id] > 0.45));
   // PASS 6A.5: the runtime format is WebP only (what the optimiser writes);
   // AVIF is not advertised, lossless masters are never served.
   same([...ASSETS.formats], ['webp'], 'WebP only');
@@ -991,15 +1101,20 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     null,
     'no portrait-only partial plate',
   );
-  // Thumbnails: the existing optimised 192px previews, never a plate.
+  // Thumbnails: 192px, never a full plate. PASS 6B.0: the room's doorway,
+  // cut from its comp plate.
   for (const room of ROOMS) {
     const thumb = ATRIUM_ORBIT_THUMBNAILS[room];
     same(thumb, {
-      src: `/images/home-chapters/room-preview-${room}.webp`,
+      src: `/images/home-chapters/world-atrium-${room}-preview.webp`,
       width: 192,
       height: 192,
     });
     assert.ok(exists(`public${thumb.src}`), `${thumb.src} exists`);
+    const meta = await sharp(
+      fileURLToPath(new URL(`../public${thumb.src}`, import.meta.url)),
+    ).metadata();
+    same([meta.format, meta.width, meta.height], ['webp', 192, 192]);
   }
   // Fascia labels are not positioned before plates are measured.
   assert.ok(
@@ -1046,18 +1161,26 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
 }
 
 // ---------------------------------------------------------------------------
-// 8. The transition extension point: explicit direction, reversible frames,
-// a provisional cut only (no movement, no final timing).
+// 8. The transition extension point. PASS 6B.0: the orbit. Wide Atrium →
+// first doorway is a push; doorway → next doorway is a pan of two plates
+// joined on the pier they share. Pure: the same position draws the same
+// frame in either direction, the stage is covered at every position on
+// every screen, and reduced motion only changes plates.
 // ---------------------------------------------------------------------------
 {
   const { buildOrbitTimeline, sampleOrbit } = progress;
   const {
     plateTransitionInput,
-    provisionalCut,
+    orbitTransition,
     reducedTransition,
+    plainChange,
+    plateRest,
     selectPlateTransition,
     ATRIUM_ORBIT_OCCLUDERS,
+    ATRIUM_ORBIT_SHOTS: SHOTS,
+    ATRIUM_ORBIT_SEAM: SEAM,
   } = transition;
+  const { plateWindow, atriumOrbitLayout, plateWindowStart } = manifest;
   const angles = cameras.validateAtriumOrbitCameras(rig()).stepAngles;
   const t = buildOrbitTimeline(TIMING, angles);
   assert.equal(ATRIUM_ORBIT_OCCLUDERS.length, 4);
@@ -1067,55 +1190,279 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     [1, 2, 1, 2],
     'spec §9 priorities',
   );
+  // One shot per transition: in from the wide Atrium, then around it.
+  same(
+    SHOTS.map((shot) => shot.kind),
+    ['push', 'pan', 'pan', 'pan'],
+  );
+  assert.ok(SHOTS[0].zoom > 2 && SHOTS[0].zoom < 5);
+  assert.ok(SHOTS[0].dissolve[0] > 0.4 && SHOTS[0].dissolve[1] <= 1);
+  for (const shot of SHOTS.slice(1)) {
+    assert.ok(shot.shift > 0.3 && shot.shift < 0.6, 'half a view at a time');
+    assert.ok(shot.pier > shot.shift && shot.pier < 1, 'the pier is shared');
+  }
+  assert.ok(SEAM.feather > 0 && SEAM.feather < 0.1, 'a join, not a dissolve');
+  assert.ok(
+    0 < SEAM.dwell[0] && SEAM.dwell[0] < SEAM.dwell[1] && SEAM.dwell[1] < 1,
+  );
+
+  // Stage geometry of one posed plate (the runtime's own box model).
+  const extent = (layer, window) => ({
+    left: (0.5 - 0.5 * layer.scale + layer.x) / window.width,
+    right: (0.5 + 0.5 * layer.scale + layer.x) / window.width,
+    top: 0.5 - 0.5 * layer.scale + layer.y,
+    bottom: 0.5 + 0.5 * layer.scale + layer.y,
+  });
+  // How much of the plate is there at one stage position (0 → 1).
+  const alphaAt = (layer, window, sx) => {
+    if (layer.opacity <= 0) return 0;
+    const box = extent(layer, window);
+    if (sx < box.left - 1e-9 || sx > box.right + 1e-9) return 0;
+    if (!layer.edge) return layer.opacity;
+    const local = (sx * window.width - layer.x - 0.5) / layer.scale + 0.5;
+    const [clear, whole] = layer.edge;
+    const share =
+      whole > clear
+        ? Math.min(1, Math.max(0, (local - clear) / (whole - clear)))
+        : local >= clear
+          ? 1
+          : 0;
+    return layer.opacity * share;
+  };
+  const VIEWPORTS = [
+    [2560, 1080],
+    [1920, 1080],
+    [1672, 941],
+    [1440, 900],
+    [1024, 768],
+    [800, 1000],
+    [768, 1024],
+    [390, 844],
+    [844, 390],
+  ];
+  const stageXs = Array.from({ length: 161 }, (_, i) => i / 160);
+  const locals = Array.from({ length: 241 }, (_, i) => i / 240);
   for (const s of t.segments) {
     const p = (s.start + s.end) / 2;
-    const sample = sampleOrbit(p, t);
+    const window = plateWindow(1440, 900);
     // Holds and the release rest on one plate: no transition to play.
     if (s.kind !== 'move') {
       assert.equal(
-        plateTransitionInput(sample, 'forward', angles, 'desktop'),
+        plateTransitionInput(
+          sampleOrbit(p, t),
+          'forward',
+          angles,
+          'desktop',
+          window,
+          'desktop',
+        ),
         null,
       );
       continue;
     }
-    for (const local of Array.from({ length: 21 }, (_, i) => i / 20)) {
-      const q = Math.min(s.end - 1e-12, s.start + local * (s.end - s.start));
-      const at = sampleOrbit(q, t);
-      const forward = plateTransitionInput(at, 'forward', angles, 'desktop');
-      const reverse = plateTransitionInput(at, 'reverse', angles, 'desktop');
-      assert.equal(forward.from, s.from);
-      assert.equal(forward.to, s.to);
-      same([forward.outgoing, forward.incoming], [s.from, s.to]);
-      same([reverse.outgoing, reverse.incoming], [s.to, s.from]);
-      assert.equal(forward.deltaAngleDeg, angles[s.transition]);
-      assert.equal(forward.occluder, ATRIUM_ORBIT_OCCLUDERS[s.transition]);
-      for (const adapter of [provisionalCut, reducedTransition]) {
-        const a = adapter(forward),
-          b = adapter(reverse);
-        same(a, b, 'the same position draws the same frame both ways');
-        near(a.from.opacity + a.to.opacity, 1, 'one plate at a time');
-        for (const layer of [a.from, a.to])
-          same([layer.x, layer.y, layer.scale], [0, 0, 1], 'no movement yet');
-        assert.equal(
-          a.to.opacity,
-          at.localTransitionProgress >= TIMING.uiSwitchAt ? 1 : 0,
-          'the plate and the UI switch together',
+    for (const [width, height] of VIEWPORTS) {
+      const window = plateWindow(width, height);
+      const layout = atriumOrbitLayout(width);
+      const inputAt = (local, direction) =>
+        plateTransitionInput(
+          sampleOrbit(
+            Math.min(s.end - 1e-12, s.start + local * (s.end - s.start)),
+            t,
+          ),
+          direction,
+          angles,
+          'desktop',
+          window,
+          layout,
         );
+      const probe = inputAt(0.5, 'forward');
+      assert.equal(probe.from, s.from);
+      assert.equal(probe.to, s.to);
+      same([probe.outgoing, probe.incoming], [s.from, s.to]);
+      const back = inputAt(0.5, 'reverse');
+      same([back.outgoing, back.incoming], [s.to, s.from]);
+      assert.equal(probe.deltaAngleDeg, angles[s.transition]);
+      assert.equal(probe.occluder, ATRIUM_ORBIT_OCCLUDERS[s.transition]);
+      assert.equal(probe.shot, SHOTS[s.transition]);
+      same(probe.window, window);
+      const shot = SHOTS[s.transition];
+      const restFrom = plateRest(s.from, window, layout);
+      const restTo = plateRest(s.to, window, layout);
+      for (const rest of [restFrom, restTo]) {
+        // A view at rest is the whole plate, covering the stage.
+        same([rest.opacity, rest.y, rest.scale, rest.edge], [1, 0, 1, null]);
+        const box = extent(rest, window);
+        assert.ok(box.left <= 1e-9 && box.right >= 1 - 1e-9, 'rest covers');
+      }
+      near(restFrom.x, -plateWindowStart(s.from, window, layout), 'window');
+      for (const adapter of [orbitTransition, reducedTransition]) {
+        const orbit = adapter === orbitTransition;
+        let previous = null;
+        for (const local of locals) {
+          const forward = {
+            ...inputAt(local, 'forward'),
+            localProgress: local,
+          };
+          const reverse = {
+            ...inputAt(local, 'reverse'),
+            localProgress: local,
+          };
+          const frame = adapter(forward);
+          same(
+            frame,
+            adapter(reverse),
+            'the same position draws the same frame both ways',
+          );
+          assert.equal(
+            frame.lead,
+            local < TIMING.uiSwitchAt ? 'from' : 'to',
+            'the plate and the UI switch together',
+          );
+          for (const layer of [frame.from, frame.to]) {
+            assert.ok(layer.opacity >= 0 && layer.opacity <= 1);
+            assert.ok(layer.scale >= 1, 'a plate never shrinks into view');
+            assert.ok(Number.isFinite(layer.x) && Number.isFinite(layer.y));
+          }
+          // Each end is one view at rest: the hold it joins.
+          if (local === 0) same([frame.from, frame.to.opacity], [restFrom, 0]);
+          if (local === 1) same([frame.to, frame.from.opacity], [restTo, 0]);
+          // The stage is covered by the two plates alone, everywhere.
+          const [under, top] =
+            frame.over === 'to'
+              ? [frame.from, frame.to]
+              : [frame.to, frame.from];
+          for (const sx of stageXs) {
+            const a = alphaAt(top, window, sx);
+            const b = alphaAt(under, window, sx);
+            assert.ok(
+              a + (1 - a) * b >= 1 - 1e-9,
+              `${s.from}→${s.to} ${width}×${height} local ${local} x ${sx}: ` +
+                `covered ${a + (1 - a) * b}`,
+            );
+          }
+          for (const layer of [frame.from, frame.to]) {
+            if (layer.opacity <= 0) continue;
+            const box = extent(layer, window);
+            assert.ok(
+              box.top <= 1e-9 && box.bottom >= 1 - 1e-9,
+              'top to bottom',
+            );
+          }
+          if (!orbit) {
+            // Reduced motion: one plate at a time, at rest, no camera move.
+            assert.equal(frame.from.opacity + frame.to.opacity, 1);
+            same(
+              frame.from.opacity ? frame.from : frame.to,
+              local < TIMING.uiSwitchAt ? restFrom : restTo,
+            );
+          } else if (local > 0 && local < 1) {
+            if (shot.kind === 'pan') {
+              // One strip: the two plates stay `shift` apart, so the pier
+              // they share stays in one piece; nothing scales or lifts.
+              assert.equal(frame.over, 'to');
+              near(frame.to.x - frame.from.x, shot.shift, 'one strip', 1e-9);
+              same(
+                [
+                  frame.from.opacity,
+                  frame.to.opacity,
+                  frame.from.scale,
+                  frame.to.scale,
+                  frame.from.y,
+                  frame.to.y,
+                  frame.from.edge,
+                ],
+                [1, 1, 1, 1, 0, 0, null],
+              );
+              // The join: soft only where both plates exist.
+              const [clear, whole] = frame.to.edge;
+              assert.ok(
+                whole >= clear && whole - clear <= 2 * SEAM.feather + 1e-9,
+              );
+              assert.ok(clear >= -1e-9 && whole <= 1 - shot.shift + 1e-9);
+            } else {
+              // The wide plate grows over the next view, which lies whole
+              // beneath it, and covers the stage itself at every scale.
+              assert.equal(frame.over, 'from');
+              same(frame.to, restTo);
+              assert.equal(frame.from.edge, null);
+              const box = extent(frame.from, window);
+              assert.ok(box.left <= 1e-9 && box.right >= 1 - 1e-9);
+              assert.ok(frame.from.scale <= shot.zoom + 1e-9);
+            }
+          }
+          // No jump between neighbouring positions (except the plain cut).
+          if (orbit && previous && local < 1 && local - 1 / 240 > 0) {
+            for (const key of ['from', 'to']) {
+              assert.ok(
+                Math.abs(frame[key].x - previous[key].x) < 0.05,
+                `${key} x`,
+              );
+              assert.ok(
+                Math.abs(frame[key].scale - previous[key].scale) < 0.06,
+              );
+              assert.ok(
+                Math.abs(frame[key].opacity - previous[key].opacity) < 0.08,
+              );
+            }
+          }
+          previous = frame;
+        }
+      }
+      if (shot.kind === 'pan') {
+        // The join rests on the pier through the middle of the move, and the
+        // doorway the UI names is the one in the middle of the stage at rest.
+        const mid = orbitTransition({
+          ...inputAt(0.5, 'forward'),
+          localProgress: 0.5,
+        });
+        const start = plateWindowStart(s.from, window, layout);
+        const goal = plateWindowStart(s.to, window, layout);
+        const low = Math.min(start + window.width, goal + shot.shift);
+        const high = Math.max(start + window.width, goal + shot.shift);
+        near(
+          (mid.to.edge[0] + mid.to.edge[1]) / 2 + shot.shift,
+          Math.min(high, Math.max(low, shot.pier)),
+          'the join is on the pier',
+          1e-9,
+        );
+      } else {
+        // The push ends with the two doorways together (as far as the wide
+        // plate can travel and still cover the stage).
+        const late = orbitTransition({
+          ...inputAt(0.999, 'forward'),
+          localProgress: 0.999,
+        });
+        const door = (shot.door.x - 0.5) * late.from.scale + 0.5 + late.from.x;
+        const goal = shot.goal.x - plateWindowStart(s.to, window, layout);
+        assert.ok(
+          Math.abs(door - goal) < 0.03,
+          `doorways meet: ${door} vs ${goal}`,
+        );
+        assert.ok(late.from.opacity < 0.01, 'resolved into the next view');
       }
     }
   }
-  assert.equal(
-    plateTransitionInput(
-      sampleOrbit(t.segments[1].start + 1e-6, t),
-      'forward',
-      null,
-      'portrait',
-    ).deltaAngleDeg,
-    null,
-    'no invented angle',
-  );
+  // A pair without a shot is a plain change; so is reduced motion.
+  {
+    const window = plateWindow(1440, 900);
+    const input = {
+      ...plateTransitionInput(
+        sampleOrbit(t.segments[3].start + 1e-6, t),
+        'forward',
+        null,
+        'portrait',
+        window,
+        'desktop',
+      ),
+      shot: null,
+      localProgress: 0.3,
+    };
+    assert.equal(input.deltaAngleDeg, null, 'no invented angle');
+    same(orbitTransition(input), plainChange(input));
+  }
+  assert.equal(reducedTransition, plainChange);
   assert.equal(selectPlateTransition(true), reducedTransition);
-  assert.equal(selectPlateTransition(false), provisionalCut);
+  assert.equal(selectPlateTransition(false), orbitTransition);
 }
 
 // ---------------------------------------------------------------------------
@@ -1332,18 +1679,19 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     /\.hc-room-orbit-indicator \{\s*opacity: calc\(var\(--atrium-indicator, 1\) \* var\(--atrium-editorial, 0\)\);/,
     'the indicator yields zone I to the returning gateway',
   );
-  // The Atrium photograph is a static backdrop in this harness: Tier B never
-  // transforms it, the camera or the backdrop (only its own plate layers,
-  // which do not exist yet).
+  // The approved Atrium is never moved by Tier B: not the photograph, the
+  // camera or the backdrop. Only its own plate layers take a pose (PASS
+  // 6B.0: the plate that pushes in from the wide Atrium is a second drawing
+  // of the same file, inside the stage).
   assert.doesNotMatch(
     controller,
     /scene3-camera|data-scene3|hc-atrium-camera|backdrop\??\.style|hc-room-focus/,
-    'no pan / zoom / rotation of the Atrium photograph',
+    'the approved Atrium, its camera and its backdrop are never written',
   );
   assert.equal(
     (controller.match(/'transform'/g) ?? []).length,
     1,
-    'only the (absent) plate layers take a transform',
+    'only the plate layers take a transform',
   );
   // Every provisional number lives in the one timing config.
   for (const name of [
@@ -1557,6 +1905,84 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
         'the Atrium section is never hidden by the preview',
       );
   }
+  // PASS 6B.0: a plate is a box of the plate's ratio that covers the stage
+  // (so the controller's percentages are shares of the picture on every
+  // screen); the stage is its own stacking context, under both shades; the
+  // layer on top is the frame's.
+  const plateRule = declarations(
+    shade(preview, null, '.hc-room-orbit-plate').body,
+  );
+  same(
+    [
+      plateRule.position,
+      plateRule.top,
+      plateRule.left,
+      plateRule.height,
+      plateRule['min-width'],
+      plateRule['aspect-ratio'],
+    ],
+    ['absolute', '0', '0', '100%', '100%', '1672 / 941'],
+  );
+  assert.equal(
+    declarations(shade(preview, null, '.hc-room-orbit-stage').body).isolation,
+    'isolate',
+  );
+  same(
+    declarations(
+      shade(preview, null, ".hc-room-orbit-plate[data-plate-role='over']").body,
+    ),
+    { 'z-index': '1' },
+  );
+  // The preview alone lengthens the orbit, only with plates and motion;
+  // production's span is the approved 160svh, and reduced motion keeps it.
+  const spans = preview.filter((rule) =>
+    /--story-orbit-height/.test(rule.body),
+  );
+  same(
+    spans.map((rule) => [rule.media, rule.selector, declarations(rule.body)]),
+    [
+      [
+        '(prefers-reduced-motion: reduce)',
+        '.home-story:has(.hc-worlds[data-atrium-orbit-preview])',
+        { '--story-orbit-height': '160svh' },
+      ],
+      [
+        '(prefers-reduced-motion: no-preference)',
+        ".home-story:has(.hc-worlds[data-atrium-orbit-preview='plates'])",
+        { '--story-orbit-height': '380svh' },
+      ],
+    ],
+  );
+  same(
+    storyCss
+      .filter((rule) => /--story-orbit-height:/.test(rule.body))
+      .map((rule) => [
+        rule.media,
+        declarations(rule.body)['--story-orbit-height'],
+      ]),
+    [
+      [null, '0svh'],
+      ['(prefers-reduced-motion: no-preference)', '160svh'],
+    ],
+    'production keeps its 160svh orbit span',
+  );
+  // The plates carry their own fascia labels; the HTML ones, placed for the
+  // wide Atrium, leave the desktop layout only.
+  same(
+    preview
+      .filter(
+        (rule) =>
+          rule.selector.endsWith('hc-atrium-rooms') &&
+          /display: none/.test(rule.body),
+      )
+      .map((rule) => [rule.media, rule.selector]),
+    [
+      [
+        '(min-width: 1200px)',
+        ".home-story-stage .hc-worlds[data-atrium-orbit-preview='plates'] > .hc-atrium-rooms",
+      ],
+    ],
+  );
   // One value carries the whole editorial UI in and out.
   same(
     declarations(
@@ -1881,7 +2307,52 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
         title: allText(title).replace(/\s+/g, ' ').trim(),
         indicator: allText(indicator).replace(/\s+/g, ' ').trim(),
         yield: indicator.style.getPropertyValue('--atrium-indicator'),
+        // PASS 6B.0: the plates this position draws.
+        plates: byClass(h.worlds, 'hc-room-orbit-plate')
+          .filter((plate) => !plate.hidden)
+          .map((plate) => ({
+            id: plate.dataset.plate,
+            role: plate.getAttribute('data-plate-role'),
+            opacity: plate.style.getPropertyValue('opacity'),
+            transform: plate.style.getPropertyValue('transform'),
+            mask: plate.style.getPropertyValue('mask-image'),
+            webkitMask: plate.style.getPropertyValue('-webkit-mask-image'),
+          }))
+          .sort((a, b) => STATES.indexOf(a.id) - STATES.indexOf(b.id)),
       };
+    };
+    const window = manifest.plateWindow(1440, 900);
+    const percent = (value) => `${(value * 100).toFixed(3)}%`;
+    const drawnAt = (sample) => {
+      const input = transition.plateTransitionInput(
+        sample,
+        'forward',
+        null,
+        'desktop',
+        window,
+        'desktop',
+      );
+      // A hold rests on its plate; Arrival's is the approved Atrium itself.
+      if (!input)
+        return sample.activeState === 'arrival'
+          ? []
+          : [
+              [
+                sample.activeState,
+                'under',
+                transition.plateRest(sample.activeState, window, 'desktop'),
+              ],
+            ];
+      const frame = transition.selectPlateTransition(reduced)(input);
+      const visible = [
+        ['from', input.from],
+        ['to', input.to],
+      ].filter(([key]) => frame[key].opacity > 0);
+      return visible.map(([key, id]) => [
+        id,
+        visible.length > 1 && key === frame.over ? 'over' : 'under',
+        frame[key],
+      ]);
     };
     // Scene 2 → reveal → Arrival: before the orbit there is no editorial
     // UI and no copy shade, at any point of the approved journey.
@@ -1932,6 +2403,29 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
         s.release,
         sample.phase !== 'release' ? null : out.quiet ? 'quiet' : 'leaving',
       );
+      // PASS 6B.0: the controller poses exactly the plates of the pure
+      // frame, on the plate's own box (percentages), with the soft edge as
+      // a mask; the layer on top is the frame's, whatever the direction.
+      same(
+        s.plates,
+        drawnAt(sample).map(([id, role, layer]) => {
+          const mask = layer.edge
+            ? `linear-gradient(90deg, transparent ${percent(layer.edge[0])}, #000 ${percent(layer.edge[1])})`
+            : 'none';
+          return {
+            id,
+            role,
+            opacity: layer.opacity.toFixed(4),
+            transform:
+              layer.x === 0 && layer.y === 0 && layer.scale === 1
+                ? 'none'
+                : `translate(${percent(layer.x)}, ${percent(layer.y)}) scale(${layer.scale.toFixed(5)})`,
+            mask,
+            webkitMask: mask,
+          };
+        }),
+        `plates at ${p}`,
+      );
       if (room) {
         const { phrase, counter, label } =
           model.atriumOrbitState(room).editorial;
@@ -1941,6 +2435,41 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     });
     // The rooms in order, once each; the release keeps Kitchen.
     same([...new Set(forward.map((s) => s.room))], [null, ...ROOMS]);
+    // PASS 6B.0: every view is drawn in turn; with motion, the camera
+    // travels (two plates, one over the other, the incoming one joined by a
+    // soft edge), and without it plates only change.
+    same(
+      [...new Set(forward.flatMap((s) => s.plates.map((plate) => plate.id)))],
+      reduced ? ROOMS : STATES,
+    );
+    const travelling = forward.filter((s) => s.plates.length === 2);
+    if (reduced) assert.equal(travelling.length, 0, 'reduced: no camera move');
+    else {
+      assert.ok(travelling.length > 250, 'the camera travels between views');
+      assert.ok(
+        travelling.every(
+          (s) => s.plates.filter((plate) => plate.role === 'over').length === 1,
+        ),
+      );
+      assert.ok(
+        travelling.some((s) =>
+          /^linear-gradient\(90deg, transparent [\d.]+%, #000 [\d.]+%\)$/.test(
+            s.plates.at(-1).mask,
+          ),
+        ),
+        'a pan joins the incoming plate by a soft edge',
+      );
+      assert.ok(
+        travelling.some((s) =>
+          /scale\((2|3)\.\d+\)/.test(s.plates[0].transform),
+        ),
+        'the push grows the wide plate',
+      );
+    }
+    assert.ok(
+      forward.every((s) => s.plates.length <= 2),
+      'never more than the two plates of a move',
+    );
     assert.ok(
       forward
         .filter((_, i) => positions[i] >= release.start)
@@ -2585,7 +3114,10 @@ console.log(
     'four rooms), WebP-only runtime plates, separate base / room orbit ' +
     'progress domains, gated orbit-mode UI (Arrival hides the room labels; ' +
     'the one WorldGatewayLink returns in late Kitchen; no orbiting room ' +
-    'portals, no camera pan / zoom), the approved Atrium in view for the ' +
+    'portals; the approved Atrium itself never moved), the orbit on comp ' +
+    'plates (push in from the wide Atrium, then pans joined on the shared ' +
+    'pier; the stage covered at every position on nine screens; exact in ' +
+    'reverse; plain changes under reduced motion), the Atrium in view for the ' +
     'whole harness (copy shade = approved shade, shown only with the ' +
     'editorial UI), a scroll-driven release to a quiet frame before the ' +
     'sticky stage leaves (exact in reverse), the readout only on explicit ' +
@@ -2594,8 +3126,8 @@ console.log(
     'signed-angle weights ∝ |Δ| with a floor and order kept, holds weighted ' +
     'apart from moves, a stateless sampler identical forward / reverse / ' +
     'mid-orbit, preload Arrival → Living → direction of travel (never all), ' +
-    'one manifest with every plate MISSING and no stand-ins, reversible ' +
-    'provisional transitions, and no listener, RAF, timer or second image ' +
+    'one manifest (comp plates named like the approved Atrium, no studio ' +
+    'plate yet, nothing else in public/), and no listener, RAF, timer or second image ' +
     'pipeline; gated out of production; the studio intake rejects ' +
     'incomplete or inconsistent deliveries and never auto-approves; ' +
     'lossless masters stay out of Git and out of the runtime bundle.',

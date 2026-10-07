@@ -75,7 +75,10 @@ export type AtriumOrbitTiming = {
 
 export const ATRIUM_ORBIT_TIMING: AtriumOrbitTiming = {
   holds: { arrival: 0.35, room: 1, kitchen: 1.5 },
-  movement: 4,
+  // PASS 6B.0: a move is real camera travel now, so each one outlasts a
+  // room hold (1.5 each while equal). The preview gives the orbit a longer
+  // span to play them over (atrium-orbit-preview.css).
+  movement: 6,
   minMoveShare: 0.1,
   uiSwitchAt: 0.5,
   gateway: {
@@ -84,7 +87,7 @@ export const ATRIUM_ORBIT_TIMING: AtriumOrbitTiming = {
     handoff: 0.5,
     interactiveAt: 0.5,
   },
-  release: { weight: 1, editorialOut: [0, 0.5], gatewayOut: [0.3, 0.75] },
+  release: { weight: 0.8, editorialOut: [0, 0.5], gatewayOut: [0.3, 0.75] },
   editorialInteractiveAt: 0.5,
 };
 
