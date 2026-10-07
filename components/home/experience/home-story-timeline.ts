@@ -554,17 +554,33 @@ export function createHomeStoryTimeline(
         'transform-origin',
         `${worldPose.originX.toFixed(3)}px ${worldPose.originY.toFixed(3)}px`,
       );
+      // TP3D PASS 6B.1 — the bridge writes the camera's pose flat (2D) and
+      // never promotes it. A 3D pose makes the browser draw the Atrium once
+      // into a texture and resample that texture as the camera moves, which
+      // is softer than the photograph drawn directly, as it is at rest: the
+      // whole picture snapped sharper in the one frame the pull-back ended
+      // (measured: +59% fine detail between two frames otherwise alike).
+      // Held with `will-change`, that texture also keeps the scale it was
+      // drawn at while the camera pulls back over six times the area, which
+      // is the tile starvation this page has shown on a loaded machine
+      // (flat brown and half-drawn frames). A flat pose is drawn directly at
+      // every scale, into tiles the size of the viewport, and meets rest
+      // without a step. The portal orbit's small breath keeps its approved
+      // 3D pose.
+      const flat = orbitProgress === 0;
       property(
         camera,
         'transform',
         cameraMass.x === 0 && cameraMass.y === 0 && cameraMass.scale === 1
           ? 'none'
-          : `translate3d(${cameraMass.x.toFixed(3)}px, ${cameraMass.y.toFixed(3)}px, 0) scale(${cameraMass.scale.toFixed(7)})`,
+          : flat
+            ? `translate(${cameraMass.x.toFixed(3)}px, ${cameraMass.y.toFixed(3)}px) scale(${cameraMass.scale.toFixed(7)})`
+            : `translate3d(${cameraMass.x.toFixed(3)}px, ${cameraMass.y.toFixed(3)}px, 0) scale(${cameraMass.scale.toFixed(7)})`,
       );
       property(
         camera,
         'will-change',
-        cameraResponse.active ? 'transform' : 'auto',
+        cameraResponse.active && !flat ? 'transform' : 'auto',
       );
     }
     if (architecture) {

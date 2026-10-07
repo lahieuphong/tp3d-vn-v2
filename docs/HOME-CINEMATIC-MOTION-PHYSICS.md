@@ -86,6 +86,9 @@ Only the Scene 2 architectural plane and Scene 3 camera receive temporal mass.
 They use an exponential response with a conservative combined translation plus
 scale edge-displacement budget. The existing master RAF runs only while that
 small residual remains, then sleeps and releases its temporary `will-change`.
+Since PASS 6B.1 the Scene 3 camera takes no `will-change` through the bridge:
+its pose is written in 2D so the photograph is drawn directly (see
+`TANPHONG_HOME_MOTION_CONTEXT.md` §18, item 11). The mass itself is unchanged.
 
 | Profile            | Depth gain | Breeze directional gain | Mass time constant | Maximum residual                |
 | ------------------ | ---------- | ----------------------- | ------------------ | ------------------------------- |

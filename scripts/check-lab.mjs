@@ -1106,8 +1106,11 @@ for (const source of [...LAB_FILES.map(code), html]) {
     // late-Kitchen reveal (no-op without Tier B); PASS 6A.96 lets it also
     // supply what the final release leaves of the baseline, and passes it
     // the explicit readout request (?atriumOrbitDebug=1), both no-ops
-    // without Tier B. Base-journey digest still PASS 15.
-    'components/home/experience/home-story-timeline.ts': '553c21bc3b93f2d3',
+    // without Tier B. PASS 6B.1 writes the Atrium camera's pose flat (2D,
+    // never promoted) through the bridge, so the photograph is drawn directly
+    // and does not snap sharper in the frame the pull-back ends; the pose
+    // itself is still PASS 15's (check:atrium-orbit compares it).
+    'components/home/experience/home-story-timeline.ts': '2be91919bf63ca2a',
     'components/home/experience/continuous-breeze.tsx': '80f5ac52eee64916',
     'components/home/experience/breeze-renderer.ts': 'aa615ba1520bea94',
     'components/home/experience/breeze-geometry.ts': '8e8d627818928972',

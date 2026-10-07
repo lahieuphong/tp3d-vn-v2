@@ -9,7 +9,9 @@ handoff, the delivery intake contract (§16) and the PASS 6B.1 entry criteria
 three live QA issues of the deployed harness (§15.1): the Arrival backdrop,
 the release to the Footer and the readout. PASS 6B.0 draws a first orbit on
 comp plates cut from the room design comps (§15.2): provisional, preview
-only, and replaced view by view when studio plates are accepted.** None of the approved render plates and no
+only, and replaced view by view when studio plates are accepted. PASS 6B.1
+stops the picture snapping sharper as the pull-back ends and as each move
+begins and ends (§15.3).** None of the approved render plates and no
 camera data exist yet. The production homepage runs the approved
 Scene 3 with the portal orbit (`aa9ae55`). Tier B code loads only in
 development or a preview build, and only with `?atriumOrbit=1`. Nothing here
@@ -260,8 +262,10 @@ second image pipeline.
 - **Failed plate:** never drawn, no broken-image icon.
 - **UI follows the drawn plate.** Only while the delivery is incomplete (today) does it follow the scroll sample, so the sync can be previewed.
 
-Only a blend sets `will-change`. Resting and hidden plates are not
-composited layers; the browser may keep decoded images cached.
+Since PASS 6B.1 no plate ever sets `will-change`: a promoted plate is drawn
+from a texture and resampled, which is softer than the same plate at rest,
+so the picture snapped as each move began and ended (§15.3). Plates are
+posed by 2D transforms and drawn directly; hidden plates are not rendered.
 
 ## 9. Responsive and reduced motion
 
@@ -532,6 +536,31 @@ cut-outs are OpenCV inpainting, good under the HTML that covers them and
 visible on close inspection where a letter crossed a hard edge (the ceiling
 beam under the wordmark). On phones the copy shade covers most of the
 doorway, as it covers the wide Atrium today.
+
+### 15.3 PASS 6B.1 — the picture no longer snaps
+
+The owner reported the picture flashing once as the pull-back from the
+oculus reaches the full Atrium. Measured on device-resolution compositor
+frames (1680×887, DPR 2), as the fine detail of the picture per frame:
+
+| Where | Before | After |
+| --- | --- | --- |
+| The pull-back ends (approved bridge) | 440 → 699 in one frame (+59%) | rises smoothly; largest step 4% |
+| The push from the wide Atrium begins / ends | 699 → 517 (−26%) / 559 → 640 (+14%) | largest step 4% |
+| A pan begins | 679 → 607 (−11%) | largest step 2% |
+
+One cause in all three: an element promoted to its own texture (a 3D
+transform, or `will-change`) is resampled by the compositor as it moves and
+is softer than the same picture drawn directly, so the picture changes
+sharpness in the frame the promotion begins or ends.
+
+- The bridge's camera (`home-story-timeline.ts`) writes its pose in 2D and is never promoted. The pose is PASS 15's, number for number (`check:atrium-orbit` compares it); the portal orbit's breath keeps its approved 3D pose.
+- Plates never set `will-change` (`atrium-orbit-controller.ts`).
+
+Frame pacing is unchanged (60 fps cadence at DPR 2, also with the CPU slowed
+four times, and on a DPR 3 phone viewport). The change is in the approved
+bridge, so the normal homepage gets it too: the photograph is sharper while
+the camera pulls back and identical at rest.
 
 ## 16. Studio handoff and delivery intake (PASS 6A.9)
 

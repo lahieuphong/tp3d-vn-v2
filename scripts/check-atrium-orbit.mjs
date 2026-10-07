@@ -524,14 +524,68 @@ function story({
 // ---------------------------------------------------------------------------
 // Regression 1. The existing narrative is unchanged before the room orbit:
 // every base-journey write equals the PASS 15 timeline (d1a6a78).
+//
+// PASS 6B.1 changes how one thing is spelled, not what is drawn. Through the
+// bridge the camera's pose is written as a 2D transform and is never
+// promoted, so the photograph is drawn directly: no texture to resample (the
+// one-frame snap as the pull-back ends) and none to starve of tiles. The
+// lock is therefore on the pose: it is compared in the PASS 15 spelling,
+// without the promotion hint. The spelling rule itself is asserted below.
 // ---------------------------------------------------------------------------
+assert.match(
+  timelineSource,
+  /const flat = orbitProgress === 0;/,
+  "the bridge is flat; the portal orbit's breath is not",
+);
+assert.match(
+  timelineSource,
+  /cameraResponse\.active && !flat \? 'transform' : 'auto'/,
+  'a flat pose is never promoted',
+);
+const cameraPose = (transform) => {
+  if (transform === 'none' || transform === '')
+    return { kind: 'none', x: 0, y: 0, scale: 1 };
+  const match =
+    /^(translate3d|translate)\((-?[\d.]+)px, (-?[\d.]+)px(?:, 0)?\) scale\((-?[\d.]+)\)$/.exec(
+      transform,
+    );
+  assert.ok(match, `camera transform: ${transform}`);
+  return {
+    kind: match[1] === 'translate3d' ? '3d' : '2d',
+    x: match[2],
+    y: match[3],
+    scale: match[4],
+  };
+};
+// The same trace with the camera's pose in the PASS 15 spelling.
+const canonical = (trace) =>
+  trace.map(([name, style, attrs]) => {
+    if (name !== 'camera') return [name, style, attrs];
+    const pose = cameraPose(
+      style.find(([key]) => key === 'transform')?.[1] ?? '',
+    );
+    return [
+      name,
+      style
+        .filter(([key]) => key !== 'will-change')
+        .map(([key, value]) =>
+          key === 'transform' && pose.kind !== 'none'
+            ? [
+                key,
+                `translate3d(${pose.x}px, ${pose.y}px, 0) scale(${pose.scale})`,
+              ]
+            : [key, value],
+        ),
+      attrs,
+    ];
+  });
 const BASE_VIEWPORTS = [
   [1440, 900],
   [1180, 820],
   [390, 844],
   [844, 390],
 ];
-function baseJourney(source, orbit) {
+function baseJourney(source, orbit, onCamera = null) {
   const frames = [];
   for (const [width, height] of BASE_VIEWPORTS)
     for (const reduced of [false, true]) {
@@ -544,24 +598,48 @@ function baseJourney(source, orbit) {
       ].map(Math.round);
       for (const y of positions) {
         h.scroll(y);
-        frames.push([width, height, reduced, y, h.trace({ base: true })]);
+        const trace = h.trace({ base: true });
+        frames.push([width, height, reduced, y, canonical(trace)]);
         const { orbit: _orbit, ...state } = h.discovery.updates.at(-1);
         frames.push(state);
+        if (onCamera) {
+          const style = trace.find(([name]) => name === 'camera')[1];
+          onCamera(Object.fromEntries(style), [width, height, reduced, y]);
+        }
       }
       h.dispose();
     }
   return frames;
 }
-const PASS15_BASE_DIGEST = '11b1a49bdceb01ae';
+// The PASS 15 timeline (d1a6a78) through the same pose-canonical trace:
+//   git show d1a6a78:components/home/experience/home-story-timeline.ts > t.ts
+//   ORBIT_BASELINE_TIMELINE=t.ts node scripts/check-atrium-orbit.mjs
+const PASS15_BASE_DIGEST = '2ab28df0c254bba1';
 if (process.env.ORBIT_BASELINE_TIMELINE) {
   const baseline = readFileSync(process.env.ORBIT_BASELINE_TIMELINE, 'utf8');
   console.log(digest(baseJourney(baseline, 'no-marker')));
   process.exit(0);
 }
+// The spelling rule, on every base-journey frame: no transform at rest, a
+// flat pose otherwise, never promoted, at every scale of the pull-back.
+const spellings = { none: 0, '2d': 0, '3d': 0 };
+let largest = 1;
 assert.equal(
-  digest(baseJourney(timelineSource, true)),
+  digest(
+    baseJourney(timelineSource, true, (style, where) => {
+      const pose = cameraPose(style.transform ?? '');
+      spellings[pose.kind]++;
+      largest = Math.max(largest, Number(pose.scale));
+      assert.notEqual(pose.kind, '3d', `a 3D pose in the bridge (${where})`);
+      assert.equal(style['will-change'], 'auto', `promoted (${where})`);
+    }),
+  ),
   PASS15_BASE_DIGEST,
   'every base-journey write equals the PASS 15 timeline (not stretched)',
+);
+assert.ok(
+  spellings.none > 100 && spellings['2d'] > 100 && largest > 5,
+  `rest and the whole pull-back are exercised: ${JSON.stringify(spellings)}, up to ${largest}×`,
 );
 assert.equal(
   digest(baseJourney(timelineSource, 'no-marker')),

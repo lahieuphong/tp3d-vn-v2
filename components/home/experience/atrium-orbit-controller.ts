@@ -420,10 +420,7 @@ export function createAtriumOrbitController(
     for (const [id, entry] of plates) {
       const layer = layers.find(([state]) => state === id)?.[1] ?? null;
       if (entry.picture.hidden !== !layer) entry.picture.hidden = !layer;
-      if (!layer) {
-        property(entry.picture, 'will-change', 'auto');
-        continue;
-      }
+      if (!layer) continue;
       attr(
         entry.picture,
         'data-plate-role',
@@ -440,12 +437,10 @@ export function createAtriumOrbitController(
       const mask = maskOf(layer.edge);
       property(entry.picture, '-webkit-mask-image', mask);
       property(entry.picture, 'mask-image', mask);
-      // Only a move promotes layers; a resting plate is never a layer.
-      property(
-        entry.picture,
-        'will-change',
-        moving ? 'opacity, transform' : 'auto',
-      );
+      // PASS 6B.1: a plate is never promoted (no will-change), moving or
+      // not. A promoted plate is drawn from a texture and resampled, which
+      // is softer than the same plate at rest: the picture would snap as
+      // each move begins and ends. Its 2D pose is drawn directly instead.
     }
     // The UI follows the drawn plate. Without a complete delivery the UI
     // follows the scroll sample (preview of the sync, with the diagnostic).
@@ -592,11 +587,9 @@ export function createAtriumOrbitController(
       paintDiagnostic();
       return frame;
     },
-    /** Hidden tab: drop any promoted plate layer at once. */
+    /** Hidden tab: nothing is promoted, so there is nothing to drop. */
     suspend() {
       moving = false;
-      for (const entry of plates.values())
-        property(entry.picture, 'will-change', 'auto');
     },
     debug() {
       const s = sample;

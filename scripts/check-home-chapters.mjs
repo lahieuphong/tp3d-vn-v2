@@ -815,9 +815,10 @@ for (const width of [390, 820, 1440]) {
       p,
       bridgeModule.measureAtrium(width, 900),
     );
-    // The master clears the transform at the exact identity pose.
+    // The master clears the transform at the exact identity pose; through
+    // the bridge it writes every other pose flat, in 2D (PASS 6B.1).
     if (pose.x === 0 && pose.y === 0 && pose.scale === 1) return 'none';
-    return `translate3d(${pose.x.toFixed(3)}px, ${pose.y.toFixed(3)}px, 0) scale(${pose.scale.toFixed(7)})`;
+    return `translate(${pose.x.toFixed(3)}px, ${pose.y.toFixed(3)}px) scale(${pose.scale.toFixed(7)})`;
   };
   const baseline = b.count();
   for (let cycle = 0; cycle < 20; cycle++) {
@@ -1795,9 +1796,10 @@ const steps = (from, to, count) =>
     bridgeModule;
   const cameraAt = (p, width, height) => {
     const pose = atriumPose(p, measureAtrium(width, height));
+    // PASS 6B.1: through the bridge the pose is flat (2D) at every scale.
     return pose.x === 0 && pose.y === 0 && pose.scale === 1
       ? 'none'
-      : `translate3d(${pose.x.toFixed(3)}px, ${pose.y.toFixed(3)}px, 0) scale(${pose.scale.toFixed(7)})`;
+      : `translate(${pose.x.toFixed(3)}px, ${pose.y.toFixed(3)}px) scale(${pose.scale.toFixed(7)})`;
   };
   const settle = (b) => {
     for (let i = 0; i < 40 && b.count().frames; i++) b.flush();

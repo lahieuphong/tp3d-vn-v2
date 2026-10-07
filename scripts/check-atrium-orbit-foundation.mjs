@@ -28,6 +28,8 @@
  * only changes plates; the approved Atrium itself is never moved; the longer
  * orbit span exists in the preview alone. How the orbit looks is judged in
  * the browser, not here.
+ * PASS 6B.1 locks: no plate is ever promoted to its own texture (it would
+ * snap softer and sharper as each move begins and ends).
  * The timeline hook itself is checked in check-atrium-orbit. Nothing here
  * can validate how the future orbit looks: the render plates do not exist.
  * Generated camera rigs below are random test data, never product values. */
@@ -2001,6 +2003,29 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     'phones: the indicator keeps its place but leaves with the copy',
   );
   const controllerSource = read(`${EXPERIENCE}atrium-orbit-controller.ts`);
+  // PASS 6B.1: nothing in Tier B is promoted to its own texture. A promoted
+  // plate is resampled and softer than the same plate at rest, so each move
+  // would begin and end with a snap of the whole picture; plates are posed
+  // by 2D transforms and drawn directly instead.
+  assert.doesNotMatch(
+    controllerSource.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, ''),
+    /will-change|willChange|translate3d|translateZ|backface/,
+    'the controller never promotes a plate',
+  );
+  assert.ok(
+    preview.every(
+      (rule) =>
+        !/will-change|translate3d|translateZ|backface-visibility/.test(
+          rule.body,
+        ),
+    ),
+    'the preview stylesheet never promotes a layer',
+  );
+  assert.match(
+    controllerSource,
+    /`translate\(\$\{percent\(layer\.x\)\}, \$\{percent\(layer\.y\)\}\) scale\(\$\{layer\.scale\.toFixed\(5\)\}\)`/,
+    'a plate is posed by a 2D transform',
+  );
   assert.match(
     controllerSource,
     /property\(worlds, '--atrium-editorial', presence\.toFixed\(4\)\)/,
