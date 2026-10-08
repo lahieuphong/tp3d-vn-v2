@@ -584,6 +584,32 @@ by view through the manifest's status alone.
 
 Verified on a build without any flag at 1440×900, 1280×720, 820×1180 and 390×844: mode `plates`, Arrival file equal to the backdrop's, Back into the Bathroom hold restores that frame with the portal orbit never visible, the fallback URL shows the portal orbit, reduced motion steps through the four rooms. No sharpness step above 4% (desktop) / 1.2% (phone) between like frames through the push and the first pan.
 
+### 15.5 The push is matched on the Living doorway
+
+Owner report, 2026-10-08, with three frames of a screen recording: from the
+wide Atrium to Living the two pictures did not agree on the doorway, so the
+dissolve showed two doorways, displaced.
+
+**Cause.** The push grew the wide plate 3.75× about the doorway and then
+dissolved the whole frame over the Living view. Neither number was the
+doorway's: measured on the pictures (px of 1672 × 941), its opening is
+221 × 262 in the wide Atrium, where it is seen at an angle, and 520 × 422 in
+the Living view, where it is seen square on. And the wide picture ends just
+left of that doorway, so on a wide stage it could not be brought to the
+middle, where the Living view holds it.
+
+**Now** (`atrium-orbit-transition.ts`, `push`):
+
+- The wide plate grows until the opening is exactly the size it has in the Living view: 2.35× across and 1.61× down. It widens more than it grows, as a doorway does when the camera turns to face it. Still a flat 2D scale; no skew, rotation or perspective.
+- While it grows it stays over the whole stage. The rest of the way to the middle is travelled by both plates together, as one picture joined on the doorway (the turn). What the turn uncovers beside the wide plate is the Living view itself, joined softly on the pier the two pictures share.
+- The Living view lies on top and shows only through a mask. It first resolves inside the doorway, in place, then opens outward until it is the whole frame. It never lies over the wide plate as a second, displaced picture.
+- The opening begins only once the two doorways are the same size. From then on they coincide exactly, jamb on jamb, lintel on lintel, floor on floor (`check:atrium-orbit-foundation` asserts it to 1e-9 on nine viewports, with full coverage of the stage and no jump at any point).
+- Phones and portrait tablets need no turn: their window is narrow enough for the wide plate to bring the doorway to its place alone.
+
+**Measured** (production-equivalent build): no sharpness step above 2.1% (1680×887, DPR 2) or 4.2% (390×844, DPR 3) between like frames through the push; 60 fps cadence, also with the CPU slowed four times.
+
+**Limits.** The two pictures are different renders: the furniture inside the doorway differs, and the wide view's lintel slopes more than the Living view's. The match is the doorway's opening, not its contents. The three pans are unchanged.
+
 ## 16. Studio handoff and delivery intake (PASS 6A.9)
 
 | Document | For | Content |

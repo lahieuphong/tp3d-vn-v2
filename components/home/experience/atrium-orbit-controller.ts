@@ -326,11 +326,33 @@ export function createAtriumOrbitController(
   const ready = (id: AtriumOrbitStateId) => plates.get(id)?.state === 'ready';
   type Layer = [AtriumOrbitStateId, PlateLayer];
   const percent = (value: number) => `${(value * 100).toFixed(3)}%`;
-  /** A plate's soft edge as a mask across its own width. */
-  const maskOf = (edge: PlateLayer['edge']) =>
-    edge
-      ? `linear-gradient(90deg, transparent ${percent(edge[0])}, #000 ${percent(edge[1])})`
-      : 'none';
+  /** A plate's 2D scale: one number, or across and down where they differ. */
+  const scaleOf = ({ scale, scaleY = scale }: PlateLayer) =>
+    scaleY.toFixed(5) === scale.toFixed(5)
+      ? scale.toFixed(5)
+      : `${scale.toFixed(5)}, ${scaleY.toFixed(5)}`;
+  /** What a plate shows of itself, as a mask over its own box: a soft
+   * vertical edge (clear at edge[0], whole at edge[1], in either order) and
+   * a soft ellipse. Two mask images add up, so the plate shows through
+   * either. */
+  const maskOf = ({ edge, iris }: PlateLayer) => {
+    const parts: string[] = [];
+    if (edge)
+      parts.push(
+        edge[0] <= edge[1]
+          ? `linear-gradient(90deg, transparent ${percent(edge[0])}, #000 ${percent(edge[1])})`
+          : `linear-gradient(270deg, transparent ${percent(1 - edge[0])}, #000 ${percent(1 - edge[1])})`,
+      );
+    if (iris) {
+      const solid =
+        iris.alpha >= 1 ? '#000' : `rgba(0, 0, 0, ${iris.alpha.toFixed(4)})`;
+      // Two radii make the gradient's shape; no keyword is needed.
+      parts.push(
+        `radial-gradient(${percent(iris.rx)} ${percent(iris.ry)} at ${percent(iris.x)} ${percent(iris.y)}, ${solid} ${percent(iris.whole)}, transparent 100%)`,
+      );
+    }
+    return parts.length ? parts.join(', ') : 'none';
+  };
 
   const thumb = (room: AtriumRoomId) => {
     const existing = thumbs.get(room);
@@ -431,11 +453,14 @@ export function createAtriumOrbitController(
       property(
         entry.picture,
         'transform',
-        layer.x === 0 && layer.y === 0 && layer.scale === 1
+        layer.x === 0 &&
+          layer.y === 0 &&
+          layer.scale === 1 &&
+          (layer.scaleY ?? 1) === 1
           ? 'none'
-          : `translate(${percent(layer.x)}, ${percent(layer.y)}) scale(${layer.scale.toFixed(5)})`,
+          : `translate(${percent(layer.x)}, ${percent(layer.y)}) scale(${scaleOf(layer)})`,
       );
-      const mask = maskOf(layer.edge);
+      const mask = maskOf(layer);
       property(entry.picture, '-webkit-mask-image', mask);
       property(entry.picture, 'mask-image', mask);
       // PASS 6B.1: a plate is never promoted (no will-change), moving or

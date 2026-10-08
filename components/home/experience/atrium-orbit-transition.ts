@@ -62,21 +62,31 @@ export const ATRIUM_ORBIT_OCCLUDERS: readonly OccluderHint[] = [
   },
 ];
 
+/** A rectangle on a plate: x across its width, y down its height. */
+export type PlateBox = {
+  x: readonly [number, number];
+  y: readonly [number, number];
+};
+
 /** How the camera gets from one view to the next. Fractions of a plate
  * (x across its width, y down its height), measured on the comp plates:
  * PROVISIONAL, like them, and replaced by the studio's camera data. */
 export type AtriumOrbitShot =
   | {
-      /** Wide view → a doorway: the wide plate grows about that doorway
-       * until it is as large as in the next view, and resolves into it. */
+      /** Wide view → a doorway. The wide plate grows until that doorway's
+       * opening lies exactly on the same opening in the next view; the next
+       * view then spreads from inside the doorway over the whole frame. */
       kind: 'push';
-      /** The doorway in the wide view, and the same doorway in the next. */
-      door: { x: number; y: number };
-      goal: { x: number; y: number };
-      /** How much larger the doorway is in the next view. */
+      /** The doorway's opening (jamb to jamb, lintel to floor) in the wide
+       * view, and the same opening in the next view. */
+      door: PlateBox;
+      goal: PlateBox;
+      /** Shares of the move: the wide plate reaches the doorway's size by
+       * `zoom`; both plates turn to face it over `turn`; the next view
+       * opens out of the doorway over `iris`. */
       zoom: number;
-      /** The share of the move over which the wide plate dissolves. */
-      dissolve: readonly [number, number];
+      turn: readonly [number, number];
+      iris: readonly [number, number];
     }
   | {
       /** Doorway → next doorway, clockwise: both plates travel left as one
@@ -92,15 +102,36 @@ export type AtriumOrbitShot =
 export const ATRIUM_ORBIT_SHOTS: readonly AtriumOrbitShot[] = [
   {
     kind: 'push',
-    door: { x: 223 / 1672, y: 451 / 941 },
-    goal: { x: 0.514, y: 0.457 },
-    zoom: 3.75,
-    dissolve: [0.66, 0.98],
+    // The Living doorway, measured on both pictures (px of 1672 × 941). In
+    // the wide Atrium it is seen at an angle: 221 × 262. In the Living view
+    // it is seen square on: 520 × 422.
+    door: { x: [100 / 1672, 321 / 1672], y: [318 / 941, 580 / 941] },
+    goal: { x: [600 / 1672, 1120 / 1672], y: [218 / 941, 640 / 941] },
+    zoom: 0.6,
+    turn: [0.46, 0.92],
+    iris: [0.6, 1],
   },
   { kind: 'pan', shift: 0.461, pier: 0.753 },
   { kind: 'pan', shift: 0.415, pier: 0.725 },
   { kind: 'pan', shift: 0.39, pier: 0.755 },
 ];
+
+/** The next view opening out of the doorway at the end of a push. It first
+ * resolves inside the doorway, in place: an ellipse the size of the opening
+ * (`door`, in half-openings) fades in over the first `fade` of the move's
+ * iris share. It then grows, keeping the opening's proportions. `whole` is
+ * the share of its radius that shows the next view fully (the rest is the
+ * soft rim), and `growth` shapes how it opens: slowly near the doorway,
+ * where the two pictures agree exactly, then outward. Where the wide plate
+ * runs out on the side the camera turns to, the next view shows instead,
+ * joined over `join` plate widths just inside the wide plate. */
+export const ATRIUM_ORBIT_IRIS = {
+  door: 1,
+  fade: 0.12,
+  whole: 0.62,
+  growth: 1.7,
+  join: [0.008, 0.05],
+} as const;
 
 /** The join between two travelling plates. `feather` is half its soft width
  * (plate widths). It comes in from the edge, rests on the pier for the
@@ -136,15 +167,30 @@ export type PlateTransitionInput = {
 
 /** A plate layer's pose. A plate is a box of the plate's ratio that covers
  * the stage: x is a share of its width, y of its height, scale about its
- * centre. `edge` is a soft vertical edge, in shares of the plate's width:
- * the plate is clear at `edge[0]` and whole at `edge[1]`. Layers never
- * rotate, skew or take perspective. */
+ * centre. `scaleY` is its vertical scale where that differs (a doorway seen
+ * at an angle widens faster than it grows as the camera turns to face it).
+ * `edge` is a soft vertical edge, in shares of the plate's width: the plate
+ * is clear at `edge[0]` and whole at `edge[1]`, in either order. `iris` is a
+ * soft ellipse the plate shows through as well: centre and radii in shares
+ * of the plate's width and height, whole out to `whole` of the radius.
+ * Layers never rotate, skew or take perspective. */
 export type PlateLayer = {
   opacity: number;
   x: number;
   y: number;
   scale: number;
+  scaleY?: number;
   edge: readonly [number, number] | null;
+  iris?: PlateIris | null;
+};
+export type PlateIris = {
+  x: number;
+  y: number;
+  rx: number;
+  ry: number;
+  whole: number;
+  /** How much of the plate the ellipse shows at its centre (0 → 1). */
+  alpha: number;
 };
 /** `over` names the layer drawn on top and `lead` the view the frame mostly
  * shows (the one the UI follows). Neither depends on the travel direction. */
@@ -237,10 +283,21 @@ export const plainChange: PlateTransition = (input) => {
   };
 };
 
-/** Wide view → doorway. The wide plate grows at a steady rate about the
- * doorway, which travels to where the next view holds it; the next view
- * lies under it at rest and takes over as the wide plate dissolves. The
- * wide plate covers the stage at every scale. */
+/** Wide view → doorway, matched on the doorway itself.
+ *
+ * The wide plate grows until the doorway's opening is exactly the size it
+ * has in the next view: more across than down, because the wide view sees
+ * that doorway at an angle and the next view sees it square on. While it
+ * grows it stays over the whole stage. The doorway is then where the wide
+ * picture allows, which on a wide stage is short of where the next view
+ * holds it (the wide picture ends just beside that doorway). So both plates
+ * travel the rest together, as one picture joined on the doorway: the camera
+ * turning to face it. What the turn uncovers beside the wide plate is the
+ * next view itself, joined on the pier they share.
+ *
+ * The next view lies on top and opens out of the doorway, where the two
+ * pictures agree, until it is the whole frame. It never dissolves over the
+ * wide plate as a second, displaced picture. */
 function push(
   input: PlateTransitionInput,
   shot: Extract<AtriumOrbitShot, { kind: 'push' }>,
@@ -249,33 +306,108 @@ function push(
   const e = travel(localProgress);
   const start = plateWindowStart(from, window, layout);
   const goal = plateWindowStart(to, window, layout);
-  const scale = Math.exp(Math.log(shot.zoom) * e);
-  const reach = (scale - 1) / (shot.zoom - 1);
-  const room = 0.5 * (shot.zoom - 1);
-  // Where the plate must stand at full zoom for the two doorways to meet,
-  // kept inside what still covers the stage.
-  const x = clamp(
-    shot.goal.x - goal - 0.5 - (shot.door.x - 0.5) * shot.zoom,
-    window.width - 1 - room,
-    room,
-  );
+  // A picture's own height is taller than the plate's box on a stage wider
+  // than the plate (cover, top-aligned): box share = picture share / height.
+  const tall = (y: number) => y / window.height;
+  const mid = (range: readonly [number, number]) => (range[0] + range[1]) / 2;
+  const zoomX =
+    (shot.goal.x[1] - shot.goal.x[0]) / (shot.door.x[1] - shot.door.x[0]);
+  const zoomY =
+    (shot.goal.y[1] - shot.goal.y[0]) / (shot.door.y[1] - shot.door.y[0]);
+  const grown = editorial(unit(e / shot.zoom));
+  const scale = Math.exp(Math.log(zoomX) * grown);
+  const scaleY = Math.exp(Math.log(zoomY) * grown);
+  const roomX = 0.5 * (zoomX - 1);
+  const roomY = 0.5 * (zoomY - 1);
+  // Where the wide plate must stand, fully grown, for the two openings to
+  // coincide; and the nearest place to it that still covers the stage.
+  const matchX =
+    mid(shot.goal.x) - goal - 0.5 - (mid(shot.door.x) - 0.5) * zoomX;
+  const coverX = clamp(matchX, window.width - 1 - roomX, roomX);
   const y = clamp(
-    shot.goal.y / window.height -
-      0.5 -
-      (shot.door.y / window.height - 0.5) * shot.zoom,
-    -room,
-    room,
+    tall(mid(shot.goal.y)) - 0.5 - (tall(mid(shot.door.y)) - 0.5) * zoomY,
+    -roomY,
+    roomY,
   );
+  // The rest of the way is travelled by both plates together.
+  const turn = (matchX - coverX) * (1 - editorial(span(e, ...shot.turn)));
+  const wide: PlateLayer = {
+    opacity: 1,
+    x:
+      mix(-start, coverX, (scale - 1) / (zoomX - 1)) + (matchX - coverX) - turn,
+    y: y * ((scaleY - 1) / (zoomY - 1)),
+    scale,
+    scaleY,
+    edge: null,
+  };
+  const next: PlateLayer = {
+    ...plateRest(to, window, layout),
+    x: -goal - turn,
+  };
+  // The next view opens out of the doorway. Its ellipse keeps the opening's
+  // proportions and ends by holding the whole stage inside its solid part.
+  const { door, fade, whole, growth, join } = ATRIUM_ORBIT_IRIS;
+  const centre = { x: mid(shot.goal.x), y: tall(mid(shot.goal.y)) };
+  const half = {
+    x: (shot.goal.x[1] - shot.goal.x[0]) / 2,
+    y: tall(shot.goal.y[1] - shot.goal.y[0]) / 2,
+  };
+  const stageLeft = -next.x;
+  const stageRight = stageLeft + window.width;
+  const corner = Math.max(
+    ...[stageLeft, stageRight].flatMap((cx) =>
+      [0, 1].map((cy) =>
+        Math.hypot((cx - centre.x) / half.x, (cy - centre.y) / half.y),
+      ),
+    ),
+  );
+  // While the plates turn, the ellipse grows only as far as fits inside the
+  // next plate, whose own edge may still be on stage; once the turn has
+  // brought that plate over the whole stage, it opens to the corners.
+  const full = (corner * 1.02) / whole;
+  const fits = Math.max(
+    door,
+    Math.min(full, (1 - centre.x) / half.x, centre.x / half.x),
+  );
+  const resolved = shot.iris[0] + fade;
+  const alpha = editorial(span(e, shot.iris[0], resolved));
+  const reach =
+    alpha > 0
+      ? door +
+        (fits - door) * span(e, resolved, shot.turn[1]) ** growth +
+        (full - fits) * editorial(span(e, shot.turn[1], shot.iris[1]))
+      : 0;
+  // What the turn uncovers beside the wide plate: where that plate ends on
+  // stage. There the next view shows instead, joined softly just inside the
+  // wide plate. The join opens from nothing as the plate's end comes on
+  // stage, so it never appears at once.
+  const end = 0.5 - 0.5 * scale + wide.x;
+  const soft = unit(end / join[1]);
+  const edge: PlateLayer['edge'] =
+    end > 0
+      ? [end - next.x + join[1] * soft, end - next.x + join[0] * soft]
+      : null;
+  const shown = reach > 0 || edge !== null;
   return {
-    from: {
-      opacity: 1 - editorial(span(e, shot.dissolve[0], shot.dissolve[1])),
-      x: mix(-start, x, reach),
-      y: y * reach,
-      scale,
-      edge: null,
-    },
-    to: plateRest(to, window, layout),
-    over: 'from',
+    from: wide,
+    to: shown
+      ? {
+          ...next,
+          edge,
+          iris:
+            reach > 0
+              ? {
+                  x: centre.x,
+                  y: centre.y,
+                  rx: half.x * reach,
+                  ry: half.y * reach,
+                  whole,
+                  alpha,
+                }
+              : null,
+        }
+      : HIDDEN,
+    over: 'to',
     lead: leadAt(localProgress),
   };
 }

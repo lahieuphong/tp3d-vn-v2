@@ -1216,6 +1216,7 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     ATRIUM_ORBIT_OCCLUDERS,
     ATRIUM_ORBIT_SHOTS: SHOTS,
     ATRIUM_ORBIT_SEAM: SEAM,
+    ATRIUM_ORBIT_IRIS: IRIS,
   } = transition;
   const { plateWindow, atriumOrbitLayout, plateWindowStart } = manifest;
   const angles = cameras.validateAtriumOrbitCameras(rig()).stepAngles;
@@ -1232,8 +1233,42 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     SHOTS.map((shot) => shot.kind),
     ['push', 'pan', 'pan', 'pan'],
   );
-  assert.ok(SHOTS[0].zoom > 2 && SHOTS[0].zoom < 5);
-  assert.ok(SHOTS[0].dissolve[0] > 0.4 && SHOTS[0].dissolve[1] <= 1);
+  // The push is matched on the doorway: its opening in the wide view and in
+  // the next view, both measured on the pictures (jamb to jamb, lintel to
+  // floor). The wide view sees it at an angle, so it must widen more than
+  // it grows.
+  {
+    const { door, goal, zoom, turn, iris } = SHOTS[0];
+    for (const box of [door, goal]) {
+      assert.ok(0 < box.x[0] && box.x[0] < box.x[1] && box.x[1] < 1);
+      assert.ok(0 < box.y[0] && box.y[0] < box.y[1] && box.y[1] < 1);
+    }
+    const across = (goal.x[1] - goal.x[0]) / (door.x[1] - door.x[0]);
+    const down = (goal.y[1] - goal.y[0]) / (door.y[1] - door.y[0]);
+    assert.ok(across > 2 && across < 3, `the doorway widens ${across}×`);
+    assert.ok(down > 1.3 && down < 2, `and grows ${down}×`);
+    assert.ok(across > down * 1.2, 'seen at an angle, then square on');
+    near(
+      (goal.x[0] + goal.x[1]) / 2,
+      manifest.ATRIUM_ORBIT_FOCUS.living,
+      'the opening is centred on the view',
+      0.01,
+    );
+    // Grown first; the turn and the opening follow, and the next view only
+    // opens once the doorways are the same size.
+    assert.ok(0.4 < zoom && zoom < 0.75);
+    assert.ok(
+      turn[0] < zoom && zoom < turn[1] && turn[1] < 1,
+      'the turn overlaps',
+    );
+    assert.ok(iris[0] >= zoom && iris[0] < turn[1] && iris[1] === 1);
+    assert.ok(IRIS.whole > 0.4 && IRIS.whole < 0.85, 'a soft rim, not a line');
+    assert.ok(IRIS.door > 0.6 && IRIS.door <= 1.2, 'it starts as the doorway');
+    assert.ok(IRIS.fade > 0.05 && IRIS.fade < 0.3);
+    assert.ok(
+      0 < IRIS.join[0] && IRIS.join[0] < IRIS.join[1] && IRIS.join[1] < 0.1,
+    );
+  }
   for (const shot of SHOTS.slice(1)) {
     assert.ok(shot.shift > 0.3 && shot.shift < 0.6, 'half a view at a time');
     assert.ok(shot.pier > shot.shift && shot.pier < 1, 'the pier is shared');
@@ -1244,27 +1279,52 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
   );
 
   // Stage geometry of one posed plate (the runtime's own box model).
+  const tallOf = (layer) => layer.scaleY ?? layer.scale;
   const extent = (layer, window) => ({
     left: (0.5 - 0.5 * layer.scale + layer.x) / window.width,
     right: (0.5 + 0.5 * layer.scale + layer.x) / window.width,
-    top: 0.5 - 0.5 * layer.scale + layer.y,
-    bottom: 0.5 + 0.5 * layer.scale + layer.y,
+    top: 0.5 - 0.5 * tallOf(layer) + layer.y,
+    bottom: 0.5 + 0.5 * tallOf(layer) + layer.y,
   });
-  // How much of the plate is there at one stage position (0 → 1).
-  const alphaAt = (layer, window, sx) => {
+  // A point of a plate (shares of its own box) on the stage (x in stage
+  // widths, y in stage heights), and back.
+  const onStage = (layer, window, px, py) => [
+    ((px - 0.5) * layer.scale + 0.5 + layer.x) / window.width,
+    (py - 0.5) * tallOf(layer) + 0.5 + layer.y,
+  ];
+  const onPlate = (layer, window, sx, sy) => [
+    (sx * window.width - layer.x - 0.5) / layer.scale + 0.5,
+    (sy - layer.y - 0.5) / tallOf(layer) + 0.5,
+  ];
+  // How much of the plate is there at one stage position (0 → 1): its box,
+  // then what its mask shows. A soft edge (either way round) and an ellipse
+  // add up, as two CSS mask images do.
+  const alphaAt = (layer, window, sx, sy = 0.5) => {
     if (layer.opacity <= 0) return 0;
     const box = extent(layer, window);
     if (sx < box.left - 1e-9 || sx > box.right + 1e-9) return 0;
-    if (!layer.edge) return layer.opacity;
-    const local = (sx * window.width - layer.x - 0.5) / layer.scale + 0.5;
-    const [clear, whole] = layer.edge;
-    const share =
-      whole > clear
-        ? Math.min(1, Math.max(0, (local - clear) / (whole - clear)))
-        : local >= clear
-          ? 1
-          : 0;
-    return layer.opacity * share;
+    if (sy < box.top - 1e-9 || sy > box.bottom + 1e-9) return 0;
+    if (!layer.edge && !layer.iris) return layer.opacity;
+    const [px, py] = onPlate(layer, window, sx, sy);
+    let edge = 0;
+    if (layer.edge) {
+      const [clear, whole] = layer.edge;
+      // A line (clear === whole) is whole on its right, as the runtime's
+      // gradient draws it.
+      edge =
+        whole === clear
+          ? px >= clear
+            ? 1
+            : 0
+          : Math.min(1, Math.max(0, (px - clear) / (whole - clear)));
+    }
+    let iris = 0;
+    if (layer.iris) {
+      const { x, y, rx, ry, whole, alpha } = layer.iris;
+      const r = Math.hypot((px - x) / rx, (py - y) / ry);
+      iris = alpha * Math.min(1, Math.max(0, (1 - r) / (1 - whole)));
+    }
+    return layer.opacity * (edge + iris - edge * iris);
   };
   const VIEWPORTS = [
     [2560, 1080],
@@ -1278,6 +1338,8 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     [844, 390],
   ];
   const stageXs = Array.from({ length: 161 }, (_, i) => i / 160);
+  const stageYs = [0, 0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9, 1];
+  const innerXs = Array.from({ length: 80 }, (_, i) => (i + 0.5) / 80);
   const locals = Array.from({ length: 241 }, (_, i) => i / 240);
   for (const s of t.segments) {
     const p = (s.start + s.end) / 2;
@@ -1368,15 +1430,16 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
             frame.over === 'to'
               ? [frame.from, frame.to]
               : [frame.to, frame.from];
-          for (const sx of stageXs) {
-            const a = alphaAt(top, window, sx);
-            const b = alphaAt(under, window, sx);
-            assert.ok(
-              a + (1 - a) * b >= 1 - 1e-9,
-              `${s.from}→${s.to} ${width}×${height} local ${local} x ${sx}: ` +
-                `covered ${a + (1 - a) * b}`,
-            );
-          }
+          for (const sx of stageXs)
+            for (const sy of stageYs) {
+              const a = alphaAt(top, window, sx, sy);
+              const b = alphaAt(under, window, sx, sy);
+              assert.ok(
+                a + (1 - a) * b >= 1 - 1e-9,
+                `${s.from}→${s.to} ${width}×${height} local ${local} at ` +
+                  `${sx}, ${sy}: covered ${a + (1 - a) * b}`,
+              );
+            }
           for (const layer of [frame.from, frame.to]) {
             if (layer.opacity <= 0) continue;
             const box = extent(layer, window);
@@ -1417,19 +1480,72 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
               );
               assert.ok(clear >= -1e-9 && whole <= 1 - shot.shift + 1e-9);
             } else {
-              // The wide plate grows over the next view, which lies whole
-              // beneath it, and covers the stage itself at every scale.
-              assert.equal(frame.over, 'from');
-              same(frame.to, restTo);
-              assert.equal(frame.from.edge, null);
-              const box = extent(frame.from, window);
-              assert.ok(box.left <= 1e-9 && box.right >= 1 - 1e-9);
-              assert.ok(frame.from.scale <= shot.zoom + 1e-9);
+              // The wide plate is whole and unmasked beneath; the next view
+              // lies on top at its own size and only ever shows through its
+              // mask. Neither is ever a second, displaced picture.
+              assert.equal(frame.over, 'to');
+              same(
+                [frame.from.opacity, frame.from.edge, frame.from.iris],
+                [1, null, undefined],
+              );
+              const across =
+                (shot.goal.x[1] - shot.goal.x[0]) /
+                (shot.door.x[1] - shot.door.x[0]);
+              const down =
+                (shot.goal.y[1] - shot.goal.y[0]) /
+                (shot.door.y[1] - shot.door.y[0]);
+              assert.ok(frame.from.scale <= across + 1e-9);
+              assert.ok(frame.from.scaleY <= down + 1e-9);
+              assert.ok(frame.from.scaleY <= frame.from.scale + 1e-9);
+              if (frame.to.opacity > 0) {
+                same([frame.to.scale, frame.to.y], [1, 0]);
+                assert.ok(
+                  frame.to.edge || frame.to.iris,
+                  'only through a mask',
+                );
+                // The next plate's own edges are never shown: where it does
+                // not reach the stage's side yet, the ellipse stops inside.
+                const box = extent(frame.to, window);
+                if (frame.to.iris && box.right < 1 - 1e-9)
+                  assert.ok(
+                    frame.to.iris.x + frame.to.iris.rx <= 1 + 1e-9,
+                    'the ellipse stays inside the plate',
+                  );
+                assert.ok(
+                  box.left <= 1e-9,
+                  'the next view holds the near side',
+                );
+              }
+              // Matched on the doorway: whenever the next view shows inside
+              // it, the opening of the wide plate lies on the opening of the
+              // next view, jamb on jamb, lintel on lintel, floor on floor.
+              if (frame.to.iris) {
+                const tall = (y) => y / window.height;
+                const corners = (layer, box) => [
+                  onStage(layer, window, box.x[0], tall(box.y[0])),
+                  onStage(layer, window, box.x[1], tall(box.y[1])),
+                ];
+                const wide = corners(frame.from, shot.door).flat();
+                const next = corners(frame.to, shot.goal).flat();
+                wide.forEach((value, i) =>
+                  assert.ok(
+                    Math.abs(value - next[i]) < 1e-9,
+                    `${width}×${height} local ${local}: the doorways ` +
+                      `coincide (${wide.join(', ')} vs ${next.join(', ')})`,
+                  ),
+                );
+                near(frame.from.scale, across, 'fully grown', 1e-9);
+                near(frame.from.scaleY, down, 'fully grown', 1e-9);
+              }
             }
           }
-          // No jump between neighbouring positions (except the plain cut).
+          // No jump between neighbouring positions (except the plain cut):
+          // neither plate moves far, and what the top one shows changes
+          // gradually at every point of the stage.
           if (orbit && previous && local < 1 && local - 1 / 240 > 0) {
             for (const key of ['from', 'to']) {
+              if (frame[key].opacity <= 0 || previous[key].opacity <= 0)
+                continue;
               assert.ok(
                 Math.abs(frame[key].x - previous[key].x) < 0.05,
                 `${key} x`,
@@ -1437,10 +1553,35 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
               assert.ok(
                 Math.abs(frame[key].scale - previous[key].scale) < 0.06,
               );
-              assert.ok(
-                Math.abs(frame[key].opacity - previous[key].opacity) < 0.08,
-              );
             }
+            const [, topNow] =
+              frame.over === 'to'
+                ? [frame.from, frame.to]
+                : [frame.to, frame.from];
+            const [, topBefore] =
+              previous.over === 'to'
+                ? [previous.from, previous.to]
+                : [previous.to, previous.from];
+            // A soft edge may travel, so a point is compared with what was
+            // near it one position ago: nothing may appear or vanish there
+            // at once.
+            const near4 = [-0.04, -0.02, 0, 0.02, 0.04];
+            const near6 = [-0.06, 0, 0.06];
+            for (const sx of innerXs)
+              for (const sy of stageYs) {
+                const now = alphaAt(topNow, window, sx, sy);
+                const around = near4.flatMap((dx) =>
+                  near6.map((dy) =>
+                    alphaAt(topBefore, window, sx + dx, sy + dy),
+                  ),
+                );
+                assert.ok(
+                  now <= Math.max(...around) + 0.3 &&
+                    now >= Math.min(...around) - 0.3,
+                  `${s.from}→${s.to} ${width}×${height} local ${local}: ` +
+                    `no jump in what shows at ${sx}, ${sy}`,
+                );
+              }
           }
           previous = frame;
         }
@@ -1463,19 +1604,26 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
           1e-9,
         );
       } else {
-        // The push ends with the two doorways together (as far as the wide
-        // plate can travel and still cover the stage).
+        // The push ends on the next view alone: the ellipse holds the whole
+        // stage in its solid part, at the next view's resting place.
         const late = orbitTransition({
-          ...inputAt(0.999, 'forward'),
-          localProgress: 0.999,
+          ...inputAt(0.9995, 'forward'),
+          localProgress: 0.9995,
         });
-        const door = (shot.door.x - 0.5) * late.from.scale + 0.5 + late.from.x;
-        const goal = shot.goal.x - plateWindowStart(s.to, window, layout);
-        assert.ok(
-          Math.abs(door - goal) < 0.03,
-          `doorways meet: ${door} vs ${goal}`,
-        );
-        assert.ok(late.from.opacity < 0.01, 'resolved into the next view');
+        near(late.to.x, restTo.x, 'at rest', 1e-6);
+        for (const sx of stageXs)
+          for (const sy of stageYs)
+            assert.ok(
+              alphaAt(late.to, window, sx, sy) > 1 - 1e-6,
+              `${width}×${height}: the next view is the whole frame`,
+            );
+        // And it begins on the wide view alone.
+        const early = orbitTransition({
+          ...inputAt(0.2, 'forward'),
+          localProgress: 0.2,
+        });
+        for (const sx of stageXs)
+          assert.ok(alphaAt(early.to, window, sx, 0.5) < 1e-9);
       }
     }
   }
@@ -2055,8 +2203,19 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
   );
   assert.match(
     controllerSource,
-    /`translate\(\$\{percent\(layer\.x\)\}, \$\{percent\(layer\.y\)\}\) scale\(\$\{layer\.scale\.toFixed\(5\)\}\)`/,
+    /`translate\(\$\{percent\(layer\.x\)\}, \$\{percent\(layer\.y\)\}\) scale\(\$\{scaleOf\(layer\)\}\)`/,
     'a plate is posed by a 2D transform',
+  );
+  // One scale, or across and down for the push's turn: still 2D, no skew,
+  // rotation, matrix or perspective.
+  assert.match(
+    controllerSource,
+    /const scaleOf = \(\{ scale, scaleY = scale \}: PlateLayer\) =>\s*scaleY\.toFixed\(5\) === scale\.toFixed\(5\)\s*\? scale\.toFixed\(5\)\s*: `\$\{scale\.toFixed\(5\)\}, \$\{scaleY\.toFixed\(5\)\}`;/,
+  );
+  assert.doesNotMatch(
+    controllerSource.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, ''),
+    /matrix\(|matrix3d|skew|rotate|perspective/,
+    'never a skew, rotation or perspective',
   );
   assert.match(
     controllerSource,
@@ -2466,17 +2625,35 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
       same(
         s.plates,
         drawnAt(sample).map(([id, role, layer]) => {
-          const mask = layer.edge
-            ? `linear-gradient(90deg, transparent ${percent(layer.edge[0])}, #000 ${percent(layer.edge[1])})`
-            : 'none';
+          // A soft edge either way round, and the push's ellipse; two mask
+          // images add up, so the plate shows through either.
+          const parts = [];
+          if (layer.edge)
+            parts.push(
+              layer.edge[0] <= layer.edge[1]
+                ? `linear-gradient(90deg, transparent ${percent(layer.edge[0])}, #000 ${percent(layer.edge[1])})`
+                : `linear-gradient(270deg, transparent ${percent(1 - layer.edge[0])}, #000 ${percent(1 - layer.edge[1])})`,
+            );
+          if (layer.iris) {
+            const { x, y, rx, ry, whole, alpha } = layer.iris;
+            parts.push(
+              `radial-gradient(${percent(rx)} ${percent(ry)} at ${percent(x)} ${percent(y)}, ${alpha >= 1 ? '#000' : `rgba(0, 0, 0, ${alpha.toFixed(4)})`} ${percent(whole)}, transparent 100%)`,
+            );
+          }
+          const mask = parts.length ? parts.join(', ') : 'none';
+          const down = layer.scaleY ?? layer.scale;
           return {
             id,
             role,
             opacity: layer.opacity.toFixed(4),
             transform:
-              layer.x === 0 && layer.y === 0 && layer.scale === 1
+              layer.x === 0 && layer.y === 0 && layer.scale === 1 && down === 1
                 ? 'none'
-                : `translate(${percent(layer.x)}, ${percent(layer.y)}) scale(${layer.scale.toFixed(5)})`,
+                : `translate(${percent(layer.x)}, ${percent(layer.y)}) scale(${
+                    down.toFixed(5) === layer.scale.toFixed(5)
+                      ? layer.scale.toFixed(5)
+                      : `${layer.scale.toFixed(5)}, ${down.toFixed(5)}`
+                  })`,
             mask,
             webkitMask: mask,
           };
@@ -2516,11 +2693,31 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
         ),
         'a pan joins the incoming plate by a soft edge',
       );
+      // The push: the wide plate grows more across than down (it turns to
+      // face a doorway seen at an angle), and the next view opens out of the
+      // doorway through a soft ellipse, alone or with the join beside it.
       assert.ok(
         travelling.some((s) =>
-          /scale\((2|3)\.\d+\)/.test(s.plates[0].transform),
+          /scale\(2\.\d+, 1\.\d+\)/.test(s.plates[0].transform),
         ),
-        'the push grows the wide plate',
+        'the push grows the wide plate, wider than tall',
+      );
+      const opening = travelling.filter((s) =>
+        /radial-gradient\([\d.]+% [\d.]+% at [\d.]+% [\d.]+%, (#000|rgba\(0, 0, 0, [\d.]+\)) [\d.]+%, transparent 100%\)$/.test(
+          s.plates.at(-1).mask,
+        ),
+      );
+      assert.ok(opening.length > 20, 'the next view opens out of the doorway');
+      assert.ok(
+        opening.every(
+          (s) =>
+            s.plates.at(-1).id === 'living' && s.plates[0].id === 'arrival',
+        ),
+        'only into Living, from the wide Atrium',
+      );
+      assert.ok(
+        opening.every((s) => s.plates.at(-1).role === 'over'),
+        'the next view lies on top',
       );
     }
     assert.ok(
