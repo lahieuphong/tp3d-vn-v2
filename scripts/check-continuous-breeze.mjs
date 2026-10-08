@@ -289,16 +289,23 @@ const renderer = rendererModule.createBreezeRenderer(root);
 renderer.measure(1440, 900);
 assert.equal(root.dataset.breezeFamily, 'desktop');
 const approvedFolds = folds.map((node) => node.getAttribute('opacity'));
-for (const p of [0, 0.14, 0.27, 0.295, 0.3, 0.305, 0.33, 0.42, 0.48]) {
+// TP3D STEP 2: the cloth travels between its two reading poses (one viewport
+// apart) instead of fading out and returning. It rests exactly on both.
+for (const p of [
+  0, 0.14, 0.27, 0.28, 0.295, 0.3, 0.305, 0.32, 0.33, 0.42, 0.48,
+]) {
   renderer.paint(p, false);
   const { perspective } = frameModule.homeStoryFrame(p);
-  const expectedTransform =
-    perspective < 0.5 ? 'translate(0 990.00)' : 'translate(0 0.00)';
+  const lift = perspective * perspective * (3 - 2 * perspective);
+  const expectedTransform = `translate(0 ${(990 * (1 - lift)).toFixed(2)})`;
+  if (p <= 0.27) assert.equal(expectedTransform, 'translate(0 990.00)');
+  if (p >= 0.33) assert.equal(expectedTransform, 'translate(0 0.00)');
   for (const node of poses.slice(0, 2)) {
     assert.equal(node.getAttribute('transform'), expectedTransform);
     assert.equal(
       node.getAttribute('opacity'),
-      Math.abs(1 - 2 * perspective).toFixed(5),
+      '1.00000',
+      'the cloth is never absent between its poses',
     );
   }
   assert.equal(transfer.getAttribute('opacity'), '0.00000');
@@ -308,6 +315,26 @@ for (const p of [0, 0.14, 0.27, 0.295, 0.3, 0.305, 0.33, 0.42, 0.48]) {
     approvedFolds,
     'PASS 3 does not alter the approved opening/reading cloth material',
   );
+}
+// The travel is one eased rise: no step, no reversal, in either direction.
+{
+  const height = (p) => {
+    renderer.paint(p, false);
+    return Number(
+      /^translate\(0 (-?[\d.]+)\)$/.exec(poses[0].getAttribute('transform'))[1],
+    );
+  };
+  let previous = height(0.26),
+    largest = 0;
+  for (let i = 1; i <= 400; i++) {
+    const y = height(0.26 + (0.08 * i) / 400);
+    assert.ok(y <= previous, 'the cloth only rises on the way forward');
+    largest = Math.max(largest, previous - y);
+    previous = y;
+  }
+  assert.equal(previous, 0);
+  assert.ok(largest < 990 * 0.006, `no step in the rise (${largest}px)`);
+  assert.equal(height(0.3), 495, 'midway at the handoff');
 }
 writes.length = 0;
 for (let i = 0; i <= 200; i++) renderer.paint(i / 200, false);

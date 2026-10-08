@@ -30,17 +30,23 @@ export function loadStoryMath(name) {
   return loaded.exports;
 }
 
-/** home-motion with the scroll follow switched off (MOTION.follow.tau = 0),
- * for DOM doubles that assert the frame a scroll position rests on. With the
- * follow on, that frame is reached a few frames later; the checks that turn
- * it on prove both agree. */
-export function loadRawScrollMotion() {
+/** home-motion as a DOM double wants it. `follow: false` switches the scroll
+ * follow off (MOTION.follow.tau = 0) and `pace: false` drops the pace table
+ * (MOTION.pace = null: scroll share is story progress), for doubles that
+ * assert the frame a story position rests on. With the follow on, that frame
+ * is reached a few frames later; with pacing, at another scroll position.
+ * The checks that turn them on prove both. */
+export function loadMotion({ follow = true, pace = true } = {}) {
   const motion = loadStoryMath('home-motion');
+  if (follow && pace) return motion;
   return {
     ...motion,
     MOTION: {
       ...motion.MOTION,
-      follow: { ...motion.MOTION.follow, tau: { fine: 0, coarse: 0 } },
+      follow: follow
+        ? motion.MOTION.follow
+        : { ...motion.MOTION.follow, tau: { fine: 0, coarse: 0 } },
+      pace: pace ? motion.MOTION.pace : null,
     },
   };
 }

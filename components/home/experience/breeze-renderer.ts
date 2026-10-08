@@ -84,17 +84,18 @@ export function createBreezeRenderer(root: HTMLElement): BreezeDriver {
       // The approach begins with Scene 2's departure: a restrained first stir
       // of air (MOTION.breeze.stir) before the cloth accelerates toward the lens.
       const approaching = progress > bridgeTiming.exitStart && !reduced;
-      // Preserve PASS 2 exactly until the atmospheric approach. The two old
-      // reading poses still exchange only at their invisible midpoint.
-      const y = perspective < 0.5 ? openingDistance : 0;
+      // TP3D STEP 2 — the cloth travels between its two reading poses. It
+      // used to fade to nothing at the handoff and return in the other pose
+      // (the same shape, one viewport lower), so the one element meant to
+      // carry Arrival into Perspective was absent while the aperture opened.
+      // It now rises through the frame with that move, eased at both ends,
+      // and rests exactly on the two approved poses.
+      const lift = perspective * perspective * (3 - 2 * perspective);
+      const y = openingDistance * (1 - lift);
       const transform = approaching
         ? `translate(${(geometry.focus.x + pose.x).toFixed(2)} ${(geometry.focus.y + pose.y).toFixed(2)}) rotate(${pose.rotate.toFixed(4)}) scale(${pose.scale.toFixed(6)}) translate(${(-geometry.focus.x).toFixed(2)} ${(-geometry.focus.y).toFixed(2)})`
         : `translate(0 ${y.toFixed(2)})`;
-      const clothOpacity = reduced
-        ? 0
-        : approaching
-          ? pose.opacity
-          : Math.abs(1 - 2 * perspective);
+      const clothOpacity = reduced ? 0 : approaching ? pose.opacity : 1;
       // Only a warmed, painted WebGL bridge may take over the cloth. The
       // default remains the complete reversible DOM fallback.
       const opacity = clothOpacity * (1 - atmosphericTakeover);

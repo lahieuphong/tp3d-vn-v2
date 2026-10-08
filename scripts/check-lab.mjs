@@ -1100,8 +1100,11 @@ for (const source of [...LAB_FILES.map(code), html]) {
     // TP3D STEP 1 replaces `scrub: 0` with the scroll follow (`follow`,
     // followScroll): what the pinned stage shows trails the hand and rests
     // on it. Every curve, timing and mass value the Lab reads is unchanged
-    // (check:home).
-    'components/home/experience/home-motion.ts': '31a40976e5a2e7ae',
+    // (check:home). STEP 2 adds the pace table (`pace`, storyPacing: how
+    // much of the scroll distance each stretch of the story gets) and starts
+    // the Atrium pull-back while the last cloud clears (`camera.start` 0.695,
+    // from 0.72 / 0.715); check:home locks what else stayed PASS 04.
+    'components/home/experience/home-motion.ts': '9cdc957baf4118e5',
     // TP3D PASS — Atrium room orbit appends its own span after the approved
     // journey; the bridge writes the Lab maps are unchanged (check:atrium-orbit).
     // TP3D PASS 6A adds only the dormant Tier B hook (development / preview
@@ -1117,10 +1120,14 @@ for (const source of [...LAB_FILES.map(code), html]) {
     // samples every layer from the followed scroll position instead of the
     // raw one and writes the portal orbit's breath flat as well; at rest
     // each scroll position writes what it wrote before (check:home,
-    // check:atrium-orbit).
-    'components/home/experience/home-story-timeline.ts': '9856dcd6266609b7',
+    // check:atrium-orbit). STEP 2 turns the share of the distance scrolled
+    // into story progress through the pace table (one to one under reduced
+    // motion); the frame a story position rests on is unchanged.
+    'components/home/experience/home-story-timeline.ts': '4e562e9a520d6999',
     'components/home/experience/continuous-breeze.tsx': '80f5ac52eee64916',
-    'components/home/experience/breeze-renderer.ts': 'aa615ba1520bea94',
+    // STEP 2: the cloth travels between its two reading poses instead of
+    // fading out and returning in the other; both poses are unchanged.
+    'components/home/experience/breeze-renderer.ts': 'aef51b0e0194914e',
     'components/home/experience/breeze-geometry.ts': '8e8d627818928972',
     'components/home/experience/breeze-bridge-pose.ts': '5ec6cdae815ea919',
     'components/home/experience/hero-depth.ts': '3774b47e015aaf49',

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
-import { loadRawScrollMotion, loadStoryMath } from './load-story-math.mjs';
+import { loadMotion, loadStoryMath } from './load-story-math.mjs';
 const source = readFileSync(
   new URL(
     '../components/home/experience/home-story-timeline.ts',
@@ -38,6 +38,9 @@ function browser({
   // TP3D STEP 1: off, a frame shows the position it was scrolled to (what
   // every state assertion below samples); on, the real MOTION.follow.
   follow = false,
+  // TP3D STEP 2: off, the share of the distance scrolled is story progress;
+  // on, the real MOTION.pace.
+  pace = false,
 } = {}) {
   const events = [],
     frames = new Map(),
@@ -418,8 +421,7 @@ function browser({
             destroy() {},
           }),
         };
-      if (path === './home-motion')
-        return follow ? loadStoryMath('home-motion') : loadRawScrollMotion();
+      if (path === './home-motion') return loadMotion({ follow, pace });
       if (path === './home-story-frame') return mathModule.exports;
       if (path === './atmospheric-bridge-frame') return bridgeModule;
       // TP3D PASS — Atrium room orbit: the pure orbit frame (no base marker
@@ -2214,6 +2216,7 @@ const steps = (from, to, count) =>
     }
     raw.b.flush();
     assert.equal(bridge(raw.b), 0.7, 'raw: one frame, 0.48 → 0.7');
+    glide(raw.b);
     const path = [];
     while (eased.b.count().frames && path.length < 240) {
       eased.b.flush();
@@ -2259,6 +2262,134 @@ const steps = (from, to, count) =>
     stop();
   }
 }
+// ---------------------------------------------------------------------------
+// TP3D STEP 2 — pacing, in the real timeline. The share of the distance
+// scrolled becomes story progress through MOTION.pace; the frame a story
+// position rests on is the one asserted everywhere above.
+// ---------------------------------------------------------------------------
+{
+  const SPAN = 2340;
+  const { MOTION, storyPacing } = loadStoryMath('home-motion');
+  const pacing = storyPacing(MOTION.pace);
+  const byKey = (a, b) => a[0].localeCompare(b[0]);
+  const snapshot = (b) =>
+    [
+      b.story,
+      b.world,
+      b.camera,
+      b.rooms,
+      b.architecture,
+      b.centerCopy,
+      b.colophon,
+      b.header,
+      b.sharedTP,
+      b.readStory,
+      b.discovery,
+      b.portalGroup,
+      ...b.reveals,
+      ...Object.values(b.openingNodes),
+    ]
+      .filter(Boolean)
+      .map((node) => [
+        [...node.style.values].toSorted(byKey),
+        [...node.attrs].toSorted(byKey),
+      ]);
+  const settle = (b) => {
+    for (let i = 0; i < 300 && b.count().frames; i++) b.flush();
+    assert.equal(b.count().frames, 0);
+  };
+  const mount = (options) => {
+    const b = browser(options);
+    const stop = b.createHomeStoryTimeline(b.root, b.breeze);
+    b.flush();
+    b.flush();
+    return { b, stop };
+  };
+  // 1. Paced and unpaced show the same frame at the same story position.
+  for (const width of [1440, 1024, 390]) {
+    const even = mount({ width });
+    const paced = mount({ width, pace: true });
+    for (const share of [
+      0, 0.05, 0.2, 0.35, 0.5, 0.6, 0.7, 0.8, 0.9, 0.97, 1, 0.4,
+    ]) {
+      paced.b.scroll(SPAN * share);
+      settle(paced.b);
+      const story = pacing.story((SPAN * share) / SPAN);
+      assert.equal(paced.b.root.dataset.storyProgress, story.toFixed(5));
+      even.b.scroll(SPAN * story);
+      settle(even.b);
+      assert.deepEqual(
+        snapshot(paced.b),
+        snapshot(even.b),
+        `${width}px: share ${share} shows story ${story.toFixed(4)}`,
+      );
+      // The cloth is handed the same progress (to the last float digit or
+      // one beside it: the unpaced double divides its way back to it).
+      const [clothAt, ...cloth] = paced.b.paints.at(-1);
+      const [evenAt, ...evenCloth] = even.b.paints.at(-1);
+      assert.ok(Math.abs(clothAt - evenAt) < 1e-12);
+      assert.deepEqual(cloth, evenCloth);
+    }
+    even.stop();
+    paced.stop();
+  }
+  // 2. Reduced motion is not paced: its cuts stay where they were.
+  {
+    const { b, stop } = mount({ pace: true, reduced: true });
+    for (const share of [0.1, 0.3, 0.745, 0.9]) {
+      b.scroll(SPAN * share);
+      settle(b);
+      assert.equal(b.root.dataset.storyProgress, share.toFixed(5));
+    }
+    stop();
+  }
+  // 3. With the follow as well: the same story frame, by a glide; and a
+  // plate that decodes late resumes from the hold, wherever pacing put it.
+  {
+    const even = mount({ sceneImage: 'pending' });
+    const live = mount({ sceneImage: 'pending', pace: true, follow: true });
+    const share = 0.6,
+      story = pacing.story(share);
+    assert.ok(story > 0.64 && story < 0.72, 'in the sky, before the pull-back');
+    live.b.scroll(SPAN * share);
+    settle(live.b);
+    even.b.scroll(SPAN * story);
+    settle(even.b);
+    assert.equal(live.b.paints.at(-1)[0], 0.48, 'held at the manifesto');
+    live.b.imageCallbacks.ready();
+    even.b.imageCallbacks.ready();
+    live.b.flush();
+    // One follow frame from the hold; the reading hold it crosses first is
+    // a short stretch of the page, so the story moves quickly through it.
+    const first = live.b.paints.at(-1)[0];
+    assert.ok(first > 0.48 && first < 0.53, `resumes from the hold: ${first}`);
+    let previous = first;
+    for (let i = 0; i < 300 && live.b.count().frames; i++) {
+      live.b.flush();
+      const now = live.b.paints.at(-1)[0];
+      assert.ok(now >= previous && now - previous < 0.04, 'an even resume');
+      previous = now;
+    }
+    settle(even.b);
+    assert.equal(live.b.root.dataset.storyProgress, story.toFixed(5));
+    assert.deepEqual(snapshot(live.b), snapshot(even.b));
+    even.stop();
+    live.stop();
+  }
+  // 4. Loading is asked for at the story position, not the scroll share.
+  {
+    const { b, stop } = mount({ pace: true, sceneImage: 'pending' });
+    const { scenePreload } = loadStoryMath('home-production').HOME_PRODUCTION;
+    b.scroll(SPAN * (pacing.share(scenePreload) - 0.004));
+    settle(b);
+    assert.equal(b.imageStarts.count, 0);
+    b.scroll(SPAN * (pacing.share(scenePreload) + 0.004));
+    settle(b);
+    assert.equal(b.imageStarts.count, 1);
+    assert.ok(pacing.share(scenePreload) < scenePreload, 'sooner on the page');
+    stop();
+  }
+}
 console.log(
-  'HomeStory passed: one owner and TP, native/restored progress, reversible poses, inert controls, reduced continuity, atmosphere handoff/gating, ambient air on the master RAF only while alive, idle stillness and 30 complete cleanups; STEP 1 follow: same resting frames by an even glide, raw for restore/intro/reduced, complete at the stage exit.',
+  'HomeStory passed: one owner and TP, native/restored progress, reversible poses, inert controls, reduced continuity, atmosphere handoff/gating, ambient air on the master RAF only while alive, idle stillness and 30 complete cleanups; STEP 1 follow: same resting frames by an even glide, raw for restore/intro/reduced, complete at the stage exit; STEP 2 pacing: same story frames at paced positions, none under reduced motion.',
 );

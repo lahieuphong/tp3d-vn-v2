@@ -1,4 +1,11 @@
-import { MOTION, unit, span, editorial, motionProfile } from './home-motion';
+import {
+  MOTION,
+  unit,
+  span,
+  editorial,
+  arrive,
+  motionProfile,
+} from './home-motion';
 
 /** TP3D PASS — Atrium room orbit. After the approved Atrium has settled, an
  * appended span of native scroll carries the four room portals around the
@@ -63,11 +70,21 @@ type Shape = {
 };
 
 export const ORBIT = {
-  // Orbit progress (0–1 of the appended span). 0–0.04 is the approved
-  // settled Atrium, untouched. The lintel labels then fade, switch to portal
-  // layout while invisible (no jump) and fade back in on the ellipse.
-  labelsOut: [0.04, 0.08],
-  portalsIn: [0.08, 0.16],
+  // Orbit progress (0–1 of the appended span). 0–0.03 is the approved
+  // settled Atrium, untouched. The lintel labels then fade and switch to
+  // portal layout while invisible (no jump).
+  // TP3D STEP 2: each portal then appears in its own doorway, under the
+  // label that just left, and flies from there to its place on the ellipse.
+  // It used to fade in on the ellipse, with nothing joining it to its room.
+  labelsOut: [0.03, 0.06],
+  portalsIn: [0.06, 0.18],
+  // The share of `portalsIn` in which a portal reaches its full opacity, and
+  // the size it leaves the doorway at (a share of its orbit size).
+  entryFade: 0.3,
+  entryScale: 0.5,
+  // A doorway the crop leaves off screen (phones, portrait tablets) starts
+  // its portal just outside that edge instead.
+  entryOverhang: 0.08,
   // Rotations between the four focus holds: focus → rotate → focus …
   // Each hold is a plateau while native scroll continues; nothing snaps.
   turns: [
@@ -76,10 +93,10 @@ export const ORBIT = {
     [0.66, 0.8],
   ],
   // The camera breath and doorway exposure arrive with the portals.
-  presence: [0.08, 0.18],
+  presence: [0.06, 0.18],
   // ENTER THE WORLD quietens while rooms are explored and becomes the
   // primary action again once Kitchen, the last room, has settled.
-  gatewayQuiet: [0.08, 0.14],
+  gatewayQuiet: [0.06, 0.14],
   gatewayReturn: [0.82, 0.92],
   gatewayRest: 0.45,
   // The camera breath (desktop): at most 1.8% scale and 2.5vw / 1.5vh of
@@ -344,7 +361,10 @@ export function worldsOrbitFrame(
   const shape = shapeFor(tier);
   const labels = 1 - editorial(span(o, ...ORBIT.labelsOut));
   const orbit = tier !== 'reduced' && o >= ORBIT.labelsOut[1];
-  const appear = orbit ? editorial(span(o, ...ORBIT.portalsIn)) : 0;
+  // Entry: a quick lift out of the doorway and a long glide into place.
+  const entry = orbit ? span(o, ...ORBIT.portalsIn) : 0;
+  const fly = arrive(entry);
+  const appear = editorial(unit(entry / ORBIT.entryFade));
   const presence = editorial(span(o, ...ORBIT.presence));
   const focus = orbitFocus(o);
   const activeIndex = Math.round(focus);
@@ -392,20 +412,31 @@ export function worldsOrbitFrame(
     x: g.pivot.x + scale * (g.layout.x - g.pivot.x) + cameraX,
     y: g.layout.y + cameraY,
   };
+  const overhang = ORBIT.entryOverhang * g.width;
   const portals = Object.fromEntries(
     ORBIT_ROOMS.map((room, index) => {
       // Front is the bottom of the ellipse (angle π/2); each step is 90°.
       const angle = Math.PI / 2 + (index - focus) * (Math.PI / 2);
       const depth = (Math.sin(angle) + 1) / 2;
+      // The room's doorway as the breathing camera shows it.
+      const door = {
+        x: bound(
+          g.pivot.x + scale * (g.doorways[room].x - g.pivot.x) + cameraX,
+          -overhang,
+          g.width + overhang,
+        ),
+        y: g.pivot.y + scale * (g.doorways[room].y - g.pivot.y) + cameraY,
+      };
       return [
         room,
         {
           room,
-          x: centre.x + Math.cos(angle) * g.layout.radiusX,
-          y: centre.y + Math.sin(angle) * g.layout.radiusY,
+          x: mix(door.x, centre.x + Math.cos(angle) * g.layout.radiusX, fly),
+          y: mix(door.y, centre.y + Math.sin(angle) * g.layout.radiusY, fly),
           depth,
           scale:
-            mix(shape.scale[0], shape.scale[1], depth) * mix(0.94, 1, appear),
+            mix(shape.scale[0], shape.scale[1], depth) *
+            mix(ORBIT.entryScale, 1, fly),
           opacity: mix(shape.opacity[0], shape.opacity[1], depth) * appear,
           blur: depth >= 0.85 ? 0 : shape.blur * (1 - depth),
           z: 1 + Math.round(depth * 10),
@@ -425,7 +456,7 @@ export function worldsOrbitFrame(
     focus,
     activeRoom: orbit ? ORBIT_ROOMS[activeIndex] : null,
     labels,
-    portal: appear,
+    portal: fly,
     portals,
     cameraScale: scale,
     cameraX,

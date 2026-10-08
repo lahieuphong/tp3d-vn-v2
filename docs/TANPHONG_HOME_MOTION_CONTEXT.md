@@ -236,7 +236,7 @@ All homepage links use `prefetch={false}`. `/worlds` and `/worlds/[slug]` both e
 
 - **Vector, not raster.** `continuous-breeze.tsx`: one cloth `<g id="cb-cloth">` (outline, luminous outline, 12 folds, 37 threads) defined once and drawn through **three `<use>` projections**: back (gradient-masked, `svg.cb-back` z 2), front (gradient-masked, `svg.cb-front` z 4 → z 8 when `data-breeze-foreground`), near (unmasked, opacity = transfer).
 - Geometry (`breeze-geometry.ts`) is rebuilt only on resize, from a spine per family (mobile / tablet / desktop). Scroll changes only `transform` / `opacity` attributes (`breeze-renderer.ts`).
-- Reading poses (Scenes 1–2): the two poses exchange at the invisible midpoint (cloth opacity `|1−2·perspective|` = 0 at p 0.30).
+- Reading poses (Scenes 1–2): since STEP 2 the cloth travels between the two poses (the same shape, 1.1 viewport heights apart; 0.9 on phones) over p 0.27–0.33, eased, at full opacity (§41). Before, the poses exchanged at an invisible midpoint (opacity `|1−2·perspective|` = 0 at p 0.30).
 - Bridge pose (`breeze-bridge-pose.ts`): approach 0.52→0.632 toward the viewport focus, scaling up to `width/breadth × 1.8` coverage (~10× at 1440 px); crossing 0.612–0.672; exit 0.646 → ≈0.805 toward the upper right (`exitX 0.9w`, `exitY −1.65h`), opacity `1 − exit`; density 0.558–0.626; transfer 0.525–0.595; foreground 0.54–0.84.
 - When the WebGL sky is actively painting, cloth opacity is multiplied by `1 − smoothstep(0.556 → 0.606)` (`MOTION.breeze.takeover`; was 0.575–0.62 before PASS 1): **WebGL clouds take over from the cloth** after the far (0.517) and mid (0.544) banks have begun. Without WebGL (reduced motion, Save-Data phones, failure, late preparation) the cloth alone performs the occlusion.
 - Mobile: single front projection, no mask, no near projection. Reduced motion: hidden.
@@ -733,7 +733,7 @@ desktop `p` unless noted)
 | --- | --- |
 | World swap | 0.64 (unchanged) |
 | Parked sky (atmosphere clears to 0.72) | 0.64 → camera start |
-| Camera start / end | desktop 0.72 / 0.88, tablet 0.715 / 0.875, phone 0.715 / 0.87 (`arrive`, 5.88× / 5.35× → 1) |
+| Camera start / end | desktop 0.72 / 0.88, tablet 0.715 / 0.875, phone 0.715 / 0.87 (`arrive`, 5.88× / 5.35× → 1). STEP 2: the start is 0.695 on every layout (§41) |
 | Oculus rim enters | ≈0.73–0.74 (after the atmosphere has opened) |
 | Architecture recognisable (`camera.recognizable`) | 0.81 (≥55% of the plate visible) |
 | Plate motion under 1/5 of peak (`camera.settleStart`) | 0.85 |
@@ -897,3 +897,57 @@ the two values to tune after review.
 - The cloth still dips to nothing and returns at p ≈ 0.30 instead of travelling.
 - The lazy atmosphere chunk still evaluates during the first scroll: one 76ms task at p ≈ 0.12 on a 4× slower CPU (none at full speed).
 - In the Tier B preview, the Arrival comp plate can pick a different file than the approved backdrop on phones and tablets.
+
+## 41. STEP 2 — one connected journey (2026-10-08, not deployed)
+
+STEP 1 made each frame follow the hand evenly. This step is about what the
+hand travels through: where the journey stood still, where it rushed, and the
+three hand-offs that were made by fading one thing out and another in.
+
+**How it was measured.** Resting frames at every 0.5% of the scroll distance;
+the mean pixel change between neighbours is the visual activity of that
+step. 1440×900, production-equivalent build. It is a crude measure (a zoom
+changes every pixel, a line of text few), used to find stretches, not to
+score them.
+
+| | STEP 1 (deployed) | STEP 2 |
+| --- | --- | --- |
+| Scroll with almost no change (base journey, runs of 3+ steps) | 656 + 535 + 73 + 583 = 1847px | 98 + 340 + 389 = 827px |
+| Steps with almost no change | 81 of 200 | 37 of 200 |
+| Largest change in one step | 40.4 | 24.7 |
+| Median change per step | 0.65 | 2.75 |
+| Half of all change happens in | 7% of the distance | 16% of the distance |
+
+**1. Pacing.** `MOTION.pace`, `storyPacing()` in `home-motion.ts`.
+
+- A table of `[story progress a stretch ends at, weight]` decides how much of the scroll distance each stretch gets. The share of the distance scrolled becomes story progress through it; every timing in the story is untouched.
+- The cumulative distance is joined by a monotone cubic, so the story never runs backwards and its pace changes without a step.
+- Distances at 540svh of reach: opening approach 36svh (was 76), reading hold 36 (54), clouds 35 (30), pull-back out of the oculus 175 (89), final hold 26 (46).
+- `data-story-progress` is story progress. A scroll position is `top + pacing.share(progress) × span`.
+- Reduced motion is not paced.
+
+**2. Clouds → Atrium is one move.** `MOTION.camera.start` is 0.695 on every layout (was 0.72 / 0.715).
+
+- Before: the last cloud cleared at 0.703, the camera started at 0.72, and its first motion is slow. For about 2% of the journey nothing on screen moved; the flight through the clouds and the pull-back read as two moves.
+- Now the picture is already receding while the last cloud clears. Activity per step from story 0.70 on: 9.5, 5.3, 6.7, 8.3, 9.9, 12.3 (was 8.7, 0.1, 0, 0, 0, 4.2).
+- No cloud is drawn over architecture: the canvas is fully transparent from 0.703 (the sky plane's opening has passed its highest threshold and the camera is past the farthest bank), and the oculus rim enters at 0.708–0.717 depending on the layout. `check:home` asserts both from the shaders' own numbers.
+- Everything else PASS 04 locked (exposure, header ink, interaction, reveals, reduced framings) digests as before.
+
+**3. The cloth travels.** `breeze-renderer.ts`. Between Arrival and Perspective the cloth used to fade to nothing and return in its other pose, so the one element meant to carry that hand-off was absent while the aperture opened. It now rises through the frame between the two poses, eased at both ends, at full opacity, and rests exactly on both.
+
+**4. Portals leave their own doorways.** `worlds-orbit.ts`.
+
+- Before: the lintel labels faded, and the four portals faded in on the ellipse, with nothing joining a portal to its room.
+- Now each portal appears in its own doorway, under the label that just left, at half size, and flies to its place on the ellipse (`arrive`: over half the way in the first third, then a long glide). `labelsOut` 0.03–0.06, `portalsIn` 0.06–0.18.
+- Where the crop leaves a doorway off screen (phones, portrait tablets), the portal starts just outside that edge.
+
+**Unchanged.** The follow (a 100px wheel notch still shows as at most 18px a frame), the stage exit, history restore, reduced motion (360/320/280svh, no pacing, no cloth), 60fps cadence, no sharpness step above 12% between like frames, no long task on a cold first scroll.
+
+**Tunable after review.** The two pull-back weights in `MOTION.pace` (1.6 and 2.4) and the reading-hold weight (0.7).
+
+**Not done.**
+
+- The cloud opening itself still clears in uneven steps (the shader's noise thresholds): activity 1.9, 4.1, 9.0, 1.8, 2.9, 9.5 over story 0.68–0.70, as before.
+- The room orbit keeps its 160svh; the base journey around it is now paced at about twice its old distance.
+- STEP 3 (real depth in the Atrium) has not started.
+

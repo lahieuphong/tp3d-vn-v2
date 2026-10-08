@@ -114,7 +114,51 @@ const zoomRate = (p, width, height) => {
 // 4. Sky suspension: from the swap to camera start the camera is parked on
 // the sky crop, with no interface, no interaction and dark header ink. The
 // parked crop stops above the oculus rim (source y ≈ 205), and the rim only
-// enters once the WebGL atmosphere has fully opened.
+// enters once no pixel of the WebGL atmosphere remains.
+// TP3D STEP 2: "remains" is now the shaders' own condition instead of the
+// end of the opening ramp. The sky plane is fully transparent once the
+// opening has passed its highest threshold, and the cloud banks are gone
+// once the camera is past the farthest one. That is 0.703 of the journey;
+// the ramp's last quarter (to 0.7205) changes nothing on screen. The
+// pull-back starts before it, so the picture is already receding when the
+// last cloud clears, and the rim still enters after it.
+const skyShaders = readFileSync(
+  new URL(
+    '../components/home/experience/atmospheric-sky-shaders.ts',
+    import.meta.url,
+  ),
+  'utf8',
+);
+assert.match(
+  skyShaders,
+  /float openingField = 0\.25 \+ cloudMass \* 0\.48 \+ structure \* 0\.27;\s*float opening = 1\.0 - smoothstep\(openingField - 0\.12, openingField \+ 0\.12,\s*uOpening \* 1\.5\);/,
+  'the sky plane opens through this threshold',
+);
+assert.match(
+  readFileSync(
+    new URL(
+      '../components/home/experience/atmospheric-sky-renderer.ts',
+      import.meta.url,
+    ),
+    'utf8',
+  ),
+  /\{ z: -1\.25, velocity: 0\.12, entry: 0\.07 \},\s*\{ z: 1\.15,[^}]*\},\s*\{ z: 3\.2,/,
+  'the farthest cloud bank is at z = -1.25',
+);
+const atmosphereGone = (p) => {
+  const frame = atmosphericSkyFrame(p);
+  return (
+    !frame.active ||
+    (frame.opening * 1.5 >= 0.25 + 0.48 + 0.27 + 0.12 && frame.cameraZ < -1.25)
+  );
+};
+const cleared = steps(bridgeTiming.swap, 0.74, 7400).find(atmosphereGone);
+assert.ok(
+  cleared > 0.7 && cleared < 0.705,
+  `the last cloud clears at ${cleared}`,
+);
+for (const p of steps(cleared, 1, 400))
+  assert.ok(atmosphereGone(p), 'and none returns');
 for (const [width, height] of sizes) {
   const { cameraStart } = motionProfile(width);
   const g = measureAtrium(width, height);
@@ -138,13 +182,22 @@ for (const [width, height] of sizes) {
     (p) => visibleSource(p, width, height).y1 >= 205,
   );
   assert(
-    atmosphericSkyFrame(rimEnters).opening === 1 &&
-      atmosphericSkyFrame(rimEnters).density === 0,
-    `${width}×${height}: the rim enters only after the atmosphere has opened (${rimEnters})`,
+    rimEnters >= cleared + 0.004,
+    `${width}×${height}: the rim enters only after the atmosphere has gone (${rimEnters} after ${cleared})`,
   );
-  assert(
-    cameraStart > 0.705,
-    'the parked sky lasts longer than before PASS 04',
+  // The two moves are one: the picture is already receding as it is
+  // revealed, and nothing stands still between the clouds and the Atrium.
+  assert.ok(
+    cameraStart < cleared - 0.005,
+    'the pull-back starts while the last cloud is still clearing',
+  );
+  assert.ok(
+    atriumPose(cleared, g).scale < parked.scale * 0.999,
+    'the picture is moving when the canvas has finished opening',
+  );
+  assert.ok(
+    cameraStart > bridgeTiming.swap + 0.04,
+    'and the sky is still seen first',
   );
 }
 
@@ -403,33 +456,49 @@ for (const [width, height] of sizes) {
 // The approved PASS 04 Atrium: camera, exposure, header, interaction and
 // reveals from the swap to the end, locked so a later pass changes them
 // deliberately.
+// TP3D STEP 2 changed one thing: where the pull-back starts (0.695, from
+// 0.72 / 0.715). Everything but the animated camera and the phase name that
+// follows its start still digests as it did under PASS 04 (b0310dd7…,
+// computed with the PASS 04 start as well); the whole frame was
+// cc65e7ea717ba103 before.
 {
-  const frames = [];
+  const frames = [],
+    besidesCamera = [];
   for (const [width, height] of sizes) {
     const g = measureAtrium(width, height);
     for (const p of steps(bridgeTiming.swap, 1, 720))
       for (const reduced of [false, true]) {
         const b = bridgeFrame(p, width, reduced);
+        const state = [
+          b.swapped,
+          b.scene3Visible,
+          b.worldOpacity,
+          b.staticSky,
+          b.exposure,
+          b.headerIvory,
+          b.interactive,
+        ];
         frames.push([
           atriumPose(p, g, reduced),
           ui(p, reduced),
-          [
-            b.phase,
-            b.swapped,
-            b.scene3Visible,
-            b.worldOpacity,
-            b.staticSky,
-            b.exposure,
-            b.headerIvory,
-            b.interactive,
-          ],
+          [b.phase, ...state],
+        ]);
+        besidesCamera.push([
+          reduced ? atriumPose(p, g, true) : null,
+          ui(p, reduced),
+          state,
         ]);
       }
   }
   assert.equal(
+    digest(besidesCamera),
+    'b0310dd70df016cd',
+    'exposure, header, interaction, reveals and the reduced framings are PASS 04',
+  );
+  assert.equal(
     digest(frames),
-    'cc65e7ea717ba103',
-    'approved PASS 04 Atrium reveal is unchanged',
+    'f4b87b03312bf788',
+    'the Atrium reveal with the STEP 2 pull-back start is unchanged',
   );
 }
 

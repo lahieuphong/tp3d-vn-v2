@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
-import { loadStoryMath } from './load-story-math.mjs';
+import { loadMotion, loadStoryMath } from './load-story-math.mjs';
 
 const read = (path) =>
   readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
@@ -42,7 +42,7 @@ const steps = (from, to, count) =>
   Array.from({ length: count + 1 }, (_, i) => from + ((to - from) * i) / count);
 const byKey = ([a], [b]) => (a < b ? -1 : a > b ? 1 : 0);
 
-const { MOTION } = loadStoryMath('home-motion');
+const { MOTION, storyPacing } = loadStoryMath('home-motion');
 const { bridgeTiming, measureAtrium, worldReveal } = loadStoryMath(
   'atmospheric-bridge-frame',
 );
@@ -435,6 +435,9 @@ function story({
         /^\.\/(home-production|home-motion|home-story-frame|atmospheric-bridge-frame|worlds-orbit)$/,
         `unexpected timeline import ${path}`,
       );
+      // Unpaced: PASS 15's distances and no pace table (scroll share is
+      // story progress), as before STEP 1 and STEP 2.
+      if (path === './home-motion') return loadMotion({ pace: paced });
       return loadStoryMath(path.slice(2));
     },
     window,
@@ -655,7 +658,11 @@ function baseJourney(source, orbit, onCamera = null) {
 // The PASS 15 timeline (d1a6a78) through the same pose-canonical trace:
 //   git show d1a6a78:components/home/experience/home-story-timeline.ts > t.ts
 //   ORBIT_BASELINE_TIMELINE=t.ts node scripts/check-atrium-orbit.mjs
-const PASS15_BASE_DIGEST = '2ab28df0c254bba1';
+// STEP 2 moved the start of the Atrium pull-back (MOTION.camera.start, in
+// the motion vocabulary both timelines read), so the PASS 15 timeline now
+// digests as f0cef627ba63b614. With the previous start it still gives
+// 2ab28df0c254bba1, the value locked until then: the timeline is unchanged.
+const PASS15_BASE_DIGEST = 'f0cef627ba63b614';
 if (process.env.ORBIT_BASELINE_TIMELINE) {
   const baseline = readFileSync(process.env.ORBIT_BASELINE_TIMELINE, 'utf8');
   console.log(digest(baseJourney(baseline, 'no-marker')));
@@ -678,25 +685,31 @@ assert.equal(
   PASS15_BASE_DIGEST,
   'every base-journey write equals the PASS 15 timeline (not stretched)',
 );
-// STEP 1 pacing changes the distance and nothing else: at equal progress the
-// paced story writes exactly what the PASS 15 distance writes.
-for (const [width, height] of BASE_VIEWPORTS) {
-  const short = story({ width, height, paced: false });
-  const long = story({ width, height });
-  short.settle();
-  long.settle();
-  assert.ok(long.span() > 2 * short.span(), 'about twice the distance');
-  for (const share of [...steps(0, 1, 240), ...steps(1, 0, 24).slice(1)]) {
-    short.scroll(share * short.span());
-    long.scroll(share * long.span());
-    same(
-      long.trace({ base: true }),
-      short.trace({ base: true }),
-      `${width}×${height} @${share}: the paced journey is the same journey`,
-    );
+// Pacing (STEP 1 distances, STEP 2 pace table) changes how far the hand
+// travels and nothing else: at equal story progress the paced story writes
+// exactly what the PASS 15 distance writes.
+{
+  const pacing = storyPacing(MOTION.pace);
+  for (const [width, height] of BASE_VIEWPORTS) {
+    const short = story({ width, height, paced: false });
+    const long = story({ width, height });
+    short.settle();
+    long.settle();
+    assert.ok(long.span() > 2 * short.span(), 'about twice the distance');
+    for (const share of [...steps(0, 1, 240), ...steps(1, 0, 24).slice(1)]) {
+      long.scroll(share * long.span());
+      const progress = pacing.story((share * long.span()) / long.span());
+      assert.equal(long.root.dataset.storyProgress, progress.toFixed(5));
+      short.scroll(progress * short.span());
+      same(
+        long.trace({ base: true }),
+        short.trace({ base: true }),
+        `${width}×${height} @${share}: the paced journey is the same journey`,
+      );
+    }
+    short.dispose();
+    long.dispose();
   }
-  short.dispose();
-  long.dispose();
 }
 assert.ok(
   spellings.none > 100 && spellings['2d'] > 100 && largest > 5,
@@ -742,7 +755,8 @@ for (const [width, height] of [...BASE_VIEWPORTS, [1366, 768], [768, 1024]]) {
   const span = h.span();
   assert.equal(bridgeTiming.settled, HOME_PRODUCTION.discoveryStart);
   assert.ok(1 - bridgeTiming.settled >= 0.08, 'the approved final hold');
-  let held = null;
+  let held = null,
+    holds = 0;
   for (const y of steps(0, span, 400).map(Math.round)) {
     h.scroll(y);
     assert.equal(h.worlds.getAttribute('data-room-orbit'), null);
@@ -750,13 +764,16 @@ for (const [width, height] of [...BASE_VIEWPORTS, [1366, 768], [768, 1024]]) {
     assert.equal(h.discovery.updates.at(-1).orbit, false);
     for (const node of h.wrappers)
       assert.equal(node.style.getPropertyValue('--orbit-opacity'), '1.00000');
-    if (y >= bridgeTiming.settled * span) {
+    // The hold is a stretch of the story; pacing decides where it falls.
+    if (Number(h.root.dataset.storyProgress) >= bridgeTiming.settled) {
       const frame = json(h.trace().filter(([name]) => name !== 'root'));
       held ??= frame;
+      holds++;
       assert.equal(frame, held, `the settled hold is still at ${y}`);
       assert.equal(h.camera.style.getPropertyValue('transform'), 'none');
     }
   }
+  assert.ok(holds >= 12, `the paced hold is still seen (${holds} samples)`);
   // The approved settled hold continues into the orbit span until 0.04.
   for (let y = span; y <= span + ORBIT.labelsOut[0] * h.orbitSpan(); y += 8) {
     h.scroll(y);
@@ -925,6 +942,99 @@ for (const [width, height] of VIEWPORTS) {
     Math.abs(g.layout.x - (left + ATRIUM_SOURCE.axis.x * cover)) < 1e-9,
   );
   assert.ok(g.layout.radiusX > g.layout.radiusY, `${width}×${height} ellipse`);
+}
+// TP3D STEP 2 — the portal entry. Each portal appears in its own doorway
+// (as the breathing camera shows it) and flies to its place on the ellipse;
+// it no longer fades in on the ellipse with nothing joining it to its room.
+for (const [width, height] of VIEWPORTS) {
+  const tier = orbitTier(width, height, false);
+  const g = measureWorldsOrbit(width, height);
+  const [from, to] = ORBIT.portalsIn;
+  assert.ok(to - from >= 0.1, 'the flight has room to be read');
+  assert.ok(to <= ORBIT.turns[0][0] - 0.03, 'and Living still holds after it');
+  const overhang = ORBIT.entryOverhang * width;
+  const before = worldsOrbitFrame(from - 1e-6, g, tier);
+  const start = worldsOrbitFrame(from, g, tier);
+  const end = worldsOrbitFrame(to, g, tier);
+  assert.equal(before.orbit, false, 'lintel layout until the labels have left');
+  assert.ok(before.labels < 1e-6, 'the labels are gone at the switch');
+  assert.equal(start.orbit, true);
+  let onScreen = 0;
+  for (const room of ROOMS) {
+    const a = start.portals[room];
+    const z = end.portals[room];
+    // Leaves from the doorway: the camera has not started to breathe yet.
+    const door = g.doorways[room];
+    assert.ok(Math.abs(a.y - door.y) < 1e-9, `${room} at its doorway's height`);
+    assert.ok(
+      Math.abs(a.x - Math.min(width + overhang, Math.max(-overhang, door.x))) <
+        1e-9,
+      `${room} in its doorway, or just outside the edge the crop hides it at`,
+    );
+    if (door.x >= 0 && door.x <= width) onScreen++;
+    assert.equal(a.opacity, 0, 'invisible at the switch: no pop');
+    assert.ok(Math.abs(a.scale / z.scale - ORBIT.entryScale) < 1e-9);
+    // Arrives exactly on the ellipse, as every later frame expects.
+    const angle = Math.PI / 2 + ROOMS.indexOf(room) * (Math.PI / 2);
+    const centreX =
+      end.pivotX + end.cameraScale * (g.layout.x - end.pivotX) + end.cameraX;
+    assert.ok(
+      Math.abs(z.x - (centreX + Math.cos(angle) * g.layout.radiusX)) < 1e-9,
+    );
+    assert.ok(
+      Math.abs(
+        z.y - (g.layout.y + end.cameraY + Math.sin(angle) * g.layout.radiusY),
+      ) < 1e-9,
+    );
+    // One flight: each frame is a point on the line from the doorway to the
+    // portal's place, both as the camera shows them in that frame, at a
+    // share that only grows, quick off the door and slow in.
+    let share = 0,
+      opacity = 0,
+      scale = a.scale;
+    const samples = steps(from, to, 240).map((o) =>
+      worldsOrbitFrame(o, g, tier),
+    );
+    for (const f of samples) {
+      const q = f.portals[room];
+      assert.ok(f.portal >= share - 1e-12, 'the flight only advances');
+      const doorX = Math.min(
+        width + overhang,
+        Math.max(
+          -overhang,
+          f.pivotX + f.cameraScale * (door.x - f.pivotX) + f.cameraX,
+        ),
+      );
+      const doorY = f.pivotY + f.cameraScale * (door.y - f.pivotY) + f.cameraY;
+      const placeX =
+        f.pivotX +
+        f.cameraScale * (g.layout.x - f.pivotX) +
+        f.cameraX +
+        Math.cos(angle) * g.layout.radiusX;
+      const placeY =
+        g.layout.y + f.cameraY + Math.sin(angle) * g.layout.radiusY;
+      assert.ok(Math.abs(q.x - (doorX + (placeX - doorX) * f.portal)) < 1e-9);
+      assert.ok(Math.abs(q.y - (doorY + (placeY - doorY) * f.portal)) < 1e-9);
+      assert.ok(q.opacity >= opacity - 1e-12 && q.scale >= scale - 1e-12);
+      assert.ok(
+        q.x >= -overhang - 1e-9 && q.x <= width + overhang + 1e-9,
+        'never further out than the overhang',
+      );
+      share = f.portal;
+      opacity = q.opacity;
+      scale = q.scale;
+    }
+    assert.equal(share, 1, 'and lands');
+    assert.ok(
+      samples[80].portal > 0.5,
+      'over half the way in the first third, then a long glide',
+    );
+    // Fully visible well before it lands.
+    const visible = samples[Math.ceil(240 * ORBIT.entryFade)].portals[room];
+    assert.ok(Math.abs(visible.opacity - z.opacity) < 1e-9);
+  }
+  if (tier === 'desktop')
+    assert.equal(onScreen, 4, 'on desktop every doorway is on screen');
 }
 {
   // Tiers: tablet and phones are smaller and shallower than desktop.
@@ -1775,6 +1885,9 @@ for (const tall of [false, true]) {
       // STEP 1 (the scroll follow) replaces `scrub: 0` in the motion
       // vocabulary; its curves and timings are locked by check:home.
       'home-motion.ts',
+      // STEP 2: the cloth travels between its two reading poses
+      // (check:home, check-continuous-breeze).
+      'breeze-renderer.ts',
       'home-story-timeline.ts',
       'home-story.css',
       'home-story.tsx',
@@ -1815,11 +1928,12 @@ for (const tall of [false, true]) {
         .digest('hex')
         .slice(0, 12),
     ]);
-  // d8922fdb98a3c952 until STEP 1 took home-motion.ts out of the list (no
-  // other listed file changed: the working tree showed only the PASS files).
+  // d8922fdb98a3c952 until STEP 1 took home-motion.ts out of the list, then
+  // a0457b72548e0e98 until STEP 2 took breeze-renderer.ts out (each time no
+  // other listed file had changed: the working tree showed only PASS files).
   assert.equal(
     digest(files),
-    'a0457b72548e0e98',
+    '31c6ef69310765f3',
     'files outside this PASS are unchanged from PASS 15',
   );
 }

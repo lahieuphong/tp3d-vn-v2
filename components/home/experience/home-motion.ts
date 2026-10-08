@@ -19,6 +19,35 @@ export const MOTION = {
     maxFrameMs: 34,
     frameMs: 1000 / 60,
   },
+  // TP3D STEP 2 — pacing: how much of the scroll distance each stretch of
+  // the story is given. [story progress the stretch ends at, weight]; weight
+  // 1 is an even share. Every timing below stays in story progress and is
+  // untouched: this only decides how far the hand travels through it.
+  // Measured before (picture change per step of scroll, 1440×900): two thirds
+  // of all change fell in a tenth of the journey (the pull-back out of the
+  // oculus) while the opening approach, the reading hold and the final hold
+  // barely moved for 0.6–0.7 of a viewport of scrolling each.
+  // Reduced motion is not paced.
+  pace: [
+    // The opening approach: under 1% of dolly until Scene 1 starts leaving.
+    [0.14, 0.5],
+    // Scene 1 leaves, the TP travels, the aperture opens, Scene 2 enters.
+    [0.4, 1],
+    // The reading hold: nothing moves; the reader stops by themselves.
+    [0.5, 0.7],
+    // Departure and the cloth's approach to the lens.
+    [0.64, 1],
+    // The clouds form, part and open on the sky.
+    [0.695, 1.25],
+    // The pull-back out of the oculus, the densest move of the journey: the
+    // sky and the rim first, then the whole room opening out.
+    [0.76, 1.6],
+    [0.86, 2.4],
+    // The Atrium settles; rooms, title and copy arrive.
+    [0.915, 1],
+    // The final hold before the room orbit.
+    [1, 0.6],
+  ],
   bridge: {
     exitStart: 0.48,
     breezeStart: 0.52,
@@ -78,12 +107,18 @@ export const MOTION = {
   camera: {
     source: { width: 1672, height: 941, skyX: 836, skyY: 110 },
     cropHeight: { desktop: 160, tablet: 168, portrait: 176 },
-    // TP3D PASS 04: a clear sky beat after the atmosphere has opened (0.72),
-    // then the oculus rim, the opening and the Atrium. The pull-back is
-    // shorter (0.155–0.16 of progress) because its old last fifth moved the
-    // plate by under 1%. Portrait crops sit closer to the rim, so phones and
-    // tablets start a little earlier and still show the sky first.
-    start: { desktop: 0.72, tablet: 0.715, mobile: 0.715 },
+    // TP3D PASS 04: the sky first, then the oculus rim, the opening and the
+    // Atrium. The pull-back ends early because its old last fifth moved the
+    // plate by under 1%; portrait crops, which sit closer to the rim, end a
+    // little sooner still.
+    // TP3D STEP 2: the pull-back starts while the last cloud is still
+    // clearing, so the picture is already receding when it is revealed. It
+    // used to start at 0.72 / 0.715, after the opening: for about 2% of the
+    // journey nothing on screen moved, and the flight through the clouds and
+    // the pull-back read as two moves. The canvas is fully transparent from
+    // 0.703 and the oculus rim enters after that on every layout
+    // (check:home), so no cloud is ever drawn over architecture.
+    start: { desktop: 0.695, tablet: 0.695, mobile: 0.695 },
     end: { desktop: 0.88, tablet: 0.875, mobile: 0.87 },
     // Visual milestones: the frame reads as architecture (oculus, columns,
     // openings, tree) from `recognizable`; plate motion is under a fifth of
@@ -190,6 +225,65 @@ export function cameraImpulse(progress: number, width: number) {
                       ? 'SETTLE'
                       : 'STILLNESS',
   };
+}
+
+export type Pace = readonly (readonly [number, number])[];
+/** Scroll distance ↔ story progress for a pace table (null: one to one).
+ * `story` takes the share of the scroll distance travelled (0–1) and gives
+ * story progress; `share` is its inverse. The table's cumulative distance is
+ * joined by a monotone cubic (Fritsch–Carlson), so the story never runs
+ * backwards and its speed changes without a step between two stretches. */
+export function storyPacing(table: Pace | null) {
+  if (!table) return { story: unit, share: unit };
+  const total = table.reduce(
+    (sum, [end, weight], i) => sum + (end - (i ? table[i - 1][0] : 0)) * weight,
+    0,
+  );
+  // Knots: x is the share of distance, y is story progress.
+  const xs = [0],
+    ys = [0];
+  table.forEach(([end, weight], i) => {
+    xs.push(xs[i] + ((end - ys[i]) * weight) / total);
+    ys.push(end);
+  });
+  xs[xs.length - 1] = 1;
+  const last = xs.length - 1;
+  const secant = xs.slice(1).map((x, i) => (ys[i + 1] - ys[i]) / (x - xs[i]));
+  const slope = xs.map((_, i) => {
+    if (i === 0) return secant[0];
+    if (i === last) return secant[last - 1];
+    const before = xs[i] - xs[i - 1];
+    const after = xs[i + 1] - xs[i];
+    const a = 2 * after + before;
+    const b = after + 2 * before;
+    return (a + b) / (a / secant[i - 1] + b / secant[i]);
+  });
+  const story = (share: number) => {
+    const x = unit(share);
+    let i = 0;
+    while (i < last - 1 && x > xs[i + 1]) i++;
+    const width = xs[i + 1] - xs[i];
+    const t = (x - xs[i]) / width;
+    return (
+      ys[i] * (1 + 2 * t) * (1 - t) ** 2 +
+      slope[i] * width * t * (1 - t) ** 2 +
+      ys[i + 1] * t * t * (3 - 2 * t) +
+      slope[i + 1] * width * t * t * (t - 1)
+    );
+  };
+  const share = (progress: number) => {
+    const y = unit(progress);
+    if (y <= 0 || y >= 1) return y;
+    let low = 0,
+      high = 1;
+    for (let i = 0; i < 48; i++) {
+      const middle = (low + high) / 2;
+      if (story(middle) < y) low = middle;
+      else high = middle;
+    }
+    return (low + high) / 2;
+  };
+  return { story, share };
 }
 
 /** The displayed scroll position: a first-order follow of the native one.

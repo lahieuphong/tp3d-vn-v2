@@ -1563,11 +1563,14 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     'never a static import',
   );
   // PASS 6A.5: two normalised domains, each clamped over its own span.
+  // STEP 2: the share of that span travelled becomes story progress through
+  // the pace table (one to one under reduced motion).
   assert.match(
     timeline,
-    /const p = clamp\(\(scroll - geometry\.top\) \/ geometry\.span\);/,
-    'baseStoryProgress: the approved journey span, clamped',
+    /const share = clamp\(\(position - geometry\.top\) \/ geometry\.span\);\s*return still \? share : pacing\.story\(share\);/,
+    'baseStoryProgress: the approved journey span, clamped, then paced',
   );
+  assert.match(timeline, /const p = paced\(scroll\);/);
   assert.match(
     timeline,
     /const roomOrbitProgress =\s*roomOrbit && geometry\.orbit > 0 && sceneImage === 'ready'\s*\? clamp\(\(scroll - geometry\.top - geometry\.span\) \/ geometry\.orbit\)\s*: 0;/,

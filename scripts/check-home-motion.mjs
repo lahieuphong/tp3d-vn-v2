@@ -8,6 +8,7 @@ const {
   followScroll,
   motionProfile,
   settleVisual,
+  storyPacing,
 } = loadStoryMath('home-motion');
 const { measureAtrium, atriumPose, bridgeFrame, storyTextDeparture } =
   loadStoryMath('atmospheric-bridge-frame');
@@ -317,6 +318,87 @@ for (const [width, height] of [
     assert.ok(up.active && up.value < limit && up.value > limit - 300);
   }
 }
+// TP3D STEP 2 — pacing. The pace table decides how much of the scroll
+// distance each stretch of the story gets; it never changes the story.
+{
+  const table = MOTION.pace;
+  let before = 0;
+  for (const [end, weight] of table) {
+    assert.ok(end > before && end <= 1, 'stretches in story order');
+    assert.ok(weight >= 0.4 && weight <= 2.5, 'a weight, not a cut or a stall');
+    before = end;
+  }
+  assert.equal(before, 1, 'the table covers the whole story');
+  const pacing = storyPacing(table);
+  assert.equal(pacing.story(0), 0);
+  assert.equal(pacing.story(1), 1);
+  assert.equal(pacing.story(-0.2), 0, 'clamped');
+  assert.equal(pacing.story(1.3), 1, 'clamped');
+  // Strictly forward, and no step in speed: the story never runs backwards,
+  // never stands still while the hand moves, and changes pace gradually.
+  const N = 20000;
+  let last = 0,
+    lastSpeed = null,
+    slowest = Infinity,
+    fastest = 0,
+    largestTurn = 0;
+  for (let i = 1; i <= N; i++) {
+    const value = pacing.story(i / N);
+    const speed = (value - last) * N;
+    assert.ok(speed > 0, `the story advances at share ${i / N}`);
+    if (lastSpeed !== null)
+      largestTurn = Math.max(largestTurn, Math.abs(speed - lastSpeed));
+    slowest = Math.min(slowest, speed);
+    fastest = Math.max(fastest, speed);
+    last = value;
+    lastSpeed = speed;
+  }
+  assert.ok(largestTurn < 0.02, `pace changes without a step (${largestTurn})`);
+  assert.ok(
+    slowest > 0.2 && fastest < 3,
+    `bounded pace: ${slowest}–${fastest}`,
+  );
+  // Every stretch gets the distance its weight asks for.
+  const total = table.reduce(
+    (sum, [end, weight], i) => sum + (end - (i ? table[i - 1][0] : 0)) * weight,
+    0,
+  );
+  let from = 0;
+  for (const [end, weight] of table) {
+    const got = pacing.share(end) - pacing.share(from);
+    close(got, ((end - from) * weight) / total, `distance of ${from}–${end}`);
+    from = end;
+  }
+  // The inverse is exact enough to place a story position on the page.
+  for (let i = 0; i <= 400; i++) {
+    const story = i / 400;
+    assert.ok(Math.abs(pacing.story(pacing.share(story)) - story) < 1e-12);
+  }
+  // What the table is for (measured, see the motion context doc): the
+  // pull-back out of the oculus gets about twice an even share, and the
+  // stretches where almost nothing moves get less.
+  const distance = (a, b) => pacing.share(b) - pacing.share(a);
+  const { cameraStart, cameraEnd } = motionProfile(1440);
+  assert.ok(
+    distance(cameraStart, cameraEnd) > 1.7 * (cameraEnd - cameraStart),
+    'the pull-back has room',
+  );
+  assert.ok(distance(0, 0.14) < 0.55 * 0.14, 'the first scroll answers soon');
+  assert.ok(
+    distance(MOTION.bridge.settled, 1) < 0.7 * (1 - MOTION.bridge.settled),
+    'a shorter final hold',
+  );
+  assert.ok(
+    distance(MOTION.bridge.settled, 1) > 0.04,
+    'and still a hold: about a quarter of a viewport',
+  );
+  // No table: scroll share is story progress (reduced motion, the doubles).
+  const even = storyPacing(null);
+  for (const x of [-1, 0, 0.123, 0.5, 0.987, 1, 2]) {
+    assert.equal(even.story(x), Math.min(1, Math.max(0, x)));
+    assert.equal(even.share(x), Math.min(1, Math.max(0, x)));
+  }
+}
 console.log(
-  'PASS4 motion passed: smooth velocity boundaries, asymmetric acceleration/arrival, staggered context loss, bounded30/60/120Hz mass,220ms rest, reverse and mobile/reduced bypass; STEP 1 follow: exact rest, no overshoot, frame-rate independent, bounded before the stage exit.',
+  'PASS4 motion passed: smooth velocity boundaries, asymmetric acceleration/arrival, staggered context loss, bounded30/60/120Hz mass,220ms rest, reverse and mobile/reduced bypass; STEP 1 follow: exact rest, no overshoot, frame-rate independent, bounded before the stage exit; STEP 2 pacing: strictly forward, no step in pace, exact weights and inverse.',
 );

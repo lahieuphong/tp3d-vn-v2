@@ -5,6 +5,7 @@ import {
   cameraImpulse,
   followScroll,
   motionProfile,
+  storyPacing,
   settleVisual,
   editorial,
   span,
@@ -217,6 +218,8 @@ export function createHomeStoryTimeline(
   // position as it is: first paint, restore, intro, a tab that was hidden.
   let shown: number | null = null;
   let followTime = 0;
+  // TP3D STEP 2 — scroll distance ↔ story progress (MOTION.pace).
+  const pacing = storyPacing(MOTION.pace);
   let atmosphericCrossing = false;
   const saveData =
     (navigator as Navigator & { connection?: { saveData?: boolean } })
@@ -417,12 +420,15 @@ export function createHomeStoryTimeline(
     if (follow.active) schedule();
     // baseStoryProgress: 0 → 1 over the approved journey's own span, clamped
     // (it stays 1 through the appended orbit span; it never runs past 1).
-    const p = clamp((scroll - geometry.top) / geometry.span);
+    // The share of that distance travelled becomes story progress through
+    // the pace table; reduced motion keeps them one to one.
+    const paced = (position: number) => {
+      const share = clamp((position - geometry.top) / geometry.span);
+      return still ? share : pacing.story(share);
+    };
+    const p = paced(scroll);
     // Loading follows the hand, not the picture: it never waits for the ease.
-    if (
-      Math.max(p, clamp((native - geometry.top) / geometry.span)) >=
-      HOME_PRODUCTION.scenePreload
-    )
+    if (Math.max(p, paced(native)) >= HOME_PRODUCTION.scenePreload)
       preparedImage?.start();
     const state = homeStoryFrame(p);
     // A failed plate never exposes an empty sky or interactive labels over the
@@ -916,7 +922,11 @@ export function createHomeStoryTimeline(
           if (sceneImage !== 'ready' && shown !== null)
             shown = Math.min(
               shown,
-              geometry.top + bridgeTiming.exitStart * geometry.span,
+              geometry.top +
+                (reduced.matches
+                  ? bridgeTiming.exitStart
+                  : pacing.share(bridgeTiming.exitStart)) *
+                  geometry.span,
             );
           sceneImage = 'ready';
           schedule();
