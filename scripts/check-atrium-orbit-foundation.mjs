@@ -1269,11 +1269,63 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
       0 < IRIS.join[0] && IRIS.join[0] < IRIS.join[1] && IRIS.join[1] < 0.1,
     );
   }
+  // A pan is matched where its two plates are joined. The plates are
+  // separate drawings, so each tie says how the incoming plate lies on the
+  // outgoing one for one piece of the scene to coincide: the next doorway's
+  // name and number where the join enters, the pier where it rests, the
+  // name and number of the doorway being left where it goes. (A label is
+  // drawn at another size and slant in each view, so its two parts are tied
+  // one by one.) Measured on the pictures, px of 1672 × 941.
   for (const shot of SHOTS.slice(1)) {
-    assert.ok(shot.shift > 0.3 && shot.shift < 0.6, 'half a view at a time');
-    assert.ok(shot.pier > shot.shift && shot.pier < 1, 'the pier is shared');
+    same(Object.keys(shot), ['kind', 'pier', 'ties']);
+    assert.equal(shot.ties.length, 5, 'name, number, pier, name, number');
+    const rests = shot.ties[2];
+    shot.ties.forEach((tie, i) => {
+      if (i) assert.ok(shot.ties[i - 1].at > tie.at, 'right to left');
+    });
+    assert.ok(shot.ties[0].at < 1672 && shot.ties[4].at > 0);
+    // A number stands just left of its name, on the same board.
+    for (const [name, number] of [
+      [shot.ties[0], shot.ties[1]],
+      [shot.ties[3], shot.ties[4]],
+    ]) {
+      assert.ok(name.at - number.at > 80 && name.at - number.at < 160);
+      assert.ok(Math.abs(name.shift - number.shift) < 50, 'one label');
+    }
+    assert.ok(
+      Math.abs(rests.at - shot.pier * 1672) < 1,
+      'the middle tie is the pier the join rests on',
+    );
+    for (const tie of shot.ties) {
+      same(Object.keys(tie), ['at', 'shift', 'high', 'low']);
+      assert.ok(
+        tie.shift / 1672 > 0.3 && tie.shift / 1672 < 0.6,
+        'half a view at a time',
+      );
+      assert.ok(
+        shot.pier > tie.shift / 1672 && shot.pier < 1,
+        'the pier is shared',
+      );
+      for (const plate of [0, 1])
+        assert.ok(
+          0 < tie.high[plate] && tie.high[plate] < 300 && tie.low[plate] > 580,
+          'a height on the fascia and one at the floor',
+        );
+      // Two drawings of one doorway: close in size and height, not equal.
+      const grow = (tie.low[0] - tie.high[0]) / (tie.low[1] - tie.high[1]);
+      assert.ok(grow > 0.9 && grow < 1.1, `stretch down ${grow}`);
+      assert.ok(Math.abs(tie.high[0] - tie.high[1]) < 45, 'moved a little');
+    }
   }
-  assert.ok(SEAM.feather > 0 && SEAM.feather < 0.1, 'a join, not a dissolve');
+  assert.ok(
+    SEAM.feather > 0.01 && SEAM.feather < 0.04,
+    'a join, not a dissolve',
+  );
+  same(Object.keys(SEAM), ['feather', 'dwell', 'settle']);
+  assert.ok(
+    SEAM.settle > 0 && SEAM.settle < SEAM.dwell[0],
+    'each plate carries its half before the join reaches the pier',
+  );
   assert.ok(
     0 < SEAM.dwell[0] && SEAM.dwell[0] < SEAM.dwell[1] && SEAM.dwell[1] < 1,
   );
@@ -1299,11 +1351,12 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
   // How much of the plate is there at one stage position (0 → 1): its box,
   // then what its mask shows. A soft edge (either way round) and an ellipse
   // add up, as two CSS mask images do.
-  const alphaAt = (layer, window, sx, sy = 0.5) => {
+  const alphaAt = (layer, window, sx, sy = 0.5, endless = false) => {
     if (layer.opacity <= 0) return 0;
     const box = extent(layer, window);
     if (sx < box.left - 1e-9 || sx > box.right + 1e-9) return 0;
-    if (sy < box.top - 1e-9 || sy > box.bottom + 1e-9) return 0;
+    // (`endless`: the mask alone, as if the plate had no top or bottom.)
+    if (!endless && (sy < box.top - 1e-9 || sy > box.bottom + 1e-9)) return 0;
     if (!layer.edge && !layer.iris) return layer.opacity;
     const [px, py] = onPlate(layer, window, sx, sy);
     let edge = 0;
@@ -1325,6 +1378,19 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
       iris = alpha * Math.min(1, Math.max(0, (1 - r) / (1 - whole)));
     }
     return layer.opacity * (edge + iris - edge * iris);
+  };
+  // Of what is drawn at one stage position, the incoming plate's share:
+  // the plate on top through its mask, the other one beneath it.
+  const incomingAt = (frame, window, sx, sy, endless = false) =>
+    frame.over === 'to'
+      ? alphaAt(frame.to, window, sx, sy, endless)
+      : (1 - alphaAt(frame.from, window, sx, sy, endless)) *
+        alphaAt(frame.to, window, sx, sy, endless);
+  // Where a pan's join is on the stage (stage widths): the middle of the
+  // soft edge of whichever plate is on top.
+  const joinOf = (frame, window) => {
+    const top = frame.over === 'to' ? frame.to : frame.from;
+    return onStage(top, window, (top.edge[0] + top.edge[1]) / 2, 0.5)[0];
   };
   const VIEWPORTS = [
     [2560, 1080],
@@ -1425,7 +1491,14 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
           // Each end is one view at rest: the hold it joins.
           if (local === 0) same([frame.from, frame.to.opacity], [restFrom, 0]);
           if (local === 1) same([frame.to, frame.from.opacity], [restTo, 0]);
-          // The stage is covered by the two plates alone, everywhere.
+          // The stage is covered by the two plates alone, everywhere. One
+          // exception, in a pan: the sliver a plate is as it comes or goes
+          // carries the whole fit and is not zoomed for, so where it alone
+          // holds the stage's very side it may stop short of the top or the
+          // bottom. That is a corner of a few px, for a moment (at most
+          // 14 × 30 px of a 2560 × 1080 stage), and only on a stage as wide
+          // as the plate.
+          const panning = orbit && shot.kind === 'pan';
           const [under, top] =
             frame.over === 'to'
               ? [frame.from, frame.to]
@@ -1434,18 +1507,52 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
             for (const sy of stageYs) {
               const a = alphaAt(top, window, sx, sy);
               const b = alphaAt(under, window, sx, sy);
+              if (a + (1 - a) * b >= 1 - 1e-9) continue;
               assert.ok(
-                a + (1 - a) * b >= 1 - 1e-9,
+                panning &&
+                  (local < 0.25 ? sx > 0.97 : local > 0.75 && sx < 0.03) &&
+                  (sy === 0 || sy === 1),
                 `${s.from}→${s.to} ${width}×${height} local ${local} at ` +
                   `${sx}, ${sy}: covered ${a + (1 - a) * b}`,
               );
             }
+          if (panning) {
+            // That corner, measured: the columns one plate holds alone,
+            // times how far it stops short there; and where both are, how
+            // far both stop short on the same side.
+            const [a, b] = [
+              extent(frame.from, window),
+              extent(frame.to, window),
+            ];
+            const short = (box) => [
+              Math.max(0, box.top),
+              Math.max(0, 1 - box.bottom),
+            ];
+            const open =
+              Math.max(0, 1 - Math.max(0, a.right)) * Math.max(...short(b)) +
+              Math.max(0, Math.min(1, b.left)) * Math.max(...short(a)) +
+              Math.max(0, Math.min(1, a.right) - Math.max(0, b.left)) *
+                Math.max(
+                  ...short(a).map((gap, i) => Math.min(gap, short(b)[i])),
+                );
+            assert.ok(
+              open < 2.5e-4,
+              `${s.from}→${s.to} ${width}×${height} local ${local}: ` +
+                `${open} of the stage is open`,
+            );
+            if (width / height < 1672 / 941 - 1e-9)
+              assert.ok(open < 1e-12, 'a narrower stage is always covered');
+          }
+          // The plate beneath runs from top to bottom at every position; so
+          // does the one on top, except as that sliver.
           for (const layer of [frame.from, frame.to]) {
             if (layer.opacity <= 0) continue;
+            if (panning && layer === top && (local < 0.25 || local > 0.75))
+              continue;
             const box = extent(layer, window);
             assert.ok(
               box.top <= 1e-9 && box.bottom >= 1 - 1e-9,
-              'top to bottom',
+              `${s.from}→${s.to} ${width}×${height} local ${local}: top to bottom`,
             );
           }
           if (!orbit) {
@@ -1457,28 +1564,48 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
             );
           } else if (local > 0 && local < 1) {
             if (shot.kind === 'pan') {
-              // One strip: the two plates stay `shift` apart, so the pier
-              // they share stays in one piece; nothing scales or lifts.
-              assert.equal(frame.over, 'to');
-              near(frame.to.x - frame.from.x, shot.shift, 'one strip', 1e-9);
+              // The plates are joined by a soft edge, carried by the one
+              // on top: the incoming plate through the first half of the
+              // move, the outgoing one through the second. The other is
+              // whole beneath it.
+              assert.equal(frame.over, local < 0.5 ? 'to' : 'from');
+              const [whole, joined] =
+                frame.over === 'to'
+                  ? [frame.from, frame.to]
+                  : [frame.to, frame.from];
               same(
-                [
-                  frame.from.opacity,
-                  frame.to.opacity,
-                  frame.from.scale,
-                  frame.to.scale,
-                  frame.from.y,
-                  frame.to.y,
-                  frame.from.edge,
-                ],
-                [1, 1, 1, 1, 0, 0, null],
+                [frame.from.opacity, frame.to.opacity, whole.edge],
+                [1, 1, null],
               );
-              // The join: soft only where both plates exist.
-              const [clear, whole] = frame.to.edge;
+              // Fitted to each other, the plates share one small zoom and
+              // are stretched down their pictures by a few percent at most.
+              assert.equal(frame.from.scale, frame.to.scale, 'one zoom');
+              // (About 5% on a desktop stage, 6.4% on the widest here.)
               assert.ok(
-                whole >= clear && whole - clear <= 2 * SEAM.feather + 1e-9,
+                frame.from.scale >= 1 && frame.from.scale < 1.065,
+                `zoom ${frame.from.scale}`,
               );
-              assert.ok(clear >= -1e-9 && whole <= 1 - shot.shift + 1e-9);
+              for (const layer of [frame.from, frame.to]) {
+                const down = layer.scaleY / layer.scale;
+                assert.ok(down > 0.9 && down < 1.1, `stretch ${down}`);
+              }
+              // The join: soft only where both plates exist. The incoming
+              // plate is whole on its right, the outgoing one on its left.
+              const [clear, solid] = joined.edge;
+              assert.ok(frame.over === 'to' ? solid >= clear : solid < clear);
+              assert.ok(Math.abs(solid - clear) <= 2 * SEAM.feather + 1e-6);
+              assert.ok(Math.min(clear, solid) >= -1e-9);
+              assert.ok(Math.max(clear, solid) <= 1 + 1e-6);
+              // And never wider than what the stage shows beside it: a
+              // plate comes into view, and goes, as a soft sliver. (Off the
+              // stage, on a narrow one, the join is a line.)
+              const at = joinOf(frame, window);
+              const half = (Math.abs(solid - clear) / 2) * joined.scale;
+              assert.ok(
+                half / window.width <= Math.max(0, Math.min(at, 1 - at)) + 1e-4,
+                `${s.from}→${s.to} ${width}×${height} local ${local}: the ` +
+                  `join is soft on the stage only (${at} ± ${half / window.width})`,
+              );
             } else {
               // The wide plate is whole and unmasked beneath; the next view
               // lies on top at its own size and only ever shows through its
@@ -1553,26 +1680,30 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
               assert.ok(
                 Math.abs(frame[key].scale - previous[key].scale) < 0.06,
               );
+              // Nor up or down: a plate's top and bottom edges creep.
+              const [now, before] = [
+                extent(frame[key], window),
+                extent(previous[key], window),
+              ];
+              assert.ok(
+                Math.abs(now.top - before.top) < 0.02 &&
+                  Math.abs(now.bottom - before.bottom) < 0.02,
+                `${s.from}→${s.to} ${width}×${height} local ${local}: ${key} y`,
+              );
             }
-            const [, topNow] =
-              frame.over === 'to'
-                ? [frame.from, frame.to]
-                : [frame.to, frame.from];
-            const [, topBefore] =
-              previous.over === 'to'
-                ? [previous.from, previous.to]
-                : [previous.to, previous.from];
             // A soft edge may travel, so a point is compared with what was
             // near it one position ago: nothing may appear or vanish there
-            // at once.
+            // at once. (Which plate is on top may change: what counts is
+            // how much of the incoming plate is drawn. A plate's own top and
+            // bottom are left out here: they creep, as asserted above.)
             const near4 = [-0.04, -0.02, 0, 0.02, 0.04];
             const near6 = [-0.06, 0, 0.06];
             for (const sx of innerXs)
               for (const sy of stageYs) {
-                const now = alphaAt(topNow, window, sx, sy);
+                const now = incomingAt(frame, window, sx, sy, true);
                 const around = near4.flatMap((dx) =>
                   near6.map((dy) =>
-                    alphaAt(topBefore, window, sx + dx, sy + dy),
+                    incomingAt(previous, window, sx + dx, sy + dy, true),
                   ),
                 );
                 assert.ok(
@@ -1587,22 +1718,85 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
         }
       }
       if (shot.kind === 'pan') {
-        // The join rests on the pier through the middle of the move, and the
-        // doorway the UI names is the one in the middle of the stage at rest.
-        const mid = orbitTransition({
-          ...inputAt(0.5, 'forward'),
-          localProgress: 0.5,
-        });
-        const start = plateWindowStart(s.from, window, layout);
-        const goal = plateWindowStart(s.to, window, layout);
-        const low = Math.min(start + window.width, goal + shot.shift);
-        const high = Math.max(start + window.width, goal + shot.shift);
-        near(
-          (mid.to.edge[0] + mid.to.edge[1]) / 2 + shot.shift,
-          Math.min(high, Math.max(low, shot.pier)),
-          'the join is on the pier',
-          1e-9,
-        );
+        const frameAt = (local) =>
+          orbitTransition({
+            ...inputAt(local, 'forward'),
+            localProgress: local,
+          });
+        const tall = (px) => px / 941 / window.height;
+        // How far apart (px of this stage) the two plates draw one tie's
+        // two heights.
+        const apart = (frame, tie) =>
+          [tie.high, tie.low].map(([outgoing, incoming]) => {
+            const a = onStage(
+              frame.from,
+              window,
+              tie.at / 1672,
+              tall(outgoing),
+            );
+            const b = onStage(
+              frame.to,
+              window,
+              (tie.at - tie.shift) / 1672,
+              tall(incoming),
+            );
+            return [(b[0] - a[0]) * width, (b[1] - a[1]) * height];
+          });
+        const off = (frame, tie) =>
+          Math.max(...apart(frame, tie).flat().map(Math.abs));
+        // Where the join is across the outgoing plate, px of the picture.
+        const joinOn = (frame) =>
+          onPlate(frame.from, window, joinOf(frame, window), 0.5)[0] * 1672;
+        const moving = locals.filter((local) => local > 0 && local < 1);
+        const rests = shot.ties[2];
+        // Through the middle of the move the join rests on the pier, and
+        // there the two drawings agree: the outgoing doorway's lintel and
+        // floor on one side of the pier meet the incoming doorway's on the
+        // other, at one height, in one place. (A narrow stage may not reach
+        // the pier; where it does, the join is on it and the tie holds.)
+        const mid = frameAt(0.5);
+        if (Math.abs(joinOn(mid) - shot.pier * 1672) < 1e-3)
+          assert.ok(
+            off(mid, rests) < 0.5,
+            `${s.from}→${s.to} ${width}×${height}: the two plates agree at ` +
+              `the pier (${apart(mid, rests).join(' | ')})`,
+          );
+        // Wherever the join passes over a tied piece, that piece is drawn
+        // once: the same place, the same height, in both plates.
+        for (const tie of shot.ties) {
+          let hit = null;
+          for (const local of moving) {
+            const frame = frameAt(local);
+            const gap = Math.abs(joinOn(frame) - tie.at);
+            if (hit === null || gap < hit.gap) hit = { gap, frame, local };
+          }
+          // Only where the join really passes over that piece on this stage.
+          if (hit.gap > 4) continue;
+          assert.ok(
+            off(hit.frame, tie) < 3,
+            `${s.from}→${s.to} ${width}×${height} local ${hit.local}: one ` +
+              `piece under the join (${apart(hit.frame, tie).join(' | ')})`,
+          );
+        }
+        // And the fit is whole from the first sliver of the incoming plate
+        // to the last sliver of the outgoing one, not only through the
+        // middle: before the join reaches the first tie, and after it has
+        // passed the last, that tie already and still holds exactly.
+        for (const local of moving) {
+          const frame = frameAt(local);
+          const at = joinOn(frame);
+          for (const tie of [shot.ties[0], shot.ties[4]]) {
+            const beyond =
+              tie === shot.ties[0] ? at >= tie.at - 1e-6 : at <= tie.at + 1e-6;
+            if (beyond)
+              assert.ok(
+                off(frame, tie) < 0.5,
+                `${s.from}→${s.to} ${width}×${height} local ${local}: fitted ` +
+                  `from the first sliver to the last ` +
+                  `(${apart(frame, tie).join(' | ')})`,
+              );
+          }
+        }
       } else {
         // The push ends on the next view alone: the ellipse holds the whole
         // stage in its solid part, at the next view's resting place.
@@ -3370,8 +3564,10 @@ console.log(
     'the one WorldGatewayLink returns in late Kitchen; no orbiting room ' +
     'portals; the approved Atrium itself never moved), the orbit on comp ' +
     'plates (push in from the wide Atrium, then pans joined on the shared ' +
-    'pier; the stage covered at every position on nine screens; exact in ' +
-    'reverse; plain changes under reduced motion), the Atrium in view for the ' +
+    'pier and fitted to each other under the join from the first sliver to ' +
+    'the last; the stage covered at every position on nine screens, but for ' +
+    'a corner of a few px as a plate comes or goes; exact in reverse; plain ' +
+    'changes under reduced motion), the Atrium in view for the ' +
     'whole harness (copy shade = approved shade, shown only with the ' +
     'editorial UI), a scroll-driven release to a quiet frame before the ' +
     'sticky stage leaves (exact in reverse), the readout only on explicit ' +

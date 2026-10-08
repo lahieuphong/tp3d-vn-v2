@@ -89,14 +89,33 @@ export type AtriumOrbitShot =
       iris: readonly [number, number];
     }
   | {
-      /** Doorway → next doorway, clockwise: both plates travel left as one
-       * strip. `shift` is how far the scene moves between the two views;
-       * `pier` is where the pier between the two doorways stands in the
-       * outgoing plate, which is where the two plates are joined. */
+      /** Doorway → next doorway, clockwise: both plates travel left
+       * together, joined where both show the same thing. `pier` is where
+       * the pier between the two doorways stands in the outgoing plate,
+       * which is where the join rests; `ties` say how the incoming plate
+       * lies on the outgoing one, from where the join enters to where it
+       * leaves. */
       kind: 'pan';
-      shift: number;
       pier: number;
+      ties: readonly PlateTie[];
     };
+
+/** The same piece of the scene in two plates. The plates are separate
+ * drawings: a doorway, its lintel and its label stand at different places,
+ * and at different heights, in each. A tie says how the incoming plate must
+ * lie on the outgoing one for that piece to coincide. Measured on the
+ * pictures, in px of 1672 × 941.
+ *   at     where the join is on the outgoing plate (x) when this tie holds;
+ *   shift  how far right the incoming plate lies there (x);
+ *   high   one height of that piece, on the outgoing plate and on the
+ *          incoming one (the label's middle, or the lintel);
+ *   low    another, lower one (the floor at the doorway). */
+export type PlateTie = {
+  at: number;
+  shift: number;
+  high: readonly [number, number];
+  low: readonly [number, number];
+};
 
 /** One per transition, in ATRIUM_ORBIT_TRANSITIONS order. */
 export const ATRIUM_ORBIT_SHOTS: readonly AtriumOrbitShot[] = [
@@ -111,9 +130,49 @@ export const ATRIUM_ORBIT_SHOTS: readonly AtriumOrbitShot[] = [
     turn: [0.46, 0.92],
     iris: [0.6, 1],
   },
-  { kind: 'pan', shift: 0.461, pier: 0.753 },
-  { kind: 'pan', shift: 0.415, pier: 0.725 },
-  { kind: 'pan', shift: 0.39, pier: 0.755 },
+  {
+    // Living → Bedroom. In the order the join passes them: the next
+    // doorway's name and number as the outgoing view shows them at its
+    // right edge; the pier between the two doorways (the outgoing lintel
+    // and floor on its left, the incoming ones on its right); then the name
+    // and number of the doorway being left, as the incoming view shows them
+    // at its left edge. A label is drawn at another size and slant in each
+    // view, so its name and its number are tied one by one.
+    kind: 'pan',
+    pier: 0.753,
+    ties: [
+      { at: 1605, shift: 741.4, high: [159, 166.1], low: [649, 662] },
+      { at: 1476, shift: 735.7, high: [160, 149.9], low: [649, 662] },
+      { at: 1259, shift: 771.5, high: [235, 212], low: [650, 662] },
+      { at: 871, shift: 726.5, high: [150, 158.5], low: [650, 627] },
+      { at: 742, shift: 680.9, high: [132, 126.7], low: [650, 627] },
+    ],
+  },
+  {
+    // Bedroom → Bathroom. The tree stands in front of the wall between
+    // them in both views, so only the labels and the doors' own frames tie.
+    kind: 'pan',
+    pier: 0.725,
+    ties: [
+      { at: 1613, shift: 661.9, high: [188, 165.6], low: [679, 659] },
+      { at: 1509, shift: 672.8, high: [196, 162.7], low: [679, 659] },
+      { at: 1212, shift: 690, high: [257, 227], low: [679, 659] },
+      { at: 881, shift: 720.6, high: [168, 129.9], low: [679, 644] },
+      { at: 739, shift: 695.5, high: [150, 109], low: [679, 644] },
+    ],
+  },
+  {
+    // Bathroom → Kitchen.
+    kind: 'pan',
+    pier: 0.755,
+    ties: [
+      { at: 1567.5, shift: 607.8, high: [118, 151.4], low: [662, 657] },
+      { at: 1449, shift: 612, high: [133, 148.1], low: [662, 657] },
+      { at: 1262, shift: 654, high: [213, 226], low: [648, 657] },
+      { at: 967.5, shift: 576.9, high: [158, 166.8], low: [648, 657] },
+      { at: 837, shift: 568.6, high: [164, 151.8], low: [648, 657] },
+    ],
+  },
 ];
 
 /** The next view opening out of the doorway at the end of a push. It first
@@ -134,13 +193,18 @@ export const ATRIUM_ORBIT_IRIS = {
 } as const;
 
 /** The join between two travelling plates. `feather` is half its soft width
- * (plate widths). It comes in from the edge, rests on the pier for the
- * `dwell` share of the move, and leaves by the other edge; `open` is the
- * share at each end over which it softens from, and back to, a line. */
+ * (plate widths): narrow, because the two drawings agree on the join itself
+ * and less and less away from it (a label blended across a wide join shows
+ * twice). It is never more than the join's distance from the stage's nearer
+ * side, so a plate comes into view, and goes, as a soft sliver. It
+ * comes in from the edge, rests on the pier for the `dwell` share of the
+ * move, and leaves by the other edge. `settle` is the share at each end over
+ * which the plate that fills the stage takes up, or gives back, its half of
+ * the fit down the picture, so each view begins and ends exactly at rest. */
 export const ATRIUM_ORBIT_SEAM = {
-  feather: 0.045,
+  feather: 0.025,
   dwell: [0.28, 0.72],
-  open: 0.14,
+  settle: 0.1,
 } as const;
 
 export type PlateTransitionInput = {
@@ -412,24 +476,93 @@ function push(
   };
 }
 
-/** Doorway → next doorway. Both plates travel as one strip, `shift` apart,
- * so the pier they share stays in one piece; the incoming plate lies on top
- * and begins at a soft edge that rests on that pier. Wherever the edge is,
- * the plate beneath it is there, so the stage is always covered. */
+const PLATE_PX = { width: 1672, height: 941 } as const;
+
+/** How the incoming plate lies on the outgoing one while the join is at
+ * `at` (a share of the outgoing plate's width): shifted right by `shift`
+ * plate widths, and down the picture `y → grow · y + drop` (shares of the
+ * picture's height). Between two ties it changes smoothly; past the first
+ * or the last it stays. */
+function tieAt(ties: readonly PlateTie[], at: number) {
+  const read = ({ shift, high, low }: PlateTie) => {
+    const grow = (low[0] - high[0]) / (low[1] - high[1]);
+    return {
+      shift: shift / PLATE_PX.width,
+      grow,
+      drop: (high[0] - grow * high[1]) / PLATE_PX.height,
+    };
+  };
+  const x = at * PLATE_PX.width;
+  // Ties run from where the join enters (largest `at`) to where it leaves.
+  let i = 0;
+  while (i < ties.length - 2 && x < ties[i + 1].at) i++;
+  const [a, b] = [ties[i], ties[Math.min(i + 1, ties.length - 1)]];
+  const t = a.at === b.at ? 0 : editorial(unit((a.at - x) / (a.at - b.at)));
+  const [p, q] = [read(a), read(b)];
+  return {
+    shift: mix(p.shift, q.shift, t),
+    grow: Math.exp(mix(Math.log(p.grow), Math.log(q.grow), t)),
+    drop: mix(p.drop, q.drop, t),
+  };
+}
+
+/** A share `t` of the way along `y → grow · y + drop` (t = 1 is the map
+ * itself, t = 0 leaves the plate alone, t < 0 goes the other way). */
+function part(grow: number, drop: number, t: number) {
+  const scale = grow ** t;
+  const step = Math.abs(grow - 1) < 1e-9 ? t : (scale - 1) / (grow - 1);
+  return { scale, offset: drop * step };
+}
+
+/** The least by which a reversed edge's two ends differ: as a line it is
+ * still reversed, so it stays whole on its left. */
+const LINE = 1e-7;
+
+/** Doorway → next doorway, matched where the two plates are joined.
+ *
+ * Both plates travel left together and are joined by a soft edge. That join
+ * enters by the edge the camera turns to, rests on the pier the two doorways
+ * share, and leaves by the other edge.
+ *
+ * The plates are separate drawings of one room, so the same doorway, lintel
+ * and label stand at different places and heights in each. Wherever the join
+ * is, the two plates are therefore fitted to each other at that spot
+ * (`ties`): shifted, and stretched down the picture, until the piece under
+ * the join coincides. That holds from the first sliver of the incoming plate
+ * to the last sliver of the outgoing one: lines run straight through the
+ * join, and a label stands at one place and one height (its letters still
+ * differ between the two drawings, which blend while the join is on it).
+ *
+ * Across, the two keep the fitted distance: the outgoing plate begins on
+ * its own even travel, the incoming one ends on its own, and in between the
+ * pair goes over from one to the other. Down the picture the two always
+ * differ by the whole fit, and share it out between them: the outgoing plate
+ * starts at rest (the incoming sliver carries it all), each carries half
+ * through the middle, and the incoming plate ends at rest. Each view so
+ * begins and ends exactly as it is held.
+ *
+ * A plate moved or shortened no longer reaches the stage's top or bottom, so
+ * both share a few percent of zoom about the stage's centre, enough to keep
+ * the plate that fills the stage over all of it. The sliver at either end is
+ * not zoomed for: it lies on top, and where it stops short the plate beneath
+ * it shows. So the incoming plate is on top for the first half and the
+ * outgoing one for the second; with the same join between them, the change
+ * of order draws the same picture. */
 function pan(
   input: PlateTransitionInput,
   shot: Extract<AtriumOrbitShot, { kind: 'pan' }>,
 ): PlateTransitionFrame {
   const { from, to, localProgress, window, layout } = input;
-  const { feather, dwell, open } = ATRIUM_ORBIT_SEAM;
+  const { feather, dwell, settle } = ATRIUM_ORBIT_SEAM;
   const e = travel(localProgress);
   const start = plateWindowStart(from, window, layout);
   const goal = plateWindowStart(to, window, layout);
-  const distance = shot.shift + goal - start;
   // The join, across the outgoing plate: from the window's leading edge,
-  // onto the pier, and out at the edge the window ends on.
+  // onto the pier, and out where the incoming plate's window begins (which
+  // depends on how that plate lies there, so it is found in a few steps).
   const enter = start + window.width;
-  const exit = goal + shot.shift;
+  let exit = goal + tieAt(shot.ties, goal).shift;
+  for (let i = 0; i < 12; i++) exit = goal + tieAt(shot.ties, exit).shift;
   const pier = clamp(shot.pier, Math.min(enter, exit), Math.max(enter, exit));
   const join =
     e < dwell[0]
@@ -437,20 +570,72 @@ function pan(
       : e <= dwell[1]
         ? pier
         : mix(pier, exit, editorial((e - dwell[1]) / (1 - dwell[1])));
-  // Soft only where both plates exist, and a line again at either end.
-  const soft =
-    Math.max(0, Math.min(feather, join - shot.shift, 1 - join)) *
-    unit(Math.min(e, 1 - e) / open);
+  const tie = tieAt(shot.ties, join);
+  // Across: each plate has an even travel of its own (the outgoing one from
+  // its rest, the incoming one to its rest), and the fitted distance between
+  // them changes with the join. The pair goes over from the first travel to
+  // the second, so the plate that fills the stage is the one moving evenly.
+  const first = tieAt(shot.ties, enter).shift;
+  const last = tieAt(shot.ties, exit).shift;
+  const outgoingX =
+    mix(-start, -goal - last, e) + e * (mix(first, last, e) - tie.shift);
+  const incomingX = outgoingX + tie.shift;
+  // Down: the outgoing plate's share of the fit runs 0 → -½ → -1 and the
+  // incoming plate's is always one more, so between them the fit is whole.
+  const arrived = editorial(unit(e / settle));
+  const staying = editorial(unit((1 - e) / settle));
+  const share = -0.5 * arrived - 0.5 * (1 - staying);
+  const outgoing = part(tie.grow, tie.drop, share);
+  const incoming = part(tie.grow, tie.drop, share + 1);
+  // A zoom about the stage's centre, shared by both plates, keeps the plate
+  // that fills the stage over its whole height.
+  const reach = (down: { scale: number; offset: number }) => {
+    const top = down.offset / window.height;
+    const bottom = down.scale + top;
+    return Math.max(
+      1,
+      top > 0 ? 0.5 / (0.5 - top) : 1,
+      bottom < 1 ? 0.5 / (bottom - 0.5) : 1,
+    );
+  };
+  const zoom =
+    1 +
+    Math.max((reach(outgoing) - 1) * staying, (reach(incoming) - 1) * arrived);
+  const centre = window.width / 2;
+  const pose = (x: number, down: { scale: number; offset: number }) => ({
+    opacity: 1,
+    x: zoom * x + centre * (1 - zoom) - 0.5 + 0.5 * zoom,
+    y: zoom * (down.offset / window.height + 0.5 * (down.scale - 1)),
+    scale: zoom,
+    scaleY: zoom * down.scale,
+  });
+  // Soft only where both plates exist, and no wider than what the stage
+  // shows of either plate beside the join.
+  const shownFrom = -outgoingX + (centre * (zoom - 1)) / zoom;
+  const shownTo = -outgoingX + (centre * (zoom + 1)) / zoom;
+  const soft = Math.max(
+    0,
+    Math.min(
+      feather,
+      join - tie.shift,
+      1 - join,
+      join - shownFrom,
+      shownTo - join,
+    ),
+  );
+  // The plate on top carries the join: the incoming one whole on its right,
+  // the outgoing one (a reversed edge) whole on its left.
+  const early = e < 0.5;
   return {
-    from: { opacity: 1, x: -start - distance * e, y: 0, scale: 1, edge: null },
-    to: {
-      opacity: 1,
-      x: -goal + distance * (1 - e),
-      y: 0,
-      scale: 1,
-      edge: [join - soft - shot.shift, join + soft - shot.shift],
+    from: {
+      ...pose(outgoingX, outgoing),
+      edge: early ? null : [join + soft + LINE, join - soft],
     },
-    over: 'to',
+    to: {
+      ...pose(incomingX, incoming),
+      edge: early ? [join - soft - tie.shift, join + soft - tie.shift] : null,
+    },
+    over: early ? 'to' : 'from',
     lead: leadAt(localProgress),
   };
 }

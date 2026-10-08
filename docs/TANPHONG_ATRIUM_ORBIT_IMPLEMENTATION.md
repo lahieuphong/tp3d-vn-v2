@@ -516,6 +516,9 @@ doorway's fascia label can show twice for a moment (two views of it): the
 comps are separate pictures, not one scene. Studio plates from one camera
 rig remove that.
 
+Both shots were matched later: the push on the doorway (§15.5), the pans
+under the join (§15.6). The numbers in this section are PASS 6B.0's.
+
 `orbitTransition` is pure: the same position draws the same frame in either
 direction (`over` and `lead` come from the frame, never from the travel
 direction). Reduced motion keeps `plainChange`: one plate, then the next,
@@ -609,6 +612,46 @@ middle, where the Living view holds it.
 **Measured** (production-equivalent build): no sharpness step above 2.1% (1680×887, DPR 2) or 4.2% (390×844, DPR 3) between like frames through the push; 60 fps cadence, also with the CPU slowed four times.
 
 **Limits.** The two pictures are different renders: the furniture inside the doorway differs, and the wide view's lintel slopes more than the Living view's. The match is the doorway's opening, not its contents. The three pans are unchanged.
+
+### 15.6 The pans are fitted under the join
+
+Owner report, 2026-10-08, with four frames: between two rooms the doorways
+did not agree either, "one high, one low", and a label showed twice.
+
+**Cause.** The plates are separate drawings of one room. Measured on the
+pictures (px of 1672 × 941), the same piece stands at another place in the
+two plates of a pan: a doorway's name or number up to 90 px apart across and
+up to 41 px apart down, the lintel at the shared pier 13 to 30 px apart down.
+A label is also drawn at another size (up to 1.45×) and slant in each. The
+pan placed the incoming plate at one distance for the whole move and never
+moved it down the picture, so everything the join passed over stepped.
+
+**Now** (`atrium-orbit-transition.ts`, `pan`, `ATRIUM_ORBIT_SHOTS[1..3].ties`):
+
+- Each pan has five ties, in the order the join passes them: the next doorway's name and its number, the pier between the two doorways, the name and the number of the doorway being left. A tie says how the incoming plate lies on the outgoing one for that piece to coincide: how far right (`shift`) and, from two heights of the piece (`high`, `low`), how far down and how much taller.
+- Wherever the join is, the two plates are fitted to each other at that spot, with the fit changing smoothly from tie to tie. The piece under the join is drawn once: one place, one height.
+- The fit is whole from the first sliver of the incoming plate to the last sliver of the outgoing one. The plate that fills the stage starts (or ends) exactly at rest; the sliver carries the whole fit; through the middle each carries half.
+- Across, each plate keeps its own even travel at its own end of the move, so the plate filling the stage is the one moving evenly.
+- A plate moved or stretched no longer reaches the stage's top or bottom, so both share a small zoom about the stage's centre: up to 5% on a desktop stage, 6.4% at 2560 × 1080. Down the picture a plate is stretched by 8.5% at most. Still a flat 2D pose; no skew, rotation or perspective.
+- The plate on top carries the join: the incoming one for the first half, the outgoing one for the second. With the same join between them the change of order draws the same picture. It is there so that where a sliver stops short of the top or bottom, the other plate shows beneath it.
+- The join is narrower, ±0.025 of a plate (was ±0.045): the drawings agree on the join and less and less away from it. It is never wider than its distance from the stage's nearer side, so a plate comes and goes as a soft sliver.
+
+**Measured.** At 1680 × 887, at the moment the join is on each of the 15 tied
+pieces: up to 90 px apart across and up to 41 px down before, 0 px after
+(`check:atrium-orbit-foundation` asserts under 3 px on nine viewports, under
+0.5 px at the pier, and under 0.5 px from the first sliver to the last).
+Production-equivalent build, through the three pans: no sharpness step between
+like frames (1680 × 887 and 390 × 844, DPR 2), no pop where the order
+changes, frames 16.7 ms apart at the median and 17.7 ms at the 95th
+percentile (18.4 ms with the CPU slowed four times).
+
+**Limits.**
+
+- While the join is on a label (about a tenth of the move, at each end) the two drawings of that label are blended. They now stand at one place and one height, but their letters differ in size and slant, so the word can look soft for that moment.
+- What lies inside a doorway, and the rock and tree in front of the wall between Bedroom and Bathroom, are drawn differently in each plate; the join passes over them as a soft change.
+- On a stage as wide as the plate (16:9 and wider), a sliver alone holds the stage's very side and can stop short of the top or bottom: a corner of about 14 × 30 px at most at 2560 × 1080, for a moment, where the approved Atrium behind shows.
+
+Plates rendered from one camera rig remove all three.
 
 ## 16. Studio handoff and delivery intake (PASS 6A.9)
 
