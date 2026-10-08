@@ -12,10 +12,7 @@ const source = readFileSync(
   'utf8',
 );
 const { outputText } = ts.transpileModule(
-  source
-    .replaceAll('import.meta.env.DEV', 'false')
-    // PASS 6A: production builds keep the Tier B gate shut.
-    .replaceAll('import.meta.env.VITE_ATRIUM_ORBIT_PREVIEW', 'undefined'),
+  source.replaceAll('import.meta.env.DEV', 'false'),
   {
     compilerOptions: {
       target: ts.ScriptTarget.ES2022,
@@ -187,6 +184,9 @@ function browser({
   const window = Object.assign(new Events(), {
     scrollY: initialScroll,
     innerHeight: 900,
+    // This double is the story without the room orbit (its own checks are
+    // check:atrium-orbit and check:atrium-orbit-foundation).
+    location: { search: '?atriumOrbit=0' },
   });
   window.scrollTo = () =>
     assert.fail('HomeStory must never force native scroll');
@@ -432,6 +432,7 @@ function browser({
     },
     window,
     document,
+    URLSearchParams,
     navigator: saveData ? { connection: { saveData: true } } : {},
     ResizeObserver,
     getComputedStyle(node) {

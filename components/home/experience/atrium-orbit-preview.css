@@ -1,7 +1,8 @@
-/* TP3D PASS 6A — Tier B room orbit preview. Loaded only with
-   atrium-orbit-controller.ts (development / preview builds, ?atriumOrbit=1);
-   production never requests it. Layout reuses the approved Scene 3 classes;
-   PASS 6B.0 draws the orbit on comp plates (atrium-orbit-manifest.ts). */
+/* TP3D PASS 6A — the Tier B room orbit. Loaded with
+   atrium-orbit-controller.ts, which is the homepage's orbit since STEP 2B
+   (a preview behind ?atriumOrbit=1 until then; the "preview" in these names
+   is from that time). Layout reuses the approved Scene 3 classes; PASS 6B.0
+   draws the orbit on comp plates (atrium-orbit-manifest.ts). */
 
 /* OrbitPlateStage: a child of the approved backdrop, so the bridge's
    exposure shade and camera apply to every plate. Its own stacking context:
@@ -242,21 +243,10 @@
   }
 }
 
-/* Reduced-motion foundation: the preview keeps a span for readable holds
-   and plain plate changes (no camera move). Provisional, like the timing. */
-@media (prefers-reduced-motion: reduce) {
-  .home-story:has(.hc-worlds[data-atrium-orbit-preview]) {
-    --story-orbit-height: 160svh;
-  }
-}
-/* PASS 6B.0: with plates the camera really travels between the rooms, and
-   160svh would rush it (a pan of half a screen in a seventh of one). The
-   preview alone lengthens the orbit; production's span is untouched. */
-@media (prefers-reduced-motion: no-preference) {
-  .home-story:has(.hc-worlds[data-atrium-orbit-preview='plates']) {
-    --story-orbit-height: 380svh;
-  }
-}
+/* The orbit's span (380svh; 160svh under reduced motion for readable holds
+   and plain plate changes) is declared with the story's other distances in
+   home-story.css since STEP 2B, so the page has its final height before this
+   stylesheet arrives. */
 /* Each room plate carries its own fascia labels, drawn in perspective over
    its doorways. The HTML labels are placed for the wide Atrium and would
    float over the wrong lintels, so the desktop layout drops them; the

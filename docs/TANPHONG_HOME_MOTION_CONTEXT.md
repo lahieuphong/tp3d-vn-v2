@@ -951,3 +951,15 @@ score them.
 - The room orbit keeps its 160svh; the base journey around it is now paced at about twice its old distance.
 - STEP 3 (real depth in the Atrium) has not started.
 
+## 42. STEP 2B — the room orbit is the homepage's orbit (2026-10-08, not deployed)
+
+Owner decision on comparing the live portal orbit with the PASS 6B.0 clip:
+the homepage's orbit is the room orbit (Tier B, on comp plates), where the
+camera travels to each room's doorway. Details and verification:
+`TANPHONG_ATRIUM_ORBIT_IMPLEMENTATION.md` §15.4.
+
+- It loads at every URL except `?atriumOrbit=0`; no build flag. The portal orbit (and its STEP 2 doorway entry) is the fallback.
+- The orbit span is 380svh with motion and 160svh under reduced motion, in `home-story.css`: story height 1020 / 940 / 860svh with motion, 520 / 480 / 440svh reduced.
+- In this mode the approved "Enter the worlds." copy and the four lintel labels do not show at the Atrium: Arrival is architecture only, and Living is the first room with copy (owner decisions of PASS 6A.5 / 6A.75).
+- Visual activity along the orbit (per 1% = 34px at 1440×900): moves of 30–50 for about 10–12% each, holds of about 240px between them, and a 411px Kitchen hold with the release. The moves are the densest motion on the page; their timing is the clip's and was not retuned.
+

@@ -69,6 +69,8 @@ export const ATRIUM_ORBIT_COMP = {
   sizes: '(max-aspect-ratio: 1672/941) 178svh, 100vw',
   /** The approved Atrium's files (`worlds-atrium*.webp`). */
   arrival: 'worlds-atrium',
+  /** Where the approved backdrop shows its 1280 file (chapter-image.tsx). */
+  arrivalNarrow: '(max-width: 1199px)',
 } as const;
 
 export type AtriumOrbitOrientation = keyof typeof ATRIUM_ORBIT_ASSETS.widths;
@@ -200,6 +202,28 @@ export function compPlateFile(state: AtriumOrbitStateId, width: number) {
 
 function compPlateSources(state: AtriumOrbitStateId): AtriumOrbitPlateSources {
   const { widths, fallbackWidth, intrinsic, sizes } = ATRIUM_ORBIT_COMP;
+  // Arrival is a second drawing of the approved Atrium, shown in its place
+  // from the frame the camera leaves it. It must be the very file the
+  // approved backdrop shows on this screen, or the picture changes sharpness
+  // in that frame. The backdrop chooses by breakpoint (chapter-image.tsx:
+  // the 1280 file up to 1199px, the full plate above), not by density.
+  if (state === 'arrival')
+    return {
+      sources: [
+        {
+          media: ATRIUM_ORBIT_COMP.arrivalNarrow,
+          type: 'image/webp',
+          srcset: compPlateFile(state, 1280),
+          sizes,
+        },
+      ],
+      fallback: {
+        src: compPlateFile(state, widths[0]),
+        width: intrinsic[0],
+        height: intrinsic[1],
+        sizes,
+      },
+    };
   return {
     sources: [
       {

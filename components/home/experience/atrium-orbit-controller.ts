@@ -38,10 +38,11 @@ import {
 import { prepareSceneImage, type SceneImagePreparation } from './scene-image';
 import './atrium-orbit-preview.css';
 
-/** TP3D PASS 6A — the Tier B room orbit shell (development / preview only).
+/** TP3D PASS 6A — the Tier B room orbit shell. The homepage's orbit since
+ * STEP 2B (a development / preview harness until then).
  *
- * Loaded by home-story-timeline.ts through a dynamic import behind the
- * Tier B gate, so production builds never request it. It owns no scroll,
+ * Loaded by home-story-timeline.ts through a dynamic import, as its own
+ * chunk; if it fails the portal orbit remains. It owns no scroll,
  * wheel or resize listener, no timer and no animation frame: the master
  * timeline calls `update` from its one render, and decoded plates call
  * `wake` (the timeline's schedule) once.

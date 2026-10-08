@@ -225,11 +225,16 @@ export function createHomeStoryTimeline(
     (navigator as Navigator & { connection?: { saveData?: boolean } })
       .connection?.saveData === true;
   const discoveryInteraction = createRoomDiscovery(worlds);
-  // TP3D PASS 6A — the dormant Tier B room orbit (development / preview
-  // only, see the gate below). Null on the production homepage.
+  // The room orbit (Tier B: the camera travels to each room's doorway). It
+  // is the homepage's orbit since TP3D STEP 2B, loaded as its own chunk (see
+  // the gate below); null until it has loaded, and when it is switched off
+  // or fails, which leaves the approved Scene 3 with the portal orbit.
   let roomOrbit: ReturnType<
     typeof import('./atrium-orbit-controller').createAtriumOrbitController
   > | null = null;
+  // While that chunk is on its way the settled Atrium simply holds: the
+  // portal orbit never shows first and then gives way.
+  let roomOrbitPending = false;
   const request = () => {
     if (!disposed && !document.hidden && !frame)
       frame = requestAnimationFrame(step);
@@ -441,7 +446,11 @@ export function createHomeStoryTimeline(
     // The room orbit samples its own appended span, only after the approved
     // journey has ended (p = 1). Reduced motion has no orbit span.
     const tier = orbitTier(geometry.width, geometry.height, still);
-    const orbitEnabled = tier !== 'reduced' && geometry.orbit > 0 && !roomOrbit;
+    const orbitEnabled =
+      tier !== 'reduced' &&
+      geometry.orbit > 0 &&
+      !roomOrbit &&
+      !roomOrbitPending;
     const orbitProgress =
       orbitEnabled && sceneImage === 'ready'
         ? clamp((scroll - geometry.top - geometry.span) / geometry.orbit)
@@ -508,7 +517,7 @@ export function createHomeStoryTimeline(
       // the World: room previews never swap into it.
       orbit: orbit.orbit,
     });
-    // Tier B (dormant: null): roomOrbitProgress is a separate 0 → 1 domain
+    // The room orbit (null: off): roomOrbitProgress is a separate 0 → 1 domain
     // over the appended span (geometry.orbit), 0 until p = 1.
     const roomOrbitProgress =
       roomOrbit && geometry.orbit > 0 && sceneImage === 'ready'
@@ -743,7 +752,7 @@ export function createHomeStoryTimeline(
           (
             reveal.opacity *
             // The World gateway quietens while the rooms are explored; under
-            // Tier B (dormant) it returns only in late Kitchen, and the
+            // the room orbit it returns only in late Kitchen, and the
             // baseline leaves with the editorial UI in the final release.
             (gateway
               ? tierB
@@ -866,6 +875,9 @@ export function createHomeStoryTimeline(
     if (
       document.readyState === 'complete' &&
       (sceneImage !== 'loading' || p < bridgeTiming.exitStart) &&
+      // A position restored inside the Atrium waits for the room orbit, so
+      // the frame revealed is the one that stays.
+      (!roomOrbitPending || p < bridgeTiming.revealStart) &&
       document.documentElement.hasAttribute('data-home-restoring')
     ) {
       if (window.__tpHomeIntroRuntime?.restoreWatchdog !== undefined) {
@@ -937,18 +949,16 @@ export function createHomeStoryTimeline(
         },
       })
     : null;
-  // TP3D PASS 6A — Tier B gate. Compiled in only for development or a
-  // preview build (VITE_ATRIUM_ORBIT_PREVIEW=1) and loaded only with
-  // ?atriumOrbit=1, so the production homepage never requests it. Any
-  // failure keeps the approved Scene 3. docs/TANPHONG_ATRIUM_ORBIT_IMPLEMENTATION.md
-  // PASS 6A.96: that URL is the clean review preview. The engineering
-  // readout needs its own explicit &atriumOrbitDebug=1 (in development,
-  // ?storyDebug=1 keeps showing it too).
-  if (
-    (import.meta.env.DEV ||
-      import.meta.env.VITE_ATRIUM_ORBIT_PREVIEW === '1') &&
-    new URLSearchParams(window.location.search).get('atriumOrbit') === '1'
-  )
+  // TP3D STEP 2B — the room orbit is the homepage's orbit (owner decision,
+  // 2026-10-08: the camera travels to each room's doorway, on comp plates,
+  // instead of small portals circling the Atrium). It was a preview behind
+  // a build flag and ?atriumOrbit=1 from PASS 6A to STEP 2. It stays its own
+  // chunk, and any failure keeps the approved Scene 3 with the portal orbit;
+  // ?atriumOrbit=0 asks for that fallback. The engineering readout needs an
+  // explicit ?atriumOrbitDebug=1 (in development, ?storyDebug=1 shows it
+  // too). docs/TANPHONG_ATRIUM_ORBIT_IMPLEMENTATION.md
+  if (new URLSearchParams(window.location.search).get('atriumOrbit') !== '0') {
+    roomOrbitPending = true;
     void import('./atrium-orbit-controller').then(
       ({ createAtriumOrbitController }) => {
         if (disposed) return;
@@ -959,10 +969,16 @@ export function createHomeStoryTimeline(
               'atriumOrbitDebug',
             ) === '1',
         });
+        roomOrbitPending = false;
         resize();
       },
-      () => {},
+      () => {
+        if (disposed) return;
+        roomOrbitPending = false;
+        resize();
+      },
     );
+  }
   render();
   return () => {
     if (disposed) return;

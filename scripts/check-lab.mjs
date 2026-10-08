@@ -1123,7 +1123,11 @@ for (const source of [...LAB_FILES.map(code), html]) {
     // check:atrium-orbit). STEP 2 turns the share of the distance scrolled
     // into story progress through the pace table (one to one under reduced
     // motion); the frame a story position rests on is unchanged.
-    'components/home/experience/home-story-timeline.ts': '4e562e9a520d6999',
+    // STEP 2B: the room orbit (the Tier B controller, a lazy chunk) is the
+    // homepage's orbit at every URL but ?atriumOrbit=0, no longer a preview
+    // behind a build flag; the settled Atrium holds while it loads
+    // (check:atrium-orbit).
+    'components/home/experience/home-story-timeline.ts': '773c67f4ce4cdca1',
     'components/home/experience/continuous-breeze.tsx': '80f5ac52eee64916',
     // STEP 2: the cloth travels between its two reading poses instead of
     // fading out and returning in the other; both poses are unchanged.

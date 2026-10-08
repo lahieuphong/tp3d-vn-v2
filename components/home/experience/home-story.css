@@ -7,10 +7,14 @@ html:has([data-home-story]) {
 /* PASS 1 scroll distances and breakpoints live here. Native document flow
    releases the one sticky viewport directly into the existing Footer.
    TP3D PASS — Atrium room orbit: the approved journey keeps its base height;
-   the room orbit appends its own span after it (none under reduced motion). */
+   the room orbit appends its own span after it.
+   TP3D STEP 2B — the room orbit is the homepage's orbit, so its span is
+   declared here, known before its chunk arrives (no change of page height
+   after load): 380svh for the camera's travel between four rooms, 160svh
+   under reduced motion for readable holds and plain changes. */
 .home-story {
   --story-base-height: 360svh;
-  --story-orbit-height: 0svh;
+  --story-orbit-height: 160svh;
   --story-height: calc(var(--story-base-height) + var(--story-orbit-height));
   position: relative;
   height: var(--story-height);
@@ -26,7 +30,7 @@ html:has([data-home-story]) {
 }
 @media (prefers-reduced-motion: no-preference) {
   .home-story {
-    --story-orbit-height: 160svh;
+    --story-orbit-height: 380svh;
   }
 }
 .home-story-stage {

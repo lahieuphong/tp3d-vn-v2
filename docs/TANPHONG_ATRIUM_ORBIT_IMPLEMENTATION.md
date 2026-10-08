@@ -11,11 +11,14 @@ the release to the Footer and the readout. PASS 6B.0 draws a first orbit on
 comp plates cut from the room design comps (§15.2): provisional, preview
 only, and replaced view by view when studio plates are accepted. PASS 6B.1
 stops the picture snapping sharper as the pull-back ends and as each move
-begins and ends (§15.3).** None of the approved render plates and no
-camera data exist yet. The production homepage runs the approved
-Scene 3 with the portal orbit (`aa9ae55`). Tier B code loads only in
-development or a preview build, and only with `?atriumOrbit=1`. Nothing here
-has been judged visually: the plates do not exist.
+begins and ends (§15.3). STEP 2B (2026-10-08, owner decision) makes this
+orbit, on its comp plates, the homepage's orbit (§15.4).** None of the
+approved render plates and no camera data exist yet. Until STEP 2B the
+production homepage ran the approved Scene 3 with the portal orbit
+(`aa9ae55`) and Tier B code loaded only in development or a preview build,
+with `?atriumOrbit=1`; the portal orbit is now the fallback
+(`?atriumOrbit=0`, or a failed load). The studio plates still do not exist:
+what is live is the comp-plate orbit.
 
 Render contract (what the studio delivers): `docs/TANPHONG_ATRIUM_ORBIT_ASSET_SPEC.md`.
 
@@ -561,6 +564,25 @@ Frame pacing is unchanged (60 fps cadence at DPR 2, also with the CPU slowed
 four times, and on a DPR 3 phone viewport). The change is in the approved
 bridge, so the normal homepage gets it too: the photograph is sharper while
 the camera pulls back and identical at rest.
+
+### 15.4 STEP 2B — the room orbit is the homepage's orbit
+
+Owner decision, 2026-10-08, on seeing both: the homepage's orbit is this
+one (the camera travels to each room's doorway), as recorded in
+`outputs/atrium-orbit-qa/pass-6b0/orbit-desktop-1440x900.mp4`, not the small
+portals circling the Atrium. It runs on the comp plates of §15.2. The final
+visual orbit still waits for the studio plates, which replace the comps view
+by view through the manifest's status alone.
+
+- **Gate.** `home-story-timeline.ts` loads the controller at every URL except `?atriumOrbit=0`. No build flag (`VITE_ATRIUM_ORBIT_PREVIEW` is gone). It is still one dynamic import: its own chunk (8.6 kB gzipped) and stylesheet.
+- **Fallback.** `?atriumOrbit=0`, or a failed load, leaves the approved Scene 3 with the portal orbit. While the chunk is on its way the settled Atrium simply holds, so the portal orbit never shows first and then gives way. A position restored inside the Atrium is revealed only once the load has settled.
+- **Span.** 380svh with motion, 160svh under reduced motion, declared in `home-story.css` with the story's other distances. The page has its final height before the chunk arrives (measured: 1020 / 940 / 860svh at the first read and after load). The orbit stylesheet no longer sets it.
+- **Reduced motion** now has the four rooms too, as plain changes over 160svh (it had no orbit span before).
+- **Arrival plate.** It is a second drawing of the approved Atrium, shown in its place from the frame the camera leaves it, so it now picks its file by the approved backdrop's own rule (the 1280 file up to 1199px, the full plate above) instead of a density `srcset`. Before, phones and tablets could draw the 1672 file over a 1280 backdrop and step in sharpness as the push began.
+- **Readout.** `?atriumOrbitDebug=1` (and development `?storyDebug=1`), as before.
+- **Timing** is the clip's: §15.2, unchanged.
+
+Verified on a build without any flag at 1440×900, 1280×720, 820×1180 and 390×844: mode `plates`, Arrival file equal to the backdrop's, Back into the Bathroom hold restores that frame with the portal orbit never visible, the fallback URL shows the portal orbit, reduced motion steps through the four rooms. No sharpness step above 4% (desktop) / 1.2% (phone) between like frames through the push and the first pan.
 
 ## 16. Studio handoff and delivery intake (PASS 6A.9)
 

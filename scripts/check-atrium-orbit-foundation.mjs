@@ -977,20 +977,55 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
   for (const id of STATES) {
     const sources = plateSources(id);
     assert.ok(sources, `${id} is drawn`);
-    same(
-      sources.sources.map((s) => [s.media, s.type]),
-      [[null, 'image/webp']],
-    );
-    same(
-      sources.sources[0].srcset.split(', '),
-      COMP.widths.map((w) => `${compPlateFile(id, w)} ${w}w`),
-    );
-    same(sources.fallback, {
-      src: compPlateFile(id, COMP.fallbackWidth),
-      width: 1672,
-      height: 941,
-      sizes: COMP.sizes,
-    });
+    if (id === 'arrival') {
+      // STEP 2B: Arrival is a second drawing of the approved Atrium, shown
+      // in its place from the frame the camera leaves it, so it must be the
+      // very file the approved backdrop shows on that screen. The backdrop
+      // (chapter-image.tsx, scenePlate) chooses by breakpoint, not density.
+      const chapterImage = read(`${EXPERIENCE}chapter-image.tsx`);
+      assert.match(
+        chapterImage,
+        /<source\s+media="\(max-width: 1199px\)"\s+srcSet=\{\s*deferred \? undefined : `\/images\/home-chapters\/\$\{asset\}-1280\.webp`\s*\}/,
+        'the approved backdrop: the 1280 file up to 1199px',
+      );
+      assert.match(
+        chapterImage,
+        /srcSet=\{deferred \|\| scenePlate \? undefined : metadata\.srcSet\}/,
+        'and the full plate above, with no density choice',
+      );
+      same(
+        sources.sources.map((s) => [s.media, s.type, s.srcset]),
+        [
+          [
+            '(max-width: 1199px)',
+            'image/webp',
+            '/images/home-chapters/worlds-atrium-1280.webp',
+          ],
+        ],
+      );
+      same(sources.fallback, {
+        src: approved.src,
+        width: 1672,
+        height: 941,
+        sizes: COMP.sizes,
+      });
+      assert.equal(approved.src, '/images/home-chapters/worlds-atrium.webp');
+    } else {
+      same(
+        sources.sources.map((s) => [s.media, s.type]),
+        [[null, 'image/webp']],
+      );
+      same(
+        sources.sources[0].srcset.split(', '),
+        COMP.widths.map((w) => `${compPlateFile(id, w)} ${w}w`),
+      );
+      same(sources.fallback, {
+        src: compPlateFile(id, COMP.fallbackWidth),
+        width: 1672,
+        height: 941,
+        sizes: COMP.sizes,
+      });
+    }
     for (const w of COMP.widths) {
       const file = compPlateFile(id, w);
       assert.ok(exists(`public${file}`), `${file} exists`);
@@ -1468,8 +1503,9 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
 }
 
 // ---------------------------------------------------------------------------
-// 9. Source rules. Tier B is dormant: one scroll owner, no new loop, no
-// invented asset, no other image pipeline, gated out of production.
+// 9. Source rules: one scroll owner, no new loop, no invented asset, no
+// other image pipeline, one lazy chunk (the homepage's orbit since STEP 2B;
+// dormant and gated out of production until then).
 // ---------------------------------------------------------------------------
 {
   const names = readdirSync(new URL(`../${EXPERIENCE}`, import.meta.url))
@@ -1546,12 +1582,16 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
   };
   for (const dir of ['app/', 'components/', 'data/', 'lib/']) walk(dir);
   same(offenders, [], 'plate names live in the manifest only');
-  // The gate: development or a preview build, and ?atriumOrbit=1.
+  // The gate. From PASS 6A to STEP 2: development or a preview build, and
+  // ?atriumOrbit=1. Since STEP 2B the room orbit is the homepage's orbit:
+  // every URL but ?atriumOrbit=0, still through one dynamic import, with
+  // the portal orbit left in place when the load fails.
   const timeline = read(`${EXPERIENCE}home-story-timeline.ts`);
   assert.match(
     timeline,
-    /if \(\s*\(import\.meta\.env\.DEV \|\|\s*import\.meta\.env\.VITE_ATRIUM_ORBIT_PREVIEW === '1'\) &&\s*new URLSearchParams\(window\.location\.search\)\.get\('atriumOrbit'\) === '1'\s*\)\s*void import\('\.\/atrium-orbit-controller'\)/,
+    /if \(new URLSearchParams\(window\.location\.search\)\.get\('atriumOrbit'\) !== '0'\) \{\s*roomOrbitPending = true;\s*void import\('\.\/atrium-orbit-controller'\)\.then\(/,
   );
+  assert.doesNotMatch(timeline, /VITE_ATRIUM_ORBIT_PREVIEW/);
   assert.equal(
     timeline.match(/import\('\.\/atrium-orbit-controller'\)/g).length,
     2,
@@ -1938,25 +1978,14 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     ),
     { 'z-index': '1' },
   );
-  // The preview alone lengthens the orbit, only with plates and motion;
-  // production's span is the approved 160svh, and reduced motion keeps it.
-  const spans = preview.filter((rule) =>
-    /--story-orbit-height/.test(rule.body),
-  );
+  // STEP 2B: the orbit's span belongs to the story's own distances, so the
+  // page has its final height before this stylesheet arrives: 380svh for the
+  // camera's travel between four rooms (160svh would rush it: a pan of half
+  // a screen in a seventh of one), 160svh under reduced motion.
   same(
-    spans.map((rule) => [rule.media, rule.selector, declarations(rule.body)]),
-    [
-      [
-        '(prefers-reduced-motion: reduce)',
-        '.home-story:has(.hc-worlds[data-atrium-orbit-preview])',
-        { '--story-orbit-height': '160svh' },
-      ],
-      [
-        '(prefers-reduced-motion: no-preference)',
-        ".home-story:has(.hc-worlds[data-atrium-orbit-preview='plates'])",
-        { '--story-orbit-height': '380svh' },
-      ],
-    ],
+    preview.filter((rule) => /--story-orbit-height/.test(rule.body)),
+    [],
+    'the orbit stylesheet never changes the page height',
   );
   same(
     storyCss
@@ -1966,10 +1995,10 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
         declarations(rule.body)['--story-orbit-height'],
       ]),
     [
-      [null, '0svh'],
-      ['(prefers-reduced-motion: no-preference)', '160svh'],
+      [null, '160svh'],
+      ['(prefers-reduced-motion: no-preference)', '380svh'],
     ],
-    'production keeps its 160svh orbit span',
+    'the room orbit: 380svh, 160svh under reduced motion',
   );
   // The plates carry their own fascia labels; the HTML ones, placed for the
   // wide Atrium, leave the desktop layout only.
