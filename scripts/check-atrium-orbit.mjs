@@ -71,8 +71,9 @@ const storySource = read(`${EXPERIENCE}home-story.tsx`);
 const storyCss = read(`${EXPERIENCE}home-story.css`);
 
 // ---------------------------------------------------------------------------
-// 1. Story geometry: the PASS 15 heights stay the approved journey; the room
-// orbit appends 160svh only when motion is allowed.
+// 1. Story geometry: the PASS 15 heights stay the approved journey under
+// reduced motion; with motion STEP 1 paces the same journey over about twice
+// the distance, and the room orbit appends 160svh.
 // ---------------------------------------------------------------------------
 const geometry = (() => {
   const root = storyCss.match(/\n\.home-story \{([^}]*)\}/);
@@ -91,6 +92,34 @@ const geometry = (() => {
   ))
     base[query === '1199' ? 'tablet' : 'mobile'] = Number(value);
   same(base, { desktop: 360, tablet: 320, mobile: 280 }, 'PASS 15 heights');
+  // STEP 1 pacing: declared only where motion is allowed, after the
+  // breakpoint rules (equal specificity, so the later rule wins).
+  const paced = {};
+  let last = 0;
+  for (const match of storyCss.matchAll(
+    /@media \(prefers-reduced-motion: no-preference\)( and \(max-width: (\d+)px\))? \{\s*\.home-story \{\s*--story-base-height: (\d+)svh;\s*\}\s*\}/g,
+  )) {
+    paced[!match[1] ? 'desktop' : match[2] === '1199' ? 'tablet' : 'mobile'] =
+      Number(match[3]);
+    assert.ok(match.index > last, 'desktop, then tablet, then mobile');
+    last = match.index;
+  }
+  same(paced, { desktop: 640, tablet: 560, mobile: 480 }, 'STEP 1 pacing');
+  assert.ok(
+    storyCss.indexOf('--story-base-height: 640svh') >
+      storyCss.indexOf('--story-base-height: 280svh'),
+    'the paced heights follow the breakpoint heights they replace',
+  );
+  assert.equal(
+    storyCss.match(/--story-base-height: \d+svh;/g).length,
+    6,
+    'three PASS 15 heights and three paced ones, no other',
+  );
+  for (const family of ['desktop', 'tablet', 'mobile'])
+    assert.ok(
+      Math.abs((paced[family] - 100) / (base[family] - 100) - 2.09) < 0.03,
+      `${family}: one pace for every breakpoint`,
+    );
   const orbit = [
     ...storyCss.matchAll(
       /@media ([^{]+)\{\s*\.home-story \{\s*--story-orbit-height: (\d+)svh;\s*\}\s*\}/g,
@@ -110,14 +139,12 @@ const geometry = (() => {
     /<\/aside>\s*<\/div>[\s\S]*<div\s+className="home-story-base"\s+data-home-story-base\s+aria-hidden="true"\s*\/>\s*<\/section>/,
     'the base marker sits outside the sticky stage',
   );
-  return { base, orbit: 160 };
+  return { base, paced, orbit: 160 };
 })();
-const baseSvh = (w) =>
-  w < 768
-    ? geometry.base.mobile
-    : w < 1200
-      ? geometry.base.tablet
-      : geometry.base.desktop;
+const baseSvh = (w, reduced = false) =>
+  geometry[reduced ? 'base' : 'paced'][
+    w < 768 ? 'mobile' : w < 1200 ? 'tablet' : 'desktop'
+  ];
 
 // ---------------------------------------------------------------------------
 // A small owned DOM double for the real master timeline.
@@ -128,6 +155,9 @@ function story({
   height = 900,
   orbit = true,
   reduced = false,
+  // STEP 1: false lays the story out at the PASS 15 distances even with
+  // motion, as the stylesheet did before the pacing.
+  paced = true,
   initialScroll = 0,
   // PASS 6A: { search, controller } opens the page as ?atriumOrbit=1 with
   // a stub Tier B controller module (`controller: null` = import fails).
@@ -144,7 +174,7 @@ function story({
     observers = [],
     discovery = { updates: [], suspended: 0 };
   const heights = () => {
-    const base = (baseSvh(vw) / 100) * vh;
+    const base = (baseSvh(vw, motionOff || !paced) / 100) * vh;
     const extra =
       orbit === true && !motionOff ? (geometry.orbit / 100) * vh : 0;
     return { base, total: base + extra };
@@ -531,17 +561,27 @@ function story({
 // one-frame snap as the pull-back ends) and none to starve of tiles. The
 // lock is therefore on the pose: it is compared in the PASS 15 spelling,
 // without the promotion hint. The spelling rule itself is asserted below.
+// STEP 1 extends it to the portal orbit's breath, whose 3D pose stepped the
+// picture's detail whenever its promotion began or ended inside the orbit.
 // ---------------------------------------------------------------------------
-assert.match(
-  timelineSource,
-  /const flat = orbitProgress === 0;/,
-  "the bridge is flat; the portal orbit's breath is not",
-);
-assert.match(
-  timelineSource,
-  /cameraResponse\.active && !flat \? 'transform' : 'auto'/,
-  'a flat pose is never promoted',
-);
+{
+  const cameraWrites = timelineSource.slice(
+    timelineSource.indexOf('if (camera) {'),
+    timelineSource.indexOf('if (architecture) {'),
+  );
+  assert.ok(cameraWrites.length > 400, 'the camera block is found');
+  assert.doesNotMatch(
+    cameraWrites,
+    /translate3d|translateZ|matrix3d|perspective\(|rotate[XY3]/,
+    'the camera pose is flat on the whole journey, orbit included',
+  );
+  assert.match(
+    cameraWrites,
+    /property\(camera, 'will-change', 'auto'\);/,
+    'and it is never promoted',
+  );
+  assert.equal(cameraWrites.match(/'will-change'/g).length, 1);
+}
 const cameraPose = (transform) => {
   if (transform === 'none' || transform === '')
     return { kind: 'none', x: 0, y: 0, scale: 1 };
@@ -589,7 +629,8 @@ function baseJourney(source, orbit, onCamera = null) {
   const frames = [];
   for (const [width, height] of BASE_VIEWPORTS)
     for (const reduced of [false, true]) {
-      const h = story({ source, width, height, orbit, reduced });
+      // At the PASS 15 distances: the timeline itself is not retimed.
+      const h = story({ source, width, height, orbit, reduced, paced: false });
       h.settle();
       const span = h.span();
       const positions = [
@@ -637,6 +678,26 @@ assert.equal(
   PASS15_BASE_DIGEST,
   'every base-journey write equals the PASS 15 timeline (not stretched)',
 );
+// STEP 1 pacing changes the distance and nothing else: at equal progress the
+// paced story writes exactly what the PASS 15 distance writes.
+for (const [width, height] of BASE_VIEWPORTS) {
+  const short = story({ width, height, paced: false });
+  const long = story({ width, height });
+  short.settle();
+  long.settle();
+  assert.ok(long.span() > 2 * short.span(), 'about twice the distance');
+  for (const share of [...steps(0, 1, 240), ...steps(1, 0, 24).slice(1)]) {
+    short.scroll(share * short.span());
+    long.scroll(share * long.span());
+    same(
+      long.trace({ base: true }),
+      short.trace({ base: true }),
+      `${width}×${height} @${share}: the paced journey is the same journey`,
+    );
+  }
+  short.dispose();
+  long.dispose();
+}
 assert.ok(
   spellings.none > 100 && spellings['2d'] > 100 && largest > 5,
   `rest and the whole pull-back are exercised: ${JSON.stringify(spellings)}, up to ${largest}×`,
@@ -646,8 +707,9 @@ assert.equal(
   PASS15_BASE_DIGEST,
   'without a base marker the story is exactly PASS 15',
 );
-// The physical spans: base progress reaches 1 at the PASS 15 distance
-// (260/220/180svh) and the orbit is 160svh more.
+// The physical spans: base progress reaches 1 at the paced distance
+// (540/460/380svh; PASS 15's 260/220/180svh under reduced motion) and the
+// orbit is 160svh more.
 for (const [width, height] of [...BASE_VIEWPORTS, [1366, 768], [768, 1024]]) {
   const h = story({ width, height });
   h.settle();
@@ -659,6 +721,15 @@ for (const [width, height] of [...BASE_VIEWPORTS, [1366, 768], [768, 1024]]) {
     assert.equal(h.root.dataset.storyProgress, '1.00000');
   }
   h.dispose();
+  const still = story({ width, height, reduced: true });
+  still.settle();
+  assert.ok(
+    Math.abs(still.span() - ((baseSvh(width, true) / 100) * height - height)) <
+      1e-6,
+    `${width}×${height} reduced motion keeps the PASS 15 distance`,
+  );
+  assert.equal(still.orbitSpan(), 0, 'and has no orbit span');
+  still.dispose();
 }
 
 // ---------------------------------------------------------------------------
@@ -1059,7 +1130,7 @@ const fixed = (n, digits) => n.toFixed(digits);
 const cameraString = (pose) =>
   pose.x === 0 && pose.y === 0 && pose.scale === 1
     ? 'none'
-    : `translate3d(${fixed(pose.x, 3)}px, ${fixed(pose.y, 3)}px, 0) scale(${fixed(pose.scale, 7)})`;
+    : `translate(${fixed(pose.x, 3)}px, ${fixed(pose.y, 3)}px) scale(${fixed(pose.scale, 7)})`;
 const zero = { x0: 0, y0: 0, x1: 0, y1: 0 };
 function expectFrame(h, o) {
   const [w, vh] = h.viewport();
@@ -1701,6 +1772,9 @@ for (const tall of [false, true]) {
   // /world and its rooms, room data. Line endings are normalised.
   const PASS = new Set(
     [
+      // STEP 1 (the scroll follow) replaces `scrub: 0` in the motion
+      // vocabulary; its curves and timings are locked by check:home.
+      'home-motion.ts',
       'home-story-timeline.ts',
       'home-story.css',
       'home-story.tsx',
@@ -1741,9 +1815,11 @@ for (const tall of [false, true]) {
         .digest('hex')
         .slice(0, 12),
     ]);
+  // d8922fdb98a3c952 until STEP 1 took home-motion.ts out of the list (no
+  // other listed file changed: the working tree showed only the PASS files).
   assert.equal(
     digest(files),
-    'd8922fdb98a3c952',
+    'a0457b72548e0e98',
     'files outside this PASS are unchanged from PASS 15',
   );
 }

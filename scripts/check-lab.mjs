@@ -1097,7 +1097,11 @@ for (const source of [...LAB_FILES.map(code), html]) {
     'components/home/experience/atmospheric-sky-shaders.ts': 'b72b1855824ca04c',
     'components/home/experience/atmospheric-bridge-frame.ts':
       '6e8ec43efe204f08',
-    'components/home/experience/home-motion.ts': 'e38f6680dc14089c',
+    // TP3D STEP 1 replaces `scrub: 0` with the scroll follow (`follow`,
+    // followScroll): what the pinned stage shows trails the hand and rests
+    // on it. Every curve, timing and mass value the Lab reads is unchanged
+    // (check:home).
+    'components/home/experience/home-motion.ts': '31a40976e5a2e7ae',
     // TP3D PASS — Atrium room orbit appends its own span after the approved
     // journey; the bridge writes the Lab maps are unchanged (check:atrium-orbit).
     // TP3D PASS 6A adds only the dormant Tier B hook (development / preview
@@ -1109,8 +1113,12 @@ for (const source of [...LAB_FILES.map(code), html]) {
     // without Tier B. PASS 6B.1 writes the Atrium camera's pose flat (2D,
     // never promoted) through the bridge, so the photograph is drawn directly
     // and does not snap sharper in the frame the pull-back ends; the pose
-    // itself is still PASS 15's (check:atrium-orbit compares it).
-    'components/home/experience/home-story-timeline.ts': '2be91919bf63ca2a',
+    // itself is still PASS 15's (check:atrium-orbit compares it). STEP 1
+    // samples every layer from the followed scroll position instead of the
+    // raw one and writes the portal orbit's breath flat as well; at rest
+    // each scroll position writes what it wrote before (check:home,
+    // check:atrium-orbit).
+    'components/home/experience/home-story-timeline.ts': '9856dcd6266609b7',
     'components/home/experience/continuous-breeze.tsx': '80f5ac52eee64916',
     'components/home/experience/breeze-renderer.ts': 'aa615ba1520bea94',
     'components/home/experience/breeze-geometry.ts': '8e8d627818928972',

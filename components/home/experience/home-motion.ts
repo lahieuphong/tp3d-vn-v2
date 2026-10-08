@@ -1,8 +1,24 @@
 /** One tunable vocabulary for native-scroll camera motion. Spatial layers
- * share its impulses; text and interaction always sample raw story progress. */
+ * share its impulses; every layer, text and interaction included, samples the
+ * one displayed story progress (see `follow`). */
 export const MOTION = {
   breakpoints: { mobile: 768, desktop: 1200 },
-  scrub: 0,
+  // TP3D STEP 1 — the pinned stage shows a position that trails the hand and
+  // comes to rest on it. Scroll arrives in steps (wheel notches, uneven
+  // frames) and a stage that samples it raw repeats every step in every
+  // layer. Native scroll is never intercepted, delayed or corrected: the
+  // page and the sticky stage move natively, and only what the stage draws
+  // eases. `tau` is the trailing time in ms (0 = raw); touch stays closer to
+  // the finger. The tail closes at `floor` px per ms instead of fading for
+  // ever, a stalled frame advances as one `maxFrameMs` frame (slower, never
+  // a jump), and the first frame after rest is one `frameMs` frame.
+  follow: {
+    tau: { fine: 150, coarse: 70 },
+    floor: 0.09,
+    epsilon: 0.5,
+    maxFrameMs: 34,
+    frameMs: 1000 / 60,
+  },
   bridge: {
     exitStart: 0.48,
     breezeStart: 0.52,
@@ -174,6 +190,37 @@ export function cameraImpulse(progress: number, width: number) {
                       ? 'SETTLE'
                       : 'STILLNESS',
   };
+}
+
+/** The displayed scroll position: a first-order follow of the native one.
+ * It stores no velocity, so it cannot overshoot or oscillate; it approaches
+ * from one side only and rests exactly on the native position. `limit` is
+ * where the pinned stage starts to leave: the follow is never further behind
+ * than the room left before it, so the journey is complete when the stage
+ * moves. `shown: null` (first paint, restore, intro) and `tau: 0` (reduced
+ * motion) take the native position as it is. */
+export function followScroll(
+  shown: number | null,
+  native: number,
+  elapsed: number,
+  tau: number,
+  limit = Infinity,
+) {
+  const target = Math.min(native, limit);
+  if (shown === null || !tau) return { value: target, active: false };
+  const { floor, epsilon, maxFrameMs, frameMs } = MOTION.follow;
+  const frame = Math.min(elapsed > 0 ? elapsed : frameMs, maxFrameMs);
+  const gap = target - shown;
+  const distance = Math.abs(gap);
+  const stride = Math.max(
+    distance * (1 - Math.exp(-frame / tau)),
+    floor * frame,
+  );
+  const value = Math.max(
+    stride >= distance - epsilon ? target : shown + Math.sign(gap) * stride,
+    Math.min(target, 2 * target - limit),
+  );
+  return { value, active: value !== target };
 }
 
 export type VisualPose = { x: number; y: number; scale: number };

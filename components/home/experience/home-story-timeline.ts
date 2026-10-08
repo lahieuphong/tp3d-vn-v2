@@ -3,6 +3,7 @@ import { createAtmosphericSkyBridge } from './atmospheric-sky-renderer';
 import {
   MOTION,
   cameraImpulse,
+  followScroll,
   motionProfile,
   settleVisual,
   editorial,
@@ -40,8 +41,9 @@ import {
   type OrbitRoom,
 } from './worlds-orbit';
 
-/** The only scroll owner. All scene layers sample native progress; no camera
- * clock, scroll correction, per-frame React state or independent scene trigger. */
+/** The only scroll owner. All scene layers sample one displayed progress, the
+ * native position followed by MOTION.follow; no camera clock, scroll
+ * correction, per-frame React state or independent scene trigger. */
 export function createHomeStoryTimeline(
   root: HTMLElement,
   breeze?: BreezeDriver,
@@ -210,6 +212,11 @@ export function createHomeStoryTimeline(
   let cameraMass: VisualPose | null = null;
   let architectureMass: VisualPose | null = null;
   let lastFrameTime = 0;
+  // TP3D STEP 1 — the scroll position the stage shows (MOTION.follow), and
+  // when its last moving frame was drawn (0 at rest). Null takes the native
+  // position as it is: first paint, restore, intro, a tab that was hidden.
+  let shown: number | null = null;
+  let followTime = 0;
   let atmosphericCrossing = false;
   const saveData =
     (navigator as Navigator & { connection?: { saveData?: boolean } })
@@ -389,15 +396,35 @@ export function createHomeStoryTimeline(
     narrative = false;
     if (disposed || document.hidden) return;
     if (needsMeasure) measure();
-    const scroll = document.documentElement.hasAttribute('data-home-intro')
-      ? 0
-      : window.scrollY;
+    const intro = document.documentElement.hasAttribute('data-home-intro');
+    const native = intro ? 0 : window.scrollY;
+    const still = reduced.matches;
+    // The one input of the whole journey: every layer below samples this
+    // displayed position, so they trail the hand together and rest together.
+    // Layout facts (has the stage left, is the header past the story) keep
+    // reading the native position.
+    const follow = followScroll(
+      intro || document.documentElement.hasAttribute('data-home-restoring')
+        ? null
+        : shown,
+      native,
+      followTime ? now - followTime : 0,
+      still ? 0 : MOTION.follow.tau[finePointer.matches ? 'fine' : 'coarse'],
+      geometry.top + geometry.span + geometry.orbit,
+    );
+    const scroll = (shown = follow.value);
+    followTime = follow.active ? now : 0;
+    if (follow.active) schedule();
     // baseStoryProgress: 0 → 1 over the approved journey's own span, clamped
     // (it stays 1 through the appended orbit span; it never runs past 1).
     const p = clamp((scroll - geometry.top) / geometry.span);
-    if (p >= HOME_PRODUCTION.scenePreload) preparedImage?.start();
+    // Loading follows the hand, not the picture: it never waits for the ease.
+    if (
+      Math.max(p, clamp((native - geometry.top) / geometry.span)) >=
+      HOME_PRODUCTION.scenePreload
+    )
+      preparedImage?.start();
     const state = homeStoryFrame(p);
-    const still = reduced.matches;
     // A failed plate never exposes an empty sky or interactive labels over the
     // wrong room. Retain the readable manifesto until the one image decodes.
     const bridgeProgress =
@@ -455,22 +482,22 @@ export function createHomeStoryTimeline(
       geometry.width,
       still,
     );
-    const past = scroll + geometry.header >= geometry.bottom;
+    const past = native + geometry.header >= geometry.bottom;
+    // Still pinned: past this the stage itself scrolls away with the page.
+    const pinned = native <= geometry.top + geometry.span + geometry.orbit + 1;
     heroDepth.update({
       progress: p,
       width: geometry.width,
       height: geometry.height,
       fine: finePointer.matches,
       reduced: still,
-      visible: scroll <= geometry.top + geometry.span + 1,
+      visible: pinned && scroll <= geometry.top + geometry.span + 1,
     });
     discoveryInteraction.update({
       progress: bridgeProgress,
       width: geometry.width,
       reduced: still,
-      visible:
-        sceneImage === 'ready' &&
-        scroll <= geometry.top + geometry.span + geometry.orbit + 1,
+      visible: sceneImage === 'ready' && pinned,
       // While the orbit carries the rooms, the World gateway keeps showing
       // the World: room previews never swap into it.
       orbit: orbit.orbit,
@@ -503,7 +530,7 @@ export function createHomeStoryTimeline(
       height: geometry.height,
       reduced: still,
       fine: finePointer.matches,
-      visible: scroll <= geometry.top + geometry.span + 1,
+      visible: pinned && scroll <= geometry.top + geometry.span + 1,
       sceneReady: sceneImage === 'ready',
       saveData,
       now,
@@ -536,8 +563,8 @@ export function createHomeStoryTimeline(
     const progress = p.toFixed(5);
     if (root.dataset.storyProgress !== progress)
       root.dataset.storyProgress = progress;
-    // Native progress is never corrected. A missing plate retains the readable
-    // previous room rather than showing a blank crop or labels over that room.
+    // Progress is never corrected by loading. A missing plate retains the
+    // readable previous room rather than a blank crop or labels over it.
     if (root.dataset.sceneImage !== sceneImage)
       root.dataset.sceneImage = sceneImage;
     const pose = tpPose(p, tpGeometry, still);
@@ -554,10 +581,10 @@ export function createHomeStoryTimeline(
         'transform-origin',
         `${worldPose.originX.toFixed(3)}px ${worldPose.originY.toFixed(3)}px`,
       );
-      // TP3D PASS 6B.1 — the bridge writes the camera's pose flat (2D) and
-      // never promotes it. A 3D pose makes the browser draw the Atrium once
-      // into a texture and resample that texture as the camera moves, which
-      // is softer than the photograph drawn directly, as it is at rest: the
+      // TP3D PASS 6B.1 — the camera's pose is written flat (2D) and never
+      // promoted. A 3D pose makes the browser draw the Atrium once into a
+      // texture and resample that texture as the camera moves, which is
+      // softer than the photograph drawn directly, as it is at rest: the
       // whole picture snapped sharper in the one frame the pull-back ended
       // (measured: +59% fine detail between two frames otherwise alike).
       // Held with `will-change`, that texture also keeps the scale it was
@@ -565,23 +592,17 @@ export function createHomeStoryTimeline(
       // is the tile starvation this page has shown on a loaded machine
       // (flat brown and half-drawn frames). A flat pose is drawn directly at
       // every scale, into tiles the size of the viewport, and meets rest
-      // without a step. The portal orbit's small breath keeps its approved
-      // 3D pose.
-      const flat = orbitProgress === 0;
+      // without a step. STEP 1: the portal orbit's breath is flat too; its
+      // 3D pose stepped the picture's detail by 12–15% each time the
+      // promotion began or ended inside the orbit.
       property(
         camera,
         'transform',
         cameraMass.x === 0 && cameraMass.y === 0 && cameraMass.scale === 1
           ? 'none'
-          : flat
-            ? `translate(${cameraMass.x.toFixed(3)}px, ${cameraMass.y.toFixed(3)}px) scale(${cameraMass.scale.toFixed(7)})`
-            : `translate3d(${cameraMass.x.toFixed(3)}px, ${cameraMass.y.toFixed(3)}px, 0) scale(${cameraMass.scale.toFixed(7)})`,
+          : `translate(${cameraMass.x.toFixed(3)}px, ${cameraMass.y.toFixed(3)}px) scale(${cameraMass.scale.toFixed(7)})`,
       );
-      property(
-        camera,
-        'will-change',
-        cameraResponse.active && !flat ? 'transform' : 'auto',
-      );
+      property(camera, 'will-change', 'auto');
     }
     if (architecture) {
       property(
@@ -861,6 +882,8 @@ export function createHomeStoryTimeline(
       roomOrbit?.suspend();
       skyBridge?.suspend();
       heroDepth.suspend();
+      shown = null;
+      followTime = 0;
       for (const node of [camera, architecture, sharedTP])
         if (node) property(node, 'will-change', 'auto');
     } else resize();
@@ -870,6 +893,8 @@ export function createHomeStoryTimeline(
     frame = 0;
     needsMeasure = true;
     lastSignature = '';
+    shown = null;
+    followTime = 0;
     render();
     if (skyBridge?.wantsTime()) request();
   };
@@ -885,6 +910,14 @@ export function createHomeStoryTimeline(
   const preparedImage = image
     ? prepareSceneImage(image, {
         ready: () => {
+          // A plate that decodes late used to cut the held bridge ahead to
+          // the hand in one frame. It now resumes from where it waited
+          // (the manifesto, which every layer still shows) and eases there.
+          if (sceneImage !== 'ready' && shown !== null)
+            shown = Math.min(
+              shown,
+              geometry.top + bridgeTiming.exitStart * geometry.span,
+            );
           sceneImage = 'ready';
           schedule();
         },

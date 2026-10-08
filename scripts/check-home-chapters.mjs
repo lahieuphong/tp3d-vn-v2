@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
-import { loadStoryMath } from './load-story-math.mjs';
+import { loadRawScrollMotion, loadStoryMath } from './load-story-math.mjs';
 const source = readFileSync(
   new URL(
     '../components/home/experience/home-story-timeline.ts',
@@ -35,6 +35,9 @@ function browser({
   sky = false,
   fine = true,
   saveData = false,
+  // TP3D STEP 1: off, a frame shows the position it was scrolled to (what
+  // every state assertion below samples); on, the real MOTION.follow.
+  follow = false,
 } = {}) {
   const events = [],
     frames = new Map(),
@@ -329,6 +332,7 @@ function browser({
   }
   const imageCallbacks = {};
   const imageLifecycle = { prepared: 0, disposed: 0 };
+  const imageStarts = { count: 0 };
   const prepareSceneImage = (plate, callbacks) => {
     assert.equal(plate, image, 'preload reuses the existing responsive image');
     imageLifecycle.prepared++;
@@ -339,6 +343,7 @@ function browser({
       start() {
         if (started || disposed) return;
         started = true;
+        imageStarts.count++;
         if (sceneImage === 'ready') callbacks.ready();
         if (sceneImage === 'failed') callbacks.failed();
       },
@@ -413,7 +418,8 @@ function browser({
             destroy() {},
           }),
         };
-      if (path === './home-motion') return loadStoryMath('home-motion');
+      if (path === './home-motion')
+        return follow ? loadStoryMath('home-motion') : loadRawScrollMotion();
       if (path === './home-story-frame') return mathModule.exports;
       if (path === './atmospheric-bridge-frame') return bridgeModule;
       // TP3D PASS — Atrium room orbit: the pure orbit frame (no base marker
@@ -519,6 +525,7 @@ function browser({
     sequenceNode,
     imageCallbacks,
     imageLifecycle,
+    imageStarts,
     window,
     document,
     media,
@@ -1946,6 +1953,312 @@ const steps = (from, to, count) =>
   }
   assert(MOTION.bridge.settled === bridgeTiming.settled);
 }
+// ---------------------------------------------------------------------------
+// TP3D STEP 1 — the scroll follow, in the real timeline. Every assertion
+// above samples the frame a scroll position rests on (follow off in the
+// double). These turn the real MOTION.follow on and prove that the stage
+// reaches that same frame, by an even glide, and then asks for nothing.
+// ---------------------------------------------------------------------------
+{
+  const SPAN = 2340;
+  const byKey = (a, b) => a[0].localeCompare(b[0]);
+  const snapshot = (b) =>
+    [
+      b.root,
+      b.story,
+      b.world,
+      b.camera,
+      b.rooms,
+      b.architecture,
+      b.centerCopy,
+      b.colophon,
+      b.header,
+      b.sharedTP,
+      b.readStory,
+      b.discovery,
+      b.portalGroup,
+      ...b.reveals,
+      ...Object.values(b.openingNodes),
+    ]
+      .filter(Boolean)
+      .map((node) => [
+        [...node.style.values].toSorted(byKey),
+        [...node.attrs].toSorted(byKey),
+      ]);
+  const shown = (b) => Number(b.root.dataset.storyProgress);
+  const mount = (options) => {
+    const b = browser(options);
+    const stop = b.createHomeStoryTimeline(b.root, b.breeze);
+    b.flush();
+    b.flush();
+    return { b, stop };
+  };
+  // Frames until the stage is at rest, with the progress each one showed.
+  const glide = (b, limit = 240) => {
+    const path = [];
+    while (b.count().frames && path.length < limit) {
+      b.flush();
+      path.push(shown(b));
+    }
+    assert.equal(b.count().frames, 0, 'the follow comes to rest: 0 RAF');
+    return path;
+  };
+  const { MOTION } = loadStoryMath('home-motion');
+  const { tau, frameMs } = MOTION.follow;
+
+  // 1. The same frames at rest, reached by a glide, in both directions.
+  for (const width of [1440, 1024, 390]) {
+    const raw = mount({ width });
+    const eased = mount({ width, follow: true });
+    let from = 0;
+    for (const p of [0.2, 0.47, 0.6, 0.75, 0.9, 1, 0.5, 0.05, 0]) {
+      raw.b.scroll(SPAN * p);
+      for (let i = 0; i < 40 && raw.b.count().frames; i++) raw.b.flush();
+      eased.b.scroll(SPAN * p);
+      const path = glide(eased.b);
+      const label = `${width}px ${from}→${p}`;
+      const sign = Math.sign(p - from);
+      // p = 1 is where this stage starts to leave (the double has no orbit
+      // span): the journey must be complete there, so nothing trails.
+      if (p === 1) assert.deepEqual(path, [1], `${label}: complete at exit`);
+      else {
+        assert.ok(path.length > 12, `${label}: a glide, not a cut`);
+        assert.ok(
+          (path[0] - from) * sign > 0 && (p - path[0]) * sign > 0,
+          `${label}: the first frame is part of the way`,
+        );
+      }
+      assert.ok(
+        path.length * frameMs <= 1500,
+        `${label}: at rest in ${Math.round(path.length * frameMs)}ms`,
+      );
+      for (let i = 1; i < path.length; i++)
+        assert.ok(
+          (path[i] - path[i - 1]) * sign >= 0,
+          `${label}: never back toward where it came from`,
+        );
+      assert.equal(eased.b.root.dataset.storyProgress, p.toFixed(5));
+      assert.deepEqual(
+        snapshot(eased.b),
+        snapshot(raw.b),
+        `${label}: the resting frame is the one raw scroll shows`,
+      );
+      assert.deepEqual(
+        eased.b.paints.at(-1),
+        raw.b.paints.at(-1),
+        `${label}: the cloth rests on the same frame`,
+      );
+      from = p;
+    }
+    raw.stop();
+    eased.stop();
+    assert.deepEqual(eased.b.count(), {
+      frames: 0,
+      listeners: 0,
+      observers: 0,
+    });
+  }
+
+  // 2. A notched wheel reaches the stage as an even glide.
+  {
+    const { b, stop } = mount({ follow: true });
+    const raw = mount({});
+    let native = SPAN * 0.2,
+      before = 0.2,
+      worst = 0,
+      worstRaw = 0,
+      beforeRaw = 0.2;
+    b.scroll(native);
+    raw.b.scroll(native);
+    glide(b);
+    raw.b.flush();
+    for (let i = 0; i < 96; i++) {
+      if (i % 8 === 0) {
+        native += 100;
+        b.scroll(native);
+        raw.b.scroll(native);
+      }
+      if (b.count().frames) b.flush();
+      if (raw.b.count().frames) raw.b.flush();
+      worst = Math.max(worst, (shown(b) - before) * SPAN);
+      worstRaw = Math.max(worstRaw, (shown(raw.b) - beforeRaw) * SPAN);
+      before = shown(b);
+      beforeRaw = shown(raw.b);
+    }
+    assert.ok(worstRaw > 99, 'raw: every notch is one 100px step');
+    assert.ok(worst < 20, `followed: at most ${worst.toFixed(1)}px a frame`);
+    glide(b);
+    assert.equal(b.root.dataset.storyProgress, (native / SPAN).toFixed(5));
+    stop();
+    raw.stop();
+  }
+
+  // 3. Touch trails less; reduced motion does not trail at all.
+  {
+    const frames = (options) => {
+      const { b, stop } = mount({ follow: true, ...options });
+      b.scroll(SPAN * 0.3);
+      const count = glide(b).length;
+      assert.equal(b.root.dataset.storyProgress, '0.30000');
+      stop();
+      return count;
+    };
+    const fine = frames({});
+    const coarse = frames({ fine: false });
+    assert.ok(
+      coarse < fine * 0.7,
+      `touch rests sooner (${coarse} vs ${fine} frames)`,
+    );
+    assert.ok(tau.coarse < tau.fine);
+    const { b, stop } = mount({ follow: true, reduced: true });
+    b.scroll(SPAN * 0.3);
+    b.flush();
+    assert.equal(b.root.dataset.storyProgress, '0.30000', 'reduced: raw');
+    // One more frame may follow: the Atrium request this scroll started.
+    assert.deepEqual(glide(b, 2), [0.3].slice(0, 1), 'reduced: no trailing');
+    b.scroll(SPAN * 0.4);
+    b.flush();
+    assert.equal(b.root.dataset.storyProgress, '0.40000');
+    assert.equal(b.count().frames, 0, 'reduced: one frame per scroll');
+    stop();
+  }
+
+  // 4. Positions the visitor did not scroll to are shown as they are:
+  // history restore, a tab that was hidden, the intro's hold at the top.
+  {
+    const { b, stop } = mount({ follow: true });
+    b.scroll(SPAN * 0.2);
+    b.flush();
+    assert.ok(shown(b) > 0 && shown(b) < 0.2, 'mid-glide');
+    b.window.scrollY = SPAN * 0.9;
+    b.window.emit('pageshow');
+    assert.equal(b.root.dataset.storyProgress, '0.90000', 'restore: no replay');
+    assert.equal(b.count().frames, 0, 'restore: at rest at once');
+    b.scroll(SPAN * 0.7);
+    b.flush();
+    assert.ok(shown(b) < 0.9 && shown(b) > 0.7, 'gliding again');
+    b.document.hidden = true;
+    b.document.emit('visibilitychange');
+    assert.equal(b.count().frames, 0, 'hidden: the glide is dropped');
+    b.window.scrollY = SPAN * 0.3;
+    b.document.hidden = false;
+    b.document.emit('visibilitychange');
+    b.flush();
+    assert.equal(b.root.dataset.storyProgress, '0.30000', 'shown: no replay');
+    glide(b);
+    b.document.documentElement.setAttribute('data-home-intro', 'waiting');
+    b.scroll(SPAN * 0.3);
+    b.flush();
+    assert.equal(b.root.dataset.storyProgress, '0.00000', 'intro holds 0');
+    assert.equal(b.count().frames, 0, 'intro: nothing to follow');
+    b.document.documentElement.removeAttribute('data-home-intro');
+    b.window.scrollY = 0;
+    b.scroll(0);
+    b.flush();
+    assert.equal(b.root.dataset.storyProgress, '0.00000');
+    assert.equal(b.count().frames, 0);
+    b.document.documentElement.setAttribute('data-home-restoring', '');
+    b.scroll(SPAN * 0.4);
+    b.flush();
+    assert.equal(
+      b.root.dataset.storyProgress,
+      '0.40000',
+      'a restore in progress is sampled, not eased',
+    );
+    stop();
+  }
+
+  // 5. The pinned stage: complete when it starts to leave, and no frames
+  // for scrolling that happens below it.
+  {
+    const { b, stop } = mount({ follow: true });
+    b.scroll(SPAN * 0.8);
+    glide(b);
+    b.scroll(SPAN - 60);
+    b.flush();
+    assert.ok(
+      shown(b) * SPAN >= SPAN - 120 - 1e-6,
+      'never further behind than the room left before the exit',
+    );
+    b.scroll(SPAN);
+    b.flush();
+    assert.equal(b.root.dataset.storyProgress, '1.00000', 'complete at exit');
+    glide(b);
+    for (const y of [SPAN + 300, SPAN + 2000, SPAN + 900]) {
+      b.scroll(y);
+      b.flush();
+      assert.equal(b.root.dataset.storyProgress, '1.00000');
+      assert.equal(b.count().frames, 0, 'no follow frames below the stage');
+    }
+    b.scroll(SPAN - 300);
+    b.flush();
+    assert.ok(shown(b) < 1 && shown(b) * SPAN > SPAN - 300, 'back in: eased');
+    glide(b);
+    stop();
+  }
+
+  // 6. A plate that decodes late resumes the held bridge and eases to the
+  // hand, where raw scroll cut ahead in one frame. (At 0.7 the exit of this
+  // double, which has no orbit span after the journey, is still far enough
+  // not to bound the follow.)
+  {
+    const bridge = (b) => b.paints.at(-1)[0];
+    const raw = mount({ sceneImage: 'pending' });
+    const eased = mount({ sceneImage: 'pending', follow: true });
+    for (const { b } of [raw, eased]) {
+      b.scroll(SPAN * 0.7);
+      glide(b);
+      assert.equal(b.root.dataset.storyProgress, '0.70000');
+      assert.equal(bridge(b), 0.48, 'the bridge waits at the manifesto');
+      b.imageCallbacks.ready();
+    }
+    raw.b.flush();
+    assert.equal(bridge(raw.b), 0.7, 'raw: one frame, 0.48 → 0.7');
+    const path = [];
+    while (eased.b.count().frames && path.length < 240) {
+      eased.b.flush();
+      path.push(bridge(eased.b));
+    }
+    assert.equal(eased.b.count().frames, 0);
+    assert.ok(
+      path[0] > 0.48 && path[0] < 0.53,
+      `resumes from the hold: ${path[0]}`,
+    );
+    for (let i = 1; i < path.length; i++) {
+      assert.ok(path[i] >= path[i - 1], 'forward only');
+      assert.ok(path[i] - path[i - 1] < 0.04, 'no frame cuts ahead');
+    }
+    assert.equal(path.at(-1), 0.7);
+    assert.deepEqual(
+      snapshot(eased.b),
+      snapshot(raw.b),
+      'the same frame at rest',
+    );
+    // A later re-decode (another srcset candidate) must not replay it.
+    eased.b.imageCallbacks.ready();
+    eased.b.flush();
+    assert.equal(eased.b.root.dataset.storyProgress, '0.70000');
+    assert.equal(eased.b.count().frames, 0, 're-decode: nothing replays');
+    raw.stop();
+    eased.stop();
+  }
+
+  // 7. Loading follows the hand, not the picture: a fast scroll starts the
+  // Atrium request on its first frame.
+  {
+    const { b, stop } = mount({ follow: true, sceneImage: 'pending' });
+    assert.equal(b.imageStarts.count, 0);
+    b.scroll(SPAN * 0.5);
+    b.flush();
+    assert.ok(
+      shown(b) < loadStoryMath('home-production').HOME_PRODUCTION.scenePreload,
+      'the picture is still behind the preload point',
+    );
+    assert.equal(b.imageStarts.count, 1, 'the request has started');
+    glide(b);
+    stop();
+  }
+}
 console.log(
-  'HomeStory passed: one owner and TP, native/restored progress, reversible poses, inert controls, reduced continuity, atmosphere handoff/gating, ambient air on the master RAF only while alive, idle stillness and 30 complete cleanups.',
+  'HomeStory passed: one owner and TP, native/restored progress, reversible poses, inert controls, reduced continuity, atmosphere handoff/gating, ambient air on the master RAF only while alive, idle stillness and 30 complete cleanups; STEP 1 follow: same resting frames by an even glide, raw for restore/intro/reduced, complete at the stage exit.',
 );

@@ -179,7 +179,7 @@ past 1.
 
 | Domain | Range | Span | Timeline code |
 | --- | --- | --- | --- |
-| `baseStoryProgress` | 0 → 1, clamped; stays 1 after the journey | the approved journey, `--story-base-height` (unchanged) | `p = clamp((scroll - top) / geometry.span)` |
+| `baseStoryProgress` | 0 → 1, clamped; stays 1 after the journey | the approved journey, `--story-base-height` (paced to 640/560/480svh by STEP 1; shares unchanged) | `p = clamp((scroll - top) / geometry.span)` |
 | `roomOrbitProgress` | 0 → 1, clamped; 0 until `baseStoryProgress` = 1 | the appended `--story-orbit-height`: 160svh, PROVISIONAL | `clamp((scroll - top - geometry.span) / geometry.orbit)` |
 
 - The timeline hands both to the controller by name (`update({ baseStoryProgress, roomOrbitProgress, … })`).
@@ -554,7 +554,7 @@ transform, or `will-change`) is resampled by the compositor as it moves and
 is softer than the same picture drawn directly, so the picture changes
 sharpness in the frame the promotion begins or ends.
 
-- The bridge's camera (`home-story-timeline.ts`) writes its pose in 2D and is never promoted. The pose is PASS 15's, number for number (`check:atrium-orbit` compares it); the portal orbit's breath keeps its approved 3D pose.
+- The bridge's camera (`home-story-timeline.ts`) writes its pose in 2D and is never promoted. The pose is PASS 15's, number for number (`check:atrium-orbit` compares it). The portal orbit's breath kept its 3D pose in this pass; STEP 1 made it flat as well (`TANPHONG_HOME_MOTION_CONTEXT.md` §40).
 - Plates never set `will-change` (`atrium-orbit-controller.ts`).
 
 Frame pacing is unchanged (60 fps cadence at DPR 2, also with the CPU slowed

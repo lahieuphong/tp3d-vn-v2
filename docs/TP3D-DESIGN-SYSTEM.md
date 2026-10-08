@@ -109,7 +109,8 @@ experience banner and the Atrium.
 
 **Homepage stage**
 
-- One `position: sticky` 100svh viewport inside a tall section (360/320/280svh).
+- One `position: sticky` 100svh viewport inside a tall section (640/560/480svh
+  with motion, 360/320/280svh under reduced motion; the room orbit adds 160svh).
 - Scenes are absolutely positioned layers in percentage and svh coordinates.
   They are not separate sections.
 - Plane order:
@@ -294,7 +295,8 @@ match the existing atmospheric sky tiers.
 
 Homepage specifics:
 
-- Story height is 360/320/280svh.
+- Story height is 640/560/480svh with motion (360/320/280svh under reduced
+  motion).
 - Short story copy on mobile and tablet portrait.
 - Room labels sit on architectural coordinates only at ≥1200. Below that they
   form a 2×2 grid.

@@ -39,7 +39,8 @@ projection transfer. Outline, fold and thread paths are calculated only on
 measurement, never per animation frame. The bridge uses the existing master
 native-scroll driver and requestAnimationFrame owner, with no new clock or
 scroll-height extension. Existing heights remain 360svh on desktop, 320svh on
-tablet and 280svh on mobile.
+tablet and 280svh on mobile (as of this pass; STEP 1 later paced them to
+640/560/480svh where motion is allowed).
 
 ## Scene 3 source audit
 

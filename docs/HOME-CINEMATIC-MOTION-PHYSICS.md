@@ -33,8 +33,11 @@ These are source/curve findings, not claims from an unavailable baseline video.
 responsive values, departure roles, physical ratios, source framing, light,
 UI timing and mass limits. Existing PASS 2 constants remain in its frame module.
 
-There is one native story progress and one existing master RAF owner. Added
-scroll scrub is **0**: no browser scroll interception or delayed scroll position.
+There is one native story progress and one existing master RAF owner. Browser
+scroll is never intercepted or delayed. Since STEP 1 the stage shows a position
+that trails the native one and rests on it (`MOTION.follow`, 150ms with a
+pointer, 70ms on touch, none under reduced motion); every layer samples that one
+displayed progress. See `TANPHONG_HOME_MOTION_CONTEXT.md` §40.
 The master samples asymmetric integrated velocity curves:
 
 - Departure: `t⁴ × (5 − 4t)` — slow pickup, peak speed late, zero endpoint speed.
@@ -109,7 +112,8 @@ budget above. Controls keep their existing per-element visibility gates.
 
 ## Responsive and reduced motion
 
-The existing 360/320/280svh story heights stay unchanged. Mobile keeps one painted
+The 360/320/280svh story heights were unchanged by this pass (STEP 1 later
+paced the journey to 640/560/480svh where motion is allowed). Mobile keeps one painted
 cloth projection, shorter sky framing and an earlier camera endpoint, with no
 inertia. Tablet keeps reduced depth and mass. Final image and room compositions
 return to their approved exact transforms at every size.

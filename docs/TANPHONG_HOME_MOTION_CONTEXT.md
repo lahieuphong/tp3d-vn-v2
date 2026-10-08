@@ -70,7 +70,7 @@ app/page.tsx  Home
 │     IntroBreeze (front), slogan, IntroProgress, bottom brand, IntroHeader
 └─ HomeExperience  <main#main.home-experience>   components/home/experience/home-experience.tsx (client)
    │  useLayoutEffect → createHomeStoryTimeline(root, createBreezeRenderer(root))
-   └─ HomeStory  <section.home-story[data-home-story]>        home-story.tsx (height 360/320/280svh)
+   └─ HomeStory  <section.home-story[data-home-story]>        home-story.tsx (height 640/560/480svh; 360/320/280svh reduced)
       └─ div.home-story-stage[data-home-story-stage]          position: sticky; top 0; 100svh; overflow: clip
          ├─ SharedTP  .sh-monogram[data-shared-tp]            shared-tp.tsx            z 3
          ├─ HomeHero → SpatialHero  section.spatial-hero      components/sections/home-hero.tsx, home/hero/*
@@ -103,7 +103,7 @@ and rail (12) interleave inside the one stage (comment in
 | Lenis? | **No** (not installed, not imported). |
 | Smooth scroll CSS? | `globals.css:47` sets `scroll-behavior: smooth`; `home-story.css` overrides it with `html:has([data-home-story]) { scroll-behavior: auto }`. |
 | One master timeline? | **Yes** — `createHomeStoryTimeline()` in `home-story-timeline.ts` ("The only scroll owner"). It is a hand-written function, not a GSAP timeline. |
-| Sticky / pinned? | **One CSS sticky stage** (`.home-story-stage`, 100svh) inside a tall section (`--story-height` 360svh ≥1200 / 320svh 768–1199 / 280svh <768). No JS pinning, no pin spacers. Scenes are absolutely positioned layers inside the stage, not separate sections. |
+| Sticky / pinned? | **One CSS sticky stage** (`.home-story-stage`, 100svh) inside a tall section (`--story-base-height` 640svh ≥1200 / 560svh 768–1199 / 480svh <768 with motion, 360/320/280svh under reduced motion, plus the 160svh room orbit). No JS pinning, no pin spacers. Scenes are absolutely positioned layers inside the stage, not separate sections. |
 | Competing triggers? | **None.** Zero ScrollTriggers / IntersectionObservers in the story. One ResizeObserver (sequence, stage, header). |
 | Scroll state in React? | **No** per-frame React state. All writes are direct DOM style/attribute writes with change detection (`property()`), plus a signature cache. Exceptions: `SiteHeader` `setState` only when `scrollY > 48` flips; the loader's progress state during the intro. |
 | Progress formula | `p = clamp((scrollY − storyTop) / (storyHeight − stageHeight))`; forced to 0 while `html[data-home-intro]` exists. |
@@ -204,7 +204,7 @@ Phase labels written to `main[data-bridge-phase]`: `SCENE2_HOLD` <0.48,
 ## 9. Scene 3 implementation — "Enter the worlds." (Atrium)
 
 - **One flat photographic plate**: `worlds-atrium.webp` **1672×941**, opaque. Sky, oculus, tree, planter, pool, floor and the four room openings are all in this single image. **There are no separated depth layers, no alpha cut-outs and no depth map.** No larger master exists (`assets/home-chapters/worlds-atrium.png` is also 1672×941).
-- Camera = CSS transform on `.hc-atrium-camera` about the oculus sky centre (source px 836,110). Since PASS 6B.1 the bridge writes it flat (`translate() scale()`, 2D, never promoted); the portal orbit's breath keeps `translate3d + scale` (§18 item 11). `measureAtrium()` derives the sky-crop scale from a 160/168/176 source-px crop height (desktop/tablet/portrait): **5.88× at 1440×900, 5.35× at 820×1180 and 390×844**.
+- Camera = CSS transform on `.hc-atrium-camera` about the oculus sky centre (source px 836,110). Since PASS 6B.1 the bridge writes it flat (`translate() scale()`, 2D, never promoted), and since STEP 1 the portal orbit's breath is flat too (§18 item 11, §40). `measureAtrium()` derives the sky-crop scale from a 160/168/176 source-px crop height (desktop/tablet/portrait): **5.88× at 1440×900, 5.35× at 820×1180 and 390×844**.
 - Desktop (≥1200): room labels are positioned in plate-cover coordinates and receive the same pose transform. <1200: labels become a grouped 2×2 overlay grid (no transform).
 - Copy: eyebrow "3D WORLDS", h2 "Enter / *the worlds.*", body, "REAL SPACES. REAL PERSPECTIVE.", CTA "EXPLORE 3D WORLDS ⟶" with circular preview, baseline "SCROLL TO DISCOVER · REAL SPACES, REAL PERSPECTIVE.".
 - Room discovery (`room-discovery.ts`): hover/focus sets `data-active-room`; 192 px previews decoded on intent (≥768). No pointer parallax on the photograph.
@@ -316,7 +316,7 @@ tablet do not have separate timelines.
 
 | Concern | Mobile <768 | Tablet 768–1199 | Desktop ≥1200 |
 | --- | --- | --- | --- |
-| Story height | 280svh | 320svh | 360svh |
+| Story height (motion; reduced motion in brackets) | 480svh (280svh) | 560svh (320svh) | 640svh (360svh) |
 | Depth multiplier (text/TP/arch) | 0.5 | 0.75 (arrival 0.7) | 1 |
 | TP Scene 1 box / Scene 2 target | own box; target −21vw, 19svh, ×0.88; opacity 0.75 | own box (portrait override 24svh, ×0.8) | 38.1%/6.7%, 25.8%×49%; target 13svh, ×0.86 |
 | Breeze | 1 unmasked projection, breezeDepth 0.58 | 3 projections, 0.75 | 3 projections, 1 |
@@ -847,3 +847,53 @@ Documentation and tooling only; no runtime code in the production bundle changed
 - `docs/TANPHONG_ATRIUM_STUDIO_HANDOFF.md` is the brief for the external studio; `docs/TANPHONG_ATRIUM_DELIVERY_CHECKLIST.md` is our review checklist.
 - Deliveries land in `work/atrium-orbit/studio/{phase-1,phase-2,final}/` (git-ignored). `yarn check:atrium-orbit-assets` validates them manually and reports NOT READY while none exists.
 - PASS 6B.1 (real camera calibration) may begin once the Phase 1 package is complete and validates with no blocking errors (`docs/TANPHONG_ATRIUM_ORBIT_IMPLEMENTATION.md` §17).
+
+## 40. STEP 1 — smooth foundation (2026-10-08, not deployed)
+
+The owner's review: the animation and the 2.5D transitions are not smooth and
+do not read as one connected move. This step changes how the journey is
+_played_, not what it shows. No scene, curve, timing or asset changed.
+
+**1. The scroll follow.** `MOTION.follow` in `home-motion.ts`, `followScroll()`.
+
+- The stage used to sample `window.scrollY` raw. Scroll input arrives in steps (a wheel notch is 100px in one frame on macOS; frames are uneven), and every layer repeated every step.
+- The stage now shows a position that trails the native one by a time constant (150ms with a pointer, 70ms on touch) and comes to rest exactly on it. It is first-order: it stores no velocity, so it cannot overshoot or oscillate.
+- Native scroll is not intercepted, delayed or corrected. The page and the sticky stage move natively. There is still one scroll listener, one RAF, no dependency.
+- **Every layer samples the one displayed progress**, text and controls included, so they trail and rest together. This replaces the PASS 4 rule that text and interaction sample raw progress, and `scrub: 0`.
+- Raw (no trailing) on first paint, history restore (`pageshow`, `data-home-restoring`), the intro's hold, a tab that was hidden, and reduced motion.
+- The follow is never further behind than the room left before the stage starts to leave, so the journey is complete when the stage moves. Scrolling below the stage asks for no frames.
+- A stalled frame advances as one 34ms frame (slower, never a jump). The tail closes at a steady 90 px/s instead of fading for ever; rest comes 0.5–0.9s after the hand stops.
+- A plate that decodes late used to cut the held bridge ahead to the hand in one frame. It now resumes from the hold and eases there.
+- Loading follows the hand, not the picture: the Atrium request starts when the native position passes `scenePreload`.
+
+**2. Pacing.** `home-story.css`.
+
+- With motion the base journey is read over 640/560/480svh (scroll reach 540/460/380svh, from 260/220/180svh): about twice the distance, the same pace on every breakpoint.
+- Every phase keeps its share of the journey. `check:atrium-orbit` proves that at equal progress the paced story writes exactly what the PASS 15 distance writes.
+- Reduced motion keeps 360/320/280svh: its cuts gain nothing from a longer page.
+- The lazy atmosphere and the Atrium plate keep their progress thresholds, so they now have twice the distance to load. Measured on a cold first scroll: the atmosphere is ready at p = 0.15 (was 0.22).
+
+**3. The camera is flat on the whole journey.** PASS 6B.1 wrote the camera's pose in 2D through the bridge; the portal orbit's breath kept a 3D pose with `will-change`. Measured over the orbit at 1680×887: the picture's fine detail stepped 12–15% each time that promotion began or ended. The breath is now flat too and the largest step between like frames is 3.5%.
+
+**Measured** (headless Chromium with GPU, per animation frame, px of scroll):
+
+| Input                          | Largest step shown, before → after | Unevenness, before → after |
+| ------------------------------ | ---------------------------------- | -------------------------- |
+| Notched wheel, 100px per notch | 100 → 18                           | 22.9 → 1.9                 |
+| Even drag, 14px per event      | 14 → 7                             | 10.7 → 0.7                 |
+| Flick                          | 90 → 23–29                         | 15.7 → 1.2                 |
+| Phone drag (touch)             | 14 → 8                             | 8.4 → 1.5                  |
+
+Unevenness is the mean change of the per-frame step from one frame to the
+next (0 is perfectly even). One px of scroll is also half the progress it was.
+
+**Not judged.** These are measurements of evenness, not of how it feels in the
+hand on the owner's machine; the trail (150ms) and the distance (640svh) are
+the two values to tune after review.
+
+**Not done in this step.**
+
+- One virtual camera for the whole journey and real depth layers (STEP 2).
+- The cloth still dips to nothing and returns at p ≈ 0.30 instead of travelling.
+- The lazy atmosphere chunk still evaluates during the first scroll: one 76ms task at p ≈ 0.12 on a 4× slower CPU (none at full speed).
+- In the Tier B preview, the Arrival comp plate can pick a different file than the approved backdrop on phones and tablets.

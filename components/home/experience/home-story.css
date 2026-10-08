@@ -151,6 +151,27 @@ html:has([data-home-story]) {
     gap: clamp(10px, 2.1svh, 18px);
   }
 }
+/* TP3D STEP 1 — pacing. With motion the same journey is read over about
+   twice the distance (scroll reach 540/460/380svh, from 260/220/180svh):
+   every phase keeps its share of the journey, so nothing is retimed, and a
+   wheel notch or a flick moves each transition half as far. Reduced motion
+   keeps the distances above: its cuts gain nothing from a longer page.
+   These follow the breakpoint rules so that they win over them. */
+@media (prefers-reduced-motion: no-preference) {
+  .home-story {
+    --story-base-height: 640svh;
+  }
+}
+@media (prefers-reduced-motion: no-preference) and (max-width: 1199px) {
+  .home-story {
+    --story-base-height: 560svh;
+  }
+}
+@media (prefers-reduced-motion: no-preference) and (max-width: 767px) {
+  .home-story {
+    --story-base-height: 480svh;
+  }
+}
 @media (max-width: 767px) and (max-height: 740px) {
   .home-story-stage .hc-atrium-copy h2 {
     font-size: clamp(54px, 14vw, 70px);

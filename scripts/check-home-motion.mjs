@@ -1,8 +1,14 @@
 /** Physical invariants, not measurements of browser FPS or perceived quality. */
 import assert from 'node:assert/strict';
 import { loadStoryMath } from './load-story-math.mjs';
-const { MOTION, accelerate, arrive, motionProfile, settleVisual } =
-  loadStoryMath('home-motion');
+const {
+  MOTION,
+  accelerate,
+  arrive,
+  followScroll,
+  motionProfile,
+  settleVisual,
+} = loadStoryMath('home-motion');
 const { measureAtrium, atriumPose, bridgeFrame, storyTextDeparture } =
   loadStoryMath('atmospheric-bridge-frame');
 const { bridgeBreezePose } = loadStoryMath('breeze-bridge-pose');
@@ -142,7 +148,175 @@ for (const [width, height] of [
     );
   }
 }
-assert.equal(MOTION.scrub, 0, 'native browser scroll is never delayed');
+// TP3D STEP 1 — the scroll follow. What the stage shows trails the hand and
+// rests on it; native scroll itself is never touched (the timeline has no
+// wheel/touch listener and never calls scrollTo: check:atrium-orbit).
+{
+  const { tau, floor, epsilon, maxFrameMs, frameMs } = MOTION.follow;
+  assert.equal('scrub' in MOTION, false, 'the follow replaces scrub: 0');
+  assert.ok(tau.fine >= 120 && tau.fine <= 200, 'pointer: a 0.12–0.2s trail');
+  assert.ok(
+    tau.coarse > 0 && tau.coarse <= tau.fine / 2,
+    'touch stays closer to the finger',
+  );
+  assert.ok(maxFrameMs >= 2 * frameMs && maxFrameMs < 3 * frameMs);
+  // First paint, restore, intro (null) and reduced motion (tau 0) are raw.
+  assert.deepEqual(
+    { ...followScroll(null, 1234.5, 16, tau.fine) },
+    { value: 1234.5, active: false },
+  );
+  assert.deepEqual(
+    { ...followScroll(200, 1234.5, 16, 0) },
+    { value: 1234.5, active: false },
+  );
+  assert.deepEqual(
+    { ...followScroll(700, 700, 16, tau.fine) },
+    { value: 700, active: false },
+    'at rest it asks for no frame',
+  );
+  const run = (from, to, rate, time, t = tau.fine) => {
+    let shown = from,
+      frames = 0,
+      rest = null;
+    const path = [shown];
+    for (let at = 0; at < time; at += rate) {
+      const next = followScroll(shown, to, frames ? rate : 0, t);
+      shown = next.value;
+      path.push(shown);
+      frames++;
+      if (!next.active) {
+        rest = at + rate;
+        break;
+      }
+    }
+    return { shown, frames, rest, path };
+  };
+  for (const pointer of ['fine', 'coarse'])
+    for (const rate of [1000 / 30, 1000 / 60, 1000 / 120])
+      for (const [from, to] of [
+        [0, 100],
+        [0, 1500],
+        [5000, 4200],
+        [300, 0],
+        [0, 6000],
+      ]) {
+        const { shown, rest, path } = run(from, to, rate, 3000, tau[pointer]);
+        const label = `${pointer} ${from}→${to} @${Math.round(1000 / rate)}Hz`;
+        assert.equal(shown, to, `${label}: rests exactly on the hand`);
+        assert.ok(
+          rest !== null && rest <= 1500,
+          `${label}: at rest in ${rest}ms`,
+        );
+        const sign = Math.sign(to - from);
+        for (let i = 1; i < path.length; i++) {
+          assert.ok(
+            (path[i] - path[i - 1]) * sign > 0,
+            `${label}: one direction, never back`,
+          );
+          assert.ok((to - path[i]) * sign >= 0, `${label}: no overshoot`);
+          // An ease-out: every stride is at most the one before it (the
+          // first is one nominal frame; the last may close inside epsilon).
+          if (i > 2)
+            assert.ok(
+              Math.abs(path[i] - path[i - 1]) <=
+                Math.abs(path[i - 1] - path[i - 2]) + epsilon,
+              `${label}: the stride only ever shortens`,
+            );
+        }
+      }
+  // The same motion at every display rate: positions 200ms in agree.
+  const at200 = [1000 / 30, 1000 / 60, 1000 / 120].map((rate) => {
+    let shown = 0;
+    for (let at = 0; at < 200 - 1e-6; at += rate)
+      shown = followScroll(shown, 1000, rate, tau.fine).value;
+    return shown;
+  });
+  assert.ok(
+    Math.max(...at200) - Math.min(...at200) < 1,
+    `frame-rate independent: ${at200.map((v) => v.toFixed(2)).join(', ')}`,
+  );
+  close(at200[1], 1000 * (1 - Math.exp(-200 / tau.fine)), 'first-order');
+  // A hand moving at a steady 1200 px/s is trailed by speed × tau.
+  {
+    let shown = 0,
+      native = 0;
+    for (let i = 0; i < 240; i++) {
+      native += 20;
+      shown = followScroll(shown, native, frameMs, tau.fine).value;
+    }
+    const lag = native - shown;
+    assert.ok(
+      Math.abs(lag - 1.2 * tau.fine) < 0.07 * 1.2 * tau.fine,
+      `steady trail ${lag.toFixed(1)}px ≈ ${1.2 * tau.fine}px`,
+    );
+    // A notched wheel (100px every 8 frames) reaches the stage as an even
+    // glide: no frame moves more than a fifth of a notch.
+    shown = native = 0;
+    let worst = 0;
+    for (let i = 0; i < 160; i++) {
+      if (i % 8 === 0) native += 100;
+      const next = followScroll(shown, native, frameMs, tau.fine).value;
+      worst = Math.max(worst, next - shown);
+      shown = next;
+    }
+    assert.ok(
+      worst < 20,
+      `a 100px notch shows as ≤ ${worst.toFixed(1)}px a frame`,
+    );
+  }
+  // A stalled frame advances like one frame; the first frame after rest is
+  // one nominal frame, whatever the clock says.
+  assert.equal(
+    followScroll(0, 1000, 900, tau.fine).value,
+    followScroll(0, 1000, maxFrameMs, tau.fine).value,
+    'no jump after a stall',
+  );
+  for (const stale of [0, -5, Number.NaN])
+    assert.equal(
+      followScroll(0, 1000, stale, tau.fine).value,
+      followScroll(0, 1000, frameMs, tau.fine).value,
+      'first frame after rest',
+    );
+  // The tail ends at the floor pace and snaps inside epsilon.
+  assert.equal(
+    followScroll(10, 11, frameMs, tau.fine).value,
+    11,
+    'the last stride lands on the hand',
+  );
+  assert.ok(floor * frameMs > epsilon, 'the floor always clears epsilon');
+  // The stage leaves at `limit`: the follow is there no later than the hand,
+  // reaching it continuously, and never passes it.
+  {
+    const limit = 5000;
+    let shown = 3000,
+      native = 3000,
+      before = shown;
+    for (let i = 0; i < 400; i++) {
+      native = Math.min(5600, native + 45);
+      const next = followScroll(shown, native, frameMs, tau.fine, limit);
+      assert.ok(next.value <= limit, 'never past the exit');
+      assert.ok(
+        Math.min(native, limit) - next.value <=
+          Math.max(0, limit - native) + 1e-9,
+        'never further behind than the room left before the exit',
+      );
+      assert.ok(next.value >= before, 'forward only');
+      assert.ok(next.value - before <= 2 * 45 + 1e-9, 'at most twice the hand');
+      if (native >= limit) {
+        assert.equal(next.value, limit, 'complete when the stage moves');
+        assert.equal(next.active, false, 'and asks for no frame past it');
+      }
+      before = shown = next.value;
+    }
+    // Coming back up from below the stage it starts from the exit.
+    assert.deepEqual(
+      { ...followScroll(limit, limit + 900, frameMs, tau.fine, limit) },
+      { value: limit, active: false },
+    );
+    const up = followScroll(limit, limit - 300, frameMs, tau.fine, limit);
+    assert.ok(up.active && up.value < limit && up.value > limit - 300);
+  }
+}
 console.log(
-  'PASS4 motion passed: smooth velocity boundaries, asymmetric acceleration/arrival, staggered context loss, bounded30/60/120Hz mass,220ms rest, reverse and mobile/reduced bypass.',
+  'PASS4 motion passed: smooth velocity boundaries, asymmetric acceleration/arrival, staggered context loss, bounded30/60/120Hz mass,220ms rest, reverse and mobile/reduced bypass; STEP 1 follow: exact rest, no overshoot, frame-rate independent, bounded before the stage exit.',
 );

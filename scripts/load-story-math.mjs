@@ -29,3 +29,18 @@ export function loadStoryMath(name) {
   );
   return loaded.exports;
 }
+
+/** home-motion with the scroll follow switched off (MOTION.follow.tau = 0),
+ * for DOM doubles that assert the frame a scroll position rests on. With the
+ * follow on, that frame is reached a few frames later; the checks that turn
+ * it on prove both agree. */
+export function loadRawScrollMotion() {
+  const motion = loadStoryMath('home-motion');
+  return {
+    ...motion,
+    MOTION: {
+      ...motion.MOTION,
+      follow: { ...motion.MOTION.follow, tau: { fine: 0, coarse: 0 } },
+    },
+  };
+}

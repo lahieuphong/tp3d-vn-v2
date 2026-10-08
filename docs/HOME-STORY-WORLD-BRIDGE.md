@@ -52,6 +52,9 @@ of truth: `clamp((scrollY - storyTop) / (storyHeight - stageHeight))`.
 | 768–1199px     | 320svh       | 100svh |
 | <768px         | 280svh       | 100svh |
 
+Since STEP 1 these heights apply under reduced motion only; with motion the
+same journey is read over 640/560/480svh (`TANPHONG_HOME_MOTION_CONTEXT.md` §40).
+
 Heights and breakpoint rules are centralized in `home-story.css`. Scene ranges
 and the temporary crossfade width are centralized in `home-story-frame.ts`:
 
