@@ -2972,7 +2972,7 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
       [host.whole('living'), host.room(), host.reduced(), host.tall()],
       [true, 'living', false, 1],
     );
-    same(host.risen(), doorways.doorsRisen(1, ROOMS, false));
+    assert.equal(host.risen, undefined, 'no leaf is risen for the entry');
     // Held: the frame on stage stays, wherever the page is taken.
     const held = stage();
     host.hold(true);
@@ -3217,16 +3217,15 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
         `architecture only at base ${base}`,
       );
       same(s.frame, { gateway: 0, gatewayInteractive: false, baseline: 1 });
-      // The doors: none before the Atrium's plate is asked for; then the
-      // wide Atrium's own, lying where its plate would (the photograph
-      // itself is the picture), each leaf as far up as the story has it.
-      // Reduced motion has no fall: its doors are shut.
-      const risen = doorways.doorsRisen(base, ROOMS, reduced);
+      // The doors: none before the Atrium's plate is asked for (the Atrium
+      // is still hidden then); from there on the wide Atrium's own, lying
+      // where its plate would (the photograph itself is the picture), and
+      // shut at every position: before the sky opens, through the whole
+      // pull-back, at rest. The rooms are never seen open on the way in.
       same(s.plates, [], `no plate over the photograph at base ${base}`);
       same(
         s.doors,
-        base >= HOME_PRODUCTION.scenePreload &&
-          ROOMS.some((room) => risen[room] < 1)
+        base >= HOME_PRODUCTION.scenePreload
           ? [
               {
                 id: 'arrival',
@@ -3235,7 +3234,7 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
                 transform: `translate(${percent(-manifest.plateWindowStart('arrival', window, 'desktop'))}, ${percent(0)}) scale(1.00000)`,
                 mask: 'none',
                 webkitMask: 'none',
-                clip: doorways.doorsClip('arrival', risen, window.height),
+                clip: doorways.doorsClip('arrival', {}, window.height),
                 own: ['clip-path'],
               },
             ]
@@ -3340,11 +3339,7 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
             : []
         ).map((plate) => ({
           ...plate,
-          clip: doorways.doorsClip(
-            plate.id,
-            doorways.doorsRisen(1, ROOMS, reduced),
-            window.height,
-          ),
+          clip: doorways.doorsClip(plate.id, {}, window.height),
           // Nothing else is written on the doors: the box carries the rest.
           own: ['clip-path'],
         })),
@@ -4064,7 +4059,7 @@ console.log(
     'and joined on the pier between; the stage covered at every position on ' +
     'nine screens; exact in reverse; plain changes under reduced motion), ' +
     'the closed doors lying on every plate with its pose and its join ' +
-    '(falling as the Atrium arrives, shut through the orbit, the wide ' +
+    '(shut from the first sight of the Atrium to the end of the orbit, the wide ' +
     "Atrium's drawn on the photograph at rest) and the controller standing " +
     'still while a room is entered, the Atrium in view for the ' +
     'whole harness (copy shade = approved shade, shown only with the ' +

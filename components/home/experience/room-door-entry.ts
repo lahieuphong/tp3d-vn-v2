@@ -10,8 +10,8 @@ import type { AtriumOrbitStateId, AtriumRoomId } from './atrium-orbit-model';
 
 /** Entering a room through its door (owner decision, 2026-10-09).
  *
- * The Atrium's doors are shut (atrium-orbit-doors.ts). Choosing one opens
- * it: the leaf rises into its lintel, the camera pushes through the doorway,
+ * The Atrium's doors are shut wherever it shows (atrium-orbit-doors.ts),
+ * and this is the only thing that opens one. Choosing a door opens it: the leaf rises into its lintel, the camera pushes through the doorway,
  * the picture goes to light, and the room's page opens under that light.
  * EXPLORE THIS ROOM and the room labels enter the same way, through the door
  * of their room where one is on stage.
@@ -69,8 +69,8 @@ export type RoomDoorEntryHost = {
   doors: () => { view: AtriumOrbitStateId; picture: HTMLElement }[];
   /** Is that view's own plate on the stage, not only its doors? */
   whole: (view: AtriumOrbitStateId) => boolean;
-  /** How far each room's door has risen, and the plate window's height. */
-  risen: () => Record<AtriumRoomId, number>;
+  /** The plate window's height (a stage wider than the plate shows less
+   * than the whole picture down). */
   tall: () => number;
   /** The room the editorial UI shows (EXPLORE THIS ROOM's room). */
   room: () => AtriumRoomId | null;
@@ -279,14 +279,13 @@ export function createRoomDoorEntry(host: RoomDoorEntryHost) {
 
     // The leaf rises, on every picture that shows it (two plates share a
     // doorway while the camera travels between rooms).
-    const risen = host.risen();
     const tall = host.tall();
     for (const { view, picture } of leaves)
       play(
         picture,
         [
-          { clipPath: doorsClip(view, risen, tall) },
-          { clipPath: doorsClip(view, { ...risen, [room]: 1 }, tall) },
+          { clipPath: doorsClip(view, {}, tall) },
+          { clipPath: doorsClip(view, { [room]: 1 }, tall) },
         ],
         { duration: ROOM_ENTRY.openMs, easing: cssEase('cinematic') },
       );

@@ -986,13 +986,12 @@ page carries on to the room by itself. Details, verification and limits:
 
 ## 45. The rooms stand behind closed doors (2026-10-09, not deployed)
 
-Owner request: the four doors come down as the wide Atrium appears, stay
-shut through the room orbit, and choosing a door opens it and enters the
-room. Details, verification and limits:
+Owner request: the Atrium's four doors are shut, in the wide view and
+through the room orbit, and choosing a door opens it and enters the room. Details, verification and limits:
 `TANPHONG_ATRIUM_ORBIT_IMPLEMENTATION.md` §15.9.
 
 - **The doors** are drawn into each doorway of each comp plate (walnut battens, the jambs' own material; `work/atrium-orbit/comp-plates/doors.mjs`, outside Git) and laid on the plate as a second picture in the plate's own box. A leaf opens by rising into its lintel: its outline's lower edge is raised.
-- **The fall** is scroll-mapped like everything else: story 0.855 to 0.940, one door after another, where the room orbit shows no copy. Before it, through the pull-back, the rooms are open. Reduced motion: shut, no fall.
+- **Shut from the first sight of the Atrium.** There is no scroll-mapped move of the doors: every doorway is shut as the pull-back brings it into view, and stays shut. (The first version, `a4f7cb2`, let the doors fall over story 0.855 to 0.940 with the rooms open before it; the owner had that removed the same evening.)
 - **Entering** is the one time-driven move in the Atrium: the leaf up, the camera through the doorway, the picture to light, the room's page out of the light, about 1.4 s. It starts from a plain click or tap on a door, on EXPLORE THIS ROOM or on a room label, and ends by following the room link's own route. The room orbit's controller stands still while it plays.
 - **Listeners and writes.** One click listener on the Atrium section (plus `pagehide`, `pageshow` and `popstate` on the window), in `room-door-entry.ts`. No wheel or touch listener, no RAF or timer loop; the Atrium's scroll position is never written. The room's page is put at its top under the cover (the router skips its own reset for some pages, as noted for the World gateway).
 - **The base journey is untouched**: `home-story-timeline.ts` did not change, and `check:lab` and the base-journey digest are as they were.

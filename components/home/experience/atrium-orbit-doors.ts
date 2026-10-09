@@ -1,12 +1,14 @@
 import type { AtriumOrbitStateId, AtriumRoomId } from './atrium-orbit-model';
 import { ATRIUM_ORBIT_COMP } from './atrium-orbit-manifest';
 import { ATRIUM_ORBIT_SHOTS } from './atrium-orbit-transition';
-import { arrive, span } from './home-motion';
 
 /** The Atrium's doors (owner decision, 2026-10-09): the four rooms stand
- * behind closed doors. The doors come down as the Atrium arrives, stay shut
- * through the room orbit, and a door opens when it is chosen, which is how a
- * room is entered (room-door-entry.ts).
+ * behind closed doors. The doors are shut wherever the Atrium shows, from
+ * the first sight of it out of the oculus to the end of the room orbit, and
+ * a door opens only when it is chosen, which is how a room is entered
+ * (room-door-entry.ts). (The first version let the doors come down as the
+ * Atrium arrived, so the rooms were seen open once; the owner asked the
+ * same evening that they never be.)
  *
  * A door is a leaf drawn into its doorway on the plate: a screen of vertical
  * walnut battens, the material of the fluted jambs beside it. The leaves of a
@@ -15,8 +17,7 @@ import { arrive, span } from './home-motion';
  * the outlines below), shown through the leaves' outlines. A leaf opens by
  * rising into its lintel: its outline's lower edge is raised, and because
  * the battens are vertical that is exactly a screen sliding up. Nothing here
- * knows time: how open a leaf is comes from the story position, or from the
- * entry.
+ * knows time or the story position: only the entry raises a leaf.
  *
  * Outlines are px of the plate (1672 × 941), measured on the comp plates and
  * PROVISIONAL like them. */
@@ -423,36 +424,4 @@ export function doorFrame(door: AtriumDoor) {
     width: (outline.right - outline.left) / WIDTH,
     height: (foot - head) / HEIGHT,
   };
-}
-
-/** The doors come down as the Atrium arrives: one after another, in the
- * order the rooms are numbered, over the stretch of the story in which the
- * camera settles and nothing else arrives (the room orbit shows no copy
- * there). Story progress alone decides, so scrolling back raises them again.
- * `each` is one leaf's share of the story and `between` the wait from one
- * leaf to the next. */
-export const ATRIUM_ORBIT_DOOR_FALL = {
-  from: 0.855,
-  each: 0.052,
-  between: 0.011,
-} as const;
-
-/** How far each room's leaf has risen at a story position: 1 until the
- * doors begin to fall, 0 once they are shut. Reduced motion has no fall:
- * its doors are shut wherever the Atrium shows. */
-export function doorsRisen(
-  baseStoryProgress: number,
-  rooms: readonly AtriumRoomId[],
-  reduced: boolean,
-): Record<AtriumRoomId, number> {
-  const { from, each, between } = ATRIUM_ORBIT_DOOR_FALL;
-  return Object.fromEntries(
-    rooms.map((room, index) => {
-      const start = from + index * between;
-      return [
-        room,
-        reduced ? 0 : 1 - arrive(span(baseStoryProgress, start, start + each)),
-      ];
-    }),
-  ) as Record<AtriumRoomId, number>;
 }

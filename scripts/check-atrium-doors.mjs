@@ -37,13 +37,11 @@ const { ATRIUM_ORBIT_STATES: STATES, ATRIUM_ROOMS: ROOMS } = model;
 const {
   ATRIUM_ORBIT_DOORS,
   ATRIUM_ORBIT_DOOR_BATTENS,
-  ATRIUM_ORBIT_DOOR_FALL,
   atriumDoors,
   doorAt,
   doorFrame,
   doorOutline,
   doorsClip,
-  doorsRisen,
 } = doors;
 const [W, H] = manifest.ATRIUM_ORBIT_COMP.intrinsic;
 const SHOTS = transition.ATRIUM_ORBIT_SHOTS;
@@ -357,46 +355,43 @@ const OPEN = Object.fromEntries(ROOMS.map((room) => [room, 1]));
 }
 
 // ---------------------------------------------------------------------------
-// 6. The doors come down as the Atrium arrives: up until the camera has
-// nearly settled, then one after another in the order the rooms are
-// numbered, each without a start or a stop, all shut before the final hold
-// ends. Story progress alone decides (scrolling back raises them). Reduced
-// motion has no fall.
+// 6. The doors are shut wherever the Atrium shows, and only choosing one
+// opens it. (The first version let them come down as the Atrium arrived, so
+// the rooms were seen open once on the way in; the owner asked the same
+// evening that they never be.) So nothing in the door data knows the story
+// position or time, and the controller never raises a leaf: whatever it
+// draws, it draws shut.
 // ---------------------------------------------------------------------------
 {
-  const { MOTION } = loadStoryMath('home-motion');
-  const { from, each, between } = ATRIUM_ORBIT_DOOR_FALL;
-  const last = from + (ROOMS.length - 1) * between + each;
-  // After the Atrium is recognised, inside the stretch where the room orbit
-  // shows no copy, and done before the journey's last hold is over.
-  assert.ok(from > MOTION.bridge.revealStart, 'after the Atrium is there');
-  assert.ok(last < 0.96, 'shut well before the orbit begins');
-  same(doorsRisen(from, ROOMS, false), OPEN);
-  same(doorsRisen(0, ROOMS, false), OPEN);
-  same(doorsRisen(last, ROOMS, false), SHUT);
-  same(doorsRisen(1, ROOMS, false), SHUT);
-  let before = doorsRisen(0, ROOMS, false);
-  let largest = 0;
-  for (let i = 0; i <= 2000; i++) {
-    const p = i / 2000;
-    const now = doorsRisen(p, ROOMS, false);
-    for (const [index, room] of ROOMS.entries()) {
-      assert.ok(now[room] >= 0 && now[room] <= 1);
-      assert.ok(now[room] <= before[room] + 1e-12, 'a leaf only comes down');
-      largest = Math.max(largest, before[room] - now[room]);
-      // In order: a later room's leaf is never lower than an earlier one's.
-      if (index)
-        assert.ok(now[room] >= now[ROOMS[index - 1]] - 1e-12, 'in order');
-    }
-    before = now;
-  }
-  // No jump: at most a twentieth of its height in a two-thousandth of the
-  // story.
-  assert.ok(largest < 0.05, `a leaf falls evenly (${largest})`);
-  // Exactly the same position, exactly the same doors.
-  same(doorsRisen(0.9, ROOMS, false), doorsRisen(0.9, ROOMS, false));
-  for (const p of [0, 0.5, 0.86, 0.9, 1])
-    same(doorsRisen(p, ROOMS, true), SHUT, 'reduced motion: shut');
+  same(
+    [doors.doorsRisen, doors.ATRIUM_ORBIT_DOOR_FALL],
+    [undefined, undefined],
+    'no fall',
+  );
+  const strip = (text) => text.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
+  const data = strip(read(`${EXPERIENCE}atrium-orbit-doors.ts`));
+  assert.doesNotMatch(
+    data,
+    /home-motion|StoryProgress|OrbitProgress|arrive\(|span\(|editorial\(|Date\.|performance\./,
+    'the door data knows no story position and no time',
+  );
+  const controller = strip(read(`${EXPERIENCE}atrium-orbit-controller.ts`));
+  assert.match(controller, /const SHUT = \{\};/);
+  same(
+    controller.match(/doorsClip\([^)]*\)/g),
+    ['doorsClip(id, SHUT, window.height)'],
+    'the one outline the controller writes is every door shut',
+  );
+  assert.doesNotMatch(controller, /SHUT\[|SHUT\.|Object\.assign\(SHUT/);
+  // And shut it is: with nothing risen, the outline is every leaf, whole.
+  for (const view of STATES)
+    assert.equal(doorsClip(view, {}), doorsClip(view, SHUT));
+  // The entry is the one place a leaf is raised, and only the chosen one.
+  const entry = strip(read(`${EXPERIENCE}room-door-entry.ts`));
+  same(entry.match(/doorsClip\([^)]*\)/g), [
+    'doorsClip(view, {}, tall)',
+    'doorsClip(view, { [room]: 1 }, tall)',
+  ]);
 }
 
 // ---------------------------------------------------------------------------
@@ -885,7 +880,6 @@ function world({ reduced = false, pathname = '/', pseudo = true } = {}) {
     doors: [],
     whole: true,
     room: 'living',
-    risen: { ...SHUT },
     tall: 1,
   };
   const host = {
@@ -894,7 +888,6 @@ function world({ reduced = false, pathname = '/', pseudo = true } = {}) {
     links,
     doors: () => state.doors,
     whole: () => state.whole,
-    risen: () => state.risen,
     tall: () => state.tall,
     room: () => state.room,
     reduced: () => reduced,
@@ -1400,9 +1393,8 @@ console.log(
     `two plates carries one leaf (the pan's shift across, the same pixels); ` +
     `the wide Atrium's Living battens lie on the Living view's under the ` +
     `push; one clip of a fixed number of points, exactly the leaves when ` +
-    `shut and nothing when risen; the doors fall in room order over ` +
-    `${ATRIUM_ORBIT_DOOR_FALL.from}–${(ATRIUM_ORBIT_DOOR_FALL.from + 3 * ATRIUM_ORBIT_DOOR_FALL.between + ATRIUM_ORBIT_DOOR_FALL.each).toFixed(3)} ` +
-    `of the story and are shut under reduced motion; a door picture for ` +
+    `shut and nothing when risen; no fall: the controller draws every door ` +
+    `shut at every position and only the entry raises one; a door picture for ` +
     `every plate file, clear off the leaves; entering a room: one click ` +
     `listener, plain activations only, the leaf up, the stage in, the ` +
     `light, then the room link's own route once; modified clicks, a second ` +

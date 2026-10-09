@@ -6,7 +6,7 @@ import {
   type AtriumRoomId,
 } from './atrium-orbit-model';
 import { validateAtriumOrbitCameras } from './atrium-orbit-cameras';
-import { atriumDoors, doorsClip, doorsRisen } from './atrium-orbit-doors';
+import { atriumDoors, doorsClip } from './atrium-orbit-doors';
 import {
   ATRIUM_ORBIT_CAMERA_DATA,
   ATRIUM_ORBIT_PLATES,
@@ -100,10 +100,10 @@ import './atrium-orbit-preview.css';
  * The rooms stand behind closed doors (owner decision, 2026-10-09;
  * atrium-orbit-doors.ts). Every plate carries its doors as a second picture
  * in its own box, laid exactly on it and shown through the leaves'
- * outlines; the box is what is posed and joined. The doors come down as the Atrium arrives and are shut
- * through the orbit; a door is opened by choosing it, which is how a room is
- * entered (room-door-entry.ts: the one part of this that knows time, and
- * that listens). While a room is being entered this controller stands
+ * outlines; the box is what is posed and joined. The doors are shut
+ * wherever the Atrium shows; a door is opened only by choosing it, which is
+ * how a room is entered (room-door-entry.ts: the one part of this that
+ * knows time, and that listens). While a room is being entered this controller stands
  * still. */
 
 export type AtriumOrbitInput = {
@@ -132,6 +132,9 @@ export type AtriumOrbitOptions = {
 export type AtriumOrbitController = ReturnType<
   typeof createAtriumOrbitController
 >;
+
+/** Every door shut: no leaf has risen. */
+const SHUT = {};
 
 type PlateState = 'loading' | 'ready' | 'failed';
 type Picture = {
@@ -284,9 +287,6 @@ export function createAtriumOrbitController(
   let held: AtriumOrbitStateId | null = null;
   let shown: AtriumOrbitStateId | null = null;
   let moving = false;
-  // How far each room's door has risen (1: open). Shut once the Atrium has
-  // arrived, and through the whole orbit.
-  let risen = doorsRisen(0, ATRIUM_ROOMS, false);
   // A room is being entered: the picture is the entry's until it lets go.
   let entering = false;
   let lastDiagnostic = '';
@@ -509,11 +509,10 @@ export function createAtriumOrbitController(
       !input && sample.activeState === 'arrival' ? rest('arrival') : null;
     for (const [id, entry] of plates) {
       const plateLayer = layers.find(([state]) => state === id)?.[1] ?? null;
-      // The doors lie on their plate, in its box. They are not drawn at all
-      // while every leaf is up.
-      const shut = atriumDoors(id).some((door) => risen[door.room] < 1);
+      // The doors lie on their plate, in its box, and are shut: this
+      // controller never raises a leaf.
       const leaves =
-        entry.doors?.state === 'ready' && shut
+        entry.doors?.state === 'ready'
           ? (plateLayer ?? (id === 'arrival' ? resting : null))
           : null;
       // The box's pose: its plate's, or where that plate would lie.
@@ -551,7 +550,7 @@ export function createAtriumOrbitController(
         property(
           entry.doors.picture,
           'clip-path',
-          doorsClip(id, risen, window.height),
+          doorsClip(id, SHUT, window.height),
         );
     }
     // The UI follows the drawn plate. Without a complete delivery the UI
@@ -662,7 +661,6 @@ export function createAtriumOrbitController(
       const entry = plates.get(view);
       return !!entry && !entry.box.hidden && !entry.picture.hidden;
     },
-    risen: () => risen,
     tall: () => plateWindow(viewport.width, viewport.height).height,
     room: () => (shown ? records[shown].room : null),
     reduced: () => !!reduced,
@@ -700,7 +698,6 @@ export function createAtriumOrbitController(
           roomOrbitProgress > lastRoomOrbitProgress ? 'forward' : 'reverse';
       lastRoomOrbitProgress = roomOrbitProgress;
       sample = sampleOrbit(roomOrbitProgress, timeline, timing);
-      risen = doorsRisen(baseStoryProgress, ATRIUM_ROOMS, reduced);
       // Nothing is requested before Scene 3 approaches; never all plates.
       const plan = planPlates({
         baseStoryProgress,
