@@ -12,7 +12,9 @@ comp plates cut from the room design comps (§15.2): provisional, preview
 only, and replaced view by view when studio plates are accepted. PASS 6B.1
 stops the picture snapping sharper as the pull-back ends and as each move
 begins and ends (§15.3). STEP 2B (2026-10-08, owner decision) makes this
-orbit, on its comp plates, the homepage's orbit (§15.4).** None of the
+orbit, on its comp plates, the homepage's orbit (§15.4). Since 2026-10-09
+(owner decision) the rooms stand behind closed doors, and a room is entered
+by choosing its door (§15.9).** None of the
 approved render plates and no camera data exist yet. Until STEP 2B the
 production homepage ran the approved Scene 3 with the portal orbit
 (`aa9ae55`) and Tier B code loaded only in development or a preview build,
@@ -76,11 +78,16 @@ loaded, the portal orbit stands down (`orbitEnabled && !roomOrbit`).
 | `atrium-orbit-manifest.ts` | The only place that names plate files: formats, widths, portrait media, delivery status, thumbnails, fascia anchors, full per-state records. |
 | `atrium-orbit-transition.ts` | The transition extension point (`PlateTransition`), occluder hints, and the provisional cut. |
 | `atrium-orbit-controller.ts` | The dev / preview shell: plate stage, editorial block, indicator, diagnostic. |
+| `atrium-orbit-doors.ts` | The closed doors (§15.9): each doorway's outline on each plate, the one outline the leaves show through, which door lies under a place, and how far the doors have come down at a story position. Pure, like the rest. |
 | `atrium-orbit-preview.css` | Shell styles, loaded only with the controller. |
 
-All are in `components/home/experience/`. The only file that references
-them is `home-story-timeline.ts`, through the gated dynamic import and a
-type-only reference.
+All are in `components/home/experience/`. The only file that loads them is
+`home-story-timeline.ts`, through the gated dynamic import and a type-only
+reference. `room-door-entry.ts` (§15.9), in the same folder, reads the
+doors' outlines and is loaded by the controller alone, so it travels in the
+same lazy chunk. It is deliberately not one of these modules: it is the one
+part that listens and knows time, which the rules these modules are checked
+against forbid.
 
 ## 3. Component architecture
 
@@ -90,7 +97,7 @@ frame:
 
 | Part | Placement | Content |
 | --- | --- | --- |
-| `OrbitPlateStage` | child of `.hc-atrium-backdrop`, inside `[data-scene3-camera]` | at most the two `<picture>` plates of a move; others `hidden` (no layer). Since PASS 6B.0 these are comp plates (§15.2) |
+| `OrbitPlateStage` | child of `.hc-atrium-backdrop`, inside `[data-scene3-camera]` | at most the two plates of a move; others `hidden` (no layer). Since PASS 6B.0 these are comp plates (§15.2). Since §15.9 a plate is a box (`.hc-room-orbit-plate`, which takes the pose and the join) holding its `<picture>` and, over it, the `<picture>` of its closed doors |
 | `RoomEditorial` | after the approved `.hc-atrium-copy`, reusing its classes | eyebrow, `<h2>` "Enter" + `<em>` phrase, body copy once, "EXPLORE THIS ROOM ⟶" |
 | `RoomIndicator` | after the World gateway (spec §8 zone I) | round 192 px thumbnail (`.hc-atrium-preview` frame), `01 / 04`, room name |
 | Diagnostic | inside `.hc-worlds`; created only on explicit request (`diagnostics`, from `?atriumOrbitDebug=1`) | e.g. "Bedroom production plate missing" |
@@ -320,6 +327,7 @@ No client asset references the controller or its stylesheet (checked after
 | Command | Covers |
 | --- | --- |
 | `check:atrium-orbit-foundation` | Model (exactly four public rooms, Arrival with no public UI, Living the first public state), camera validation (random rigs, every error and warning, junk never throws), weighting, timeline, sampler (forward = reverse = landing; clamped domain), preload, manifest (WebP only, all missing, no stand-ins in `public/`, no plate path outside the manifest), transition reversibility, orbit-mode CSS scoped to the preview attribute, the two progress domains in the timeline source, source rules (no listener / RAF / timer / observer / second pipeline / live region) |
+| `check:atrium-doors` | The closed doors (§15.9): the outlines (inside their plates, never overlapping, a doorway shown by two plates carrying one leaf the pan's shift across, the wide Atrium's Living battens lying on the Living view's under the push), the one clip (exactly the leaves when shut, nothing when risen, a fixed number of points), which door lies under a place, the fall (in room order, even, shut under reduced motion), the door pictures (one for each plate file, the plate's size, clear off the leaves, a borrowed leaf the same pixels as its own), and the real `room-door-entry.ts` in a DOM double: one click listener, plain activations only, what is played, the room link's own route followed once, and every way out (a modified click, a second choice, reduced motion, a door off stage, a document that leaves, a route that never comes). |
 | `check:atrium-orbit-assets` | Manual, never part of the build or of another check: the studio delivery intake (§16). The foundation check exercises it on synthetic deliveries in the OS temp folder. |
 | `check:atrium-orbit` | The timeline hook in its DOM double: gate shut in production, `?atriumOrbit=1` required, base journey identical, portal orbit stands down, both progress domains within 0 → 1 with the orbit only after the base story ends, wake, suspend, destroy, late import, failed import |
 
@@ -764,6 +772,95 @@ timeline, no wheel listener, nothing prevented.
 - Scrolling inside a room's stretch still shows nothing new (as before); the next room starts after about half that stretch from where the carry leaves the page.
 - A page restored in the middle of a pan (left mid-glide, then Back) is shown there for a moment and then carried to the nearer room.
 - The carry cannot tell fingers resting on a trackpad from a hand that has let go: it starts after 110 ms without movement, and gives way as soon as they move.
+
+### 15.9 The rooms stand behind closed doors
+
+Owner request, 2026-10-09, with three frames of the live site: when the wide
+Atrium appears the four doors come down, they stay shut while scrolling from
+room to room, and choosing a door opens it and enters that room, with the
+whole change made as one move.
+
+**What it does.**
+
+- **The doors come down as the Atrium arrives.** Up while the camera pulls back out of the oculus, so the rooms are seen once; then one after another, in the order the rooms are numbered, over story 0.855 to 0.940: the stretch in which the camera settles and, in the room orbit, nothing else arrives. Story progress alone decides, so scrolling back raises them. Under reduced motion there is no fall: the doors are shut wherever the Atrium shows.
+- **They are shut through the whole orbit**: the push onto Living, the four rooms, the three pans, the release.
+- **Choosing a door enters its room.** The leaf rises into its lintel (0.9 s), the camera pushes through the doorway (1.24 s, setting off 0.16 s after the leaf), the last 0.46 s of the push goes to light, and the room's page opens under that light and comes out of it (0.52 s). About 1.4 s from the choice to the room's page.
+- **Every way to a room goes through its door**: the door itself (any door on the stage, also the neighbouring one at the edge and all four in the wide Atrium), EXPLORE THIS ROOM, and a room label of the tablet and phone layouts. A label whose door is not on the stage (Kitchen while Living is shown) is entered under a short flat cover.
+- **The route is the room link's own.** Nothing new is linked: the entry ends by following the rendered room link (`worldsChapterOptions`), as the router does.
+
+**A door is drawn, not rendered.** No closed-door picture of the Atrium
+exists, and a studio render is still the plan (§16, §17). Until then a leaf
+is drawn into each doorway of each comp plate
+(`work/atrium-orbit/comp-plates/doors.mjs`, outside Git, writes the runtime
+files):
+
+- A screen of 28 vertical walnut battens, the material of the fluted jambs beside it. It takes its colour from the fascia above it in the same plate, its light from that fascia's own light, a lintel shadow at the head, the floor's glow at the foot, and the Atrium's dappled sun as on the piers.
+- It is drawn into the doorway's own outline, so it lies in the picture's perspective: the lintel edge traced on each plate, the sill, the two jambs.
+- What stands in front of a doorway stays in front: the bush before the wide Atrium's Living doorway, the leaves at its Bathroom and Kitchen doorways.
+- Where a room view shows the doorway beside its own, that leaf is the neighbour's own leaf, the pan's shift across, as the doorway itself is (§15.7): the two plates of a pan show the same pixels on it.
+- The wide Atrium's Living battens are counted across the opening the push matches (§15.5), so each lies on the Living view's own batten as the camera arrives.
+
+**How it is laid on the plates.** A plate is now a box that holds two
+pictures: the plate, and over it the leaves of that view, one transparent
+picture the plate's own size and from the plate's own choice of file
+(`world-atrium-<room>-doors[-1280|-720].webp`, `worlds-atrium-doors[-1280].webp`;
+4 to 13 kB each). The box takes the pose and the join, so a plate that comes
+in softly comes in with its doors shut. (Two pictures joined one after the
+other let the open room show through the join: measured as a ghost of the
+room inside the push's opening, which is why the box exists.) The leaves
+show through one outline (`clip-path`), and a leaf opens by raising that
+outline's lower edge: because the battens are vertical, that is exactly a
+screen sliding up into the lintel, and what stands in front of it stays
+where it is. The wide Atrium at rest is still the approved photograph with
+no plate over it; only its doors are drawn there, where the plate would lie.
+
+**Where it lives.**
+
+| | |
+| --- | --- |
+| The outlines, the clip, the fall | `atrium-orbit-doors.ts`: pure, px of the 1672 × 941 plate, PROVISIONAL like the comps |
+| The door pictures' names | `atrium-orbit-manifest.ts`, `plateDoorSources` (the plate's naming with `-doors`) |
+| Laying them on the plates | `atrium-orbit-controller.ts`: one more picture in each plate's box, one `clip-path` a frame while a leaf moves |
+| Entering | `room-door-entry.ts`: one click listener on the Atrium, the Web Animations it starts, a fixed cover above the header |
+| The numbers | `ATRIUM_ORBIT_DOOR_FALL` (the fall), `ROOM_ENTRY` (the entry) |
+
+**What the entry never does.** It takes only a plain primary activation:
+modifier and middle clicks, and a page without JavaScript, keep the link.
+It never touches the wheel, a touch or the Atrium's scroll position (the one
+position it writes is the room's page, put at its top under the cover). It
+never moves the approved photograph or its camera: what the push moves is
+the room orbit's own stage, and from the wide Atrium that plate is brought
+onto the stage for it, lying exactly on the photograph. While it plays, the
+controller stands still (no frame is repainted, no carry runs), and takes
+the picture back if the room is not entered: the document leaving, Back, a
+page restored from the back-forward cache. A route that never comes is
+opened as a document after 2.6 s. Under reduced motion there is no door and
+no camera: a 220 ms flat cover, then the room.
+
+**The copy lets the door through.** The copy and the indicator lie over the
+doorway (on a phone, over most of it). They take no pointer themselves, so
+the door under them can be chosen through them; EXPLORE THIS ROOM keeps its
+own.
+
+**Verified** (production-equivalent build, headless Chromium).
+
+- 1440 × 900, 820 × 1180 and 390 × 844: the four doors down at the wide Atrium, each room view with its doors shut, the door picture always the plate's own choice of file.
+- Entering by the Living door, the neighbouring Bedroom door at the stage's edge, the Bedroom, Bathroom and Kitchen doors of the wide Atrium, EXPLORE THIS ROOM, a tap on the door through the title on a phone, and the two kinds of room label: each ends on the room's page, at its top, with no cover left, in about 1.4 to 1.6 s.
+- Back from the room: the Atrium at the position it was left, that room's door shut, the stage unmoved, no cover.
+- A Meta click on EXPLORE THIS ROOM opens the room in a new tab and leaves the Atrium as it is. A second choice during an entry changes nothing.
+- Reduced motion: doors shut, the room 0.34 s after the choice, no door or stage animation.
+- Frame pacing through the push, the three pans and the fall from wheel flicks at 1440 × 900, DPR 2: 16.7 ms at the median and 17.9 to 18.6 ms at the 95th percentile through the pans and the fall, the same as the deployed build without doors on the same machine (the push is 33 ms at the 95th percentile on both).
+- `check:atrium-doors` and `check:atrium-orbit-foundation` as in §12; 24 deliberate breakages of the outlines, the clip, the fall, the controller and the entry were each caught.
+
+**Limits.**
+
+- The doors are drawn by a script on flat pictures. They were judged on screen, not against a render; plates and doors from one camera rig replace them.
+- In the Kitchen view, the doorway glimpsed through the planter on the left stays open. A leaf cannot be put behind that tree on a flat picture without cutting the tree out of it, and two attempts left a rim of light around every twig.
+- The floor still carries the light that fell through the open doorways, and the breeze line still starts at each doorway: it now runs out from the edge of the leaf.
+- The thumbnail in the indicator still shows the room through its open doorway.
+- Before the Atrium becomes interactive (the base story's own gate, about 0.915) a door cannot be chosen; the last door is still coming down then.
+- Not measured: Safari, Firefox, a real phone or tablet. The pictures are drawn at the comp plates' size (1672 px wide), so a leaf is as soft as its plate when the camera closes in.
+- No hover response on a door beyond the pointer cursor.
 
 ## 16. Studio handoff and delivery intake (PASS 6A.9)
 

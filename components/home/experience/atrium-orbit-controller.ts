@@ -6,15 +6,18 @@ import {
   type AtriumRoomId,
 } from './atrium-orbit-model';
 import { validateAtriumOrbitCameras } from './atrium-orbit-cameras';
+import { atriumDoors, doorsClip, doorsRisen } from './atrium-orbit-doors';
 import {
   ATRIUM_ORBIT_CAMERA_DATA,
   ATRIUM_ORBIT_PLATES,
   atriumOrbitLayout,
   atriumOrbitReadiness,
   atriumOrbitRecord,
+  plateDoorSources,
   plateOrientation,
   plateSources,
   plateWindow,
+  type AtriumOrbitPlateSources,
   type AtriumOrbitRecord,
 } from './atrium-orbit-manifest';
 import {
@@ -39,6 +42,7 @@ import {
   selectPlateTransition,
   type PlateLayer,
 } from './atrium-orbit-transition';
+import { createRoomDoorEntry } from './room-door-entry';
 import { prepareSceneImage, type SceneImagePreparation } from './scene-image';
 import './atrium-orbit-preview.css';
 
@@ -91,7 +95,16 @@ import './atrium-orbit-preview.css';
  * (atrium-orbit-transition.ts): this controller only poses the two plates a
  * frame asks for. The approved Atrium itself is never moved: Arrival at
  * rest IS that photograph, and the plate that pushes in from it is a second
- * drawing of the same file, shown only while it travels. */
+ * drawing of the same file, shown only while it travels.
+ *
+ * The rooms stand behind closed doors (owner decision, 2026-10-09;
+ * atrium-orbit-doors.ts). Every plate carries its doors as a second picture
+ * in its own box, laid exactly on it and shown through the leaves'
+ * outlines; the box is what is posed and joined. The doors come down as the Atrium arrives and are shut
+ * through the orbit; a door is opened by choosing it, which is how a room is
+ * entered (room-door-entry.ts: the one part of this that knows time, and
+ * that listens). While a room is being entered this controller stands
+ * still. */
 
 export type AtriumOrbitInput = {
   /** 0 → 1 over the approved journey's own span (the timeline's p). */
@@ -121,11 +134,14 @@ export type AtriumOrbitController = ReturnType<
 >;
 
 type PlateState = 'loading' | 'ready' | 'failed';
-type Plate = {
+type Picture = {
   picture: HTMLPictureElement;
   preparation: SceneImagePreparation;
   state: PlateState;
 };
+/** A view on the stage: the box that takes its pose and its join, its plate
+ * in that box, and the closed doors that lie on the plate (null: none). */
+type Plate = Picture & { box: HTMLElement; doors: Picture | null };
 type Thumb = {
   image: HTMLImageElement;
   preparation: SceneImagePreparation;
@@ -268,6 +284,11 @@ export function createAtriumOrbitController(
   let held: AtriumOrbitStateId | null = null;
   let shown: AtriumOrbitStateId | null = null;
   let moving = false;
+  // How far each room's door has risen (1: open). Shut once the Atrium has
+  // arrived, and through the whole orbit.
+  let risen = doorsRisen(0, ATRIUM_ROOMS, false);
+  // A room is being entered: the picture is the entry's until it lets go.
+  let entering = false;
   let lastDiagnostic = '';
   let presence = 0;
   const rest: AtriumOrbitFrame = {
@@ -278,14 +299,15 @@ export function createAtriumOrbitController(
   let frame = rest;
   const viewport = { width: 1, height: 1 };
 
-  /** Create and start one plate on demand; never for a missing plate. */
-  const plate = (id: AtriumOrbitStateId, priority: 'auto' | 'low') => {
-    const existing = plates.get(id);
-    if (existing) return existing;
-    const sources = plateSources(id);
-    if (!sources) return null;
-    const picture = element('picture', 'hc-room-orbit-plate');
-    picture.dataset.plate = id;
+  /** One picture in a view's box, requested at once: its plate, or the
+   * closed doors that lie on it. */
+  const draw = (
+    box: HTMLElement,
+    className: string,
+    sources: AtriumOrbitPlateSources,
+    priority: 'auto' | 'low',
+  ) => {
+    const picture = element('picture', className);
     picture.hidden = true;
     for (const choice of sources.sources) {
       const source = element('source');
@@ -304,8 +326,8 @@ export function createAtriumOrbitController(
     image.loading = 'lazy';
     image.dataset.src = sources.fallback.src;
     add(picture, image);
-    add(stage, picture);
-    const entry: Plate = {
+    add(box, picture);
+    const entry: Picture = {
       picture,
       state: 'loading',
       preparation: prepareSceneImage(
@@ -316,7 +338,7 @@ export function createAtriumOrbitController(
             if (!destroyed) wake();
           },
           failed() {
-            // No broken image: a failed plate is simply never displayed.
+            // No broken image: a failed picture is simply never displayed.
             entry.state = 'failed';
             if (!destroyed) wake();
           },
@@ -324,11 +346,39 @@ export function createAtriumOrbitController(
         priority,
       ),
     };
-    plates.set(id, entry);
     entry.preparation.start();
     return entry;
   };
-  const ready = (id: AtriumOrbitStateId) => plates.get(id)?.state === 'ready';
+  /** Create and start one plate on demand; never for a missing plate. Its
+   * doors come with it, in the same box: the box is posed and joined as
+   * one picture, so a plate that comes in softly comes in with its doors
+   * shut (two pictures joined one after the other would let the open room
+   * show through the join). */
+  const plate = (id: AtriumOrbitStateId, priority: 'auto' | 'low') => {
+    const existing = plates.get(id);
+    if (existing) return existing;
+    const sources = plateSources(id);
+    if (!sources) return null;
+    const box = element('div', 'hc-room-orbit-plate');
+    box.dataset.plate = id;
+    box.hidden = true;
+    add(stage, box);
+    const own = draw(box, 'hc-room-orbit-picture', sources, priority);
+    const leaves = atriumDoors(id).length ? plateDoorSources(id) : null;
+    const doors = leaves
+      ? draw(box, 'hc-room-orbit-doors', leaves, priority)
+      : null;
+    if (doors) doors.picture.dataset.doors = id;
+    const entry: Plate = Object.assign(own, { box, doors });
+    plates.set(id, entry);
+    return entry;
+  };
+  /** Decoded, doors and all: a plate is not shown with its rooms open while
+   * its doors are still on their way (doors that failed are done without). */
+  const ready = (id: AtriumOrbitStateId) => {
+    const entry = plates.get(id);
+    return entry?.state === 'ready' && entry.doors?.state !== 'loading';
+  };
   type Layer = [AtriumOrbitStateId, PlateLayer];
   const percent = (value: number) => `${(value * 100).toFixed(3)}%`;
   /** A plate's 2D scale: one number, or across and down where they differ. */
@@ -441,22 +491,47 @@ export function createAtriumOrbitController(
       drawn = held && ready(held) && lead !== 'arrival' ? held : null;
       layers = drawn ? [[drawn, rest(drawn)]] : [];
     }
-    if (layers.length === 1 && layers[0][0] === 'arrival' && !input)
+    // A room being entered from the wide Atrium needs that plate on the
+    // stage, for the stage is what the entry moves: it lies exactly on the
+    // approved photograph, so nothing changes when it appears.
+    if (
+      layers.length === 1 &&
+      layers[0][0] === 'arrival' &&
+      !input &&
+      !entering
+    )
       layers = [];
     const over = input && pose ? input[pose.over] : null;
     moving = layers.length > 1;
+    // The wide Atrium at rest is the approved photograph, with no plate over
+    // it; its doors are drawn all the same, where the plate would lie.
+    const resting =
+      !input && sample.activeState === 'arrival' ? rest('arrival') : null;
     for (const [id, entry] of plates) {
-      const layer = layers.find(([state]) => state === id)?.[1] ?? null;
-      if (entry.picture.hidden !== !layer) entry.picture.hidden = !layer;
+      const plateLayer = layers.find(([state]) => state === id)?.[1] ?? null;
+      // The doors lie on their plate, in its box. They are not drawn at all
+      // while every leaf is up.
+      const shut = atriumDoors(id).some((door) => risen[door.room] < 1);
+      const leaves =
+        entry.doors?.state === 'ready' && shut
+          ? (plateLayer ?? (id === 'arrival' ? resting : null))
+          : null;
+      // The box's pose: its plate's, or where that plate would lie.
+      const layer = plateLayer ?? leaves;
+      if (entry.box.hidden !== !layer) entry.box.hidden = !layer;
       if (!layer) continue;
+      if (entry.picture.hidden !== !plateLayer)
+        entry.picture.hidden = !plateLayer;
+      if (entry.doors && entry.doors.picture.hidden !== !leaves)
+        entry.doors.picture.hidden = !leaves;
       attr(
-        entry.picture,
+        entry.box,
         'data-plate-role',
         moving && id === over ? 'over' : 'under',
       );
-      property(entry.picture, 'opacity', layer.opacity.toFixed(4));
+      property(entry.box, 'opacity', layer.opacity.toFixed(4));
       property(
-        entry.picture,
+        entry.box,
         'transform',
         layer.x === 0 &&
           layer.y === 0 &&
@@ -466,12 +541,18 @@ export function createAtriumOrbitController(
           : `translate(${percent(layer.x)}, ${percent(layer.y)}) scale(${scaleOf(layer)})`,
       );
       const mask = maskOf(layer);
-      property(entry.picture, '-webkit-mask-image', mask);
-      property(entry.picture, 'mask-image', mask);
+      property(entry.box, '-webkit-mask-image', mask);
+      property(entry.box, 'mask-image', mask);
       // PASS 6B.1: a plate is never promoted (no will-change), moving or
       // not. A promoted plate is drawn from a texture and resampled, which
       // is softer than the same plate at rest: the picture would snap as
       // each move begins and ends. Its 2D pose is drawn directly instead.
+      if (entry.doors && leaves)
+        property(
+          entry.doors.picture,
+          'clip-path',
+          doorsClip(id, risen, window.height),
+        );
     }
     // The UI follows the drawn plate. Without a complete delivery the UI
     // follows the scroll sample (preview of the sync, with the diagnostic).
@@ -562,9 +643,45 @@ export function createAtriumOrbitController(
     diagnostic.textContent = value;
   };
 
+  // Choosing a door enters its room (room-door-entry.ts). It is given the
+  // stage, what is on it and how the doors stand; it asks this controller
+  // to stand still while it plays, and gives the picture back if the room
+  // is not entered after all.
+  const doorEntry = createRoomDoorEntry({
+    worlds,
+    stage,
+    links,
+    doors: () =>
+      [...plates].flatMap(([view, { box, doors }]) =>
+        doors && !box.hidden && !doors.picture.hidden
+          ? [{ view, picture: doors.picture }]
+          : [],
+      ),
+    // Is the whole of this view on the stage (its plate, not only doors)?
+    whole(view) {
+      const entry = plates.get(view);
+      return !!entry && !entry.box.hidden && !entry.picture.hidden;
+    },
+    risen: () => risen,
+    tall: () => plateWindow(viewport.width, viewport.height).height,
+    room: () => (shown ? records[shown].room : null),
+    reduced: () => !!reduced,
+    hold(on) {
+      if (destroyed || entering === on) return;
+      entering = on;
+      carried = ATRIUM_ORBIT_CARRY_IDLE;
+      // Once more with the wide Atrium's own plate under its doors, or
+      // back to the frame the page is on.
+      if (on) paintPlates();
+      else wake();
+    },
+  });
+
   return {
     update(input: AtriumOrbitInput): AtriumOrbitFrame {
       if (destroyed) return rest;
+      // A room is being entered: the frame on stage is the entry's.
+      if (entering) return frame;
       if (input.reduced !== reduced) {
         reduced = input.reduced;
         timing = reduced ? ATRIUM_ORBIT_TIMING_REDUCED : ATRIUM_ORBIT_TIMING;
@@ -583,6 +700,7 @@ export function createAtriumOrbitController(
           roomOrbitProgress > lastRoomOrbitProgress ? 'forward' : 'reverse';
       lastRoomOrbitProgress = roomOrbitProgress;
       sample = sampleOrbit(roomOrbitProgress, timeline, timing);
+      risen = doorsRisen(baseStoryProgress, ATRIUM_ROOMS, reduced);
       // Nothing is requested before Scene 3 approaches; never all plates.
       const plan = planPlates({
         baseStoryProgress,
@@ -642,7 +760,7 @@ export function createAtriumOrbitController(
       where?: { top: number; length: number },
       timing?: AtriumOrbitCarryTiming,
     ) {
-      if (destroyed || reduced || !hand || !where || !timing) {
+      if (destroyed || reduced || entering || !hand || !where || !timing) {
         carried = ATRIUM_ORBIT_CARRY_IDLE;
         return false;
       }
@@ -682,7 +800,12 @@ export function createAtriumOrbitController(
     destroy() {
       if (destroyed) return;
       destroyed = true;
-      for (const entry of plates.values()) entry.preparation.destroy();
+      // Home is leaving: for a room being entered, that is the arrival.
+      doorEntry.destroy();
+      for (const entry of plates.values()) {
+        entry.preparation.destroy();
+        entry.doors?.preparation.destroy();
+      }
       for (const entry of thumbs.values()) entry.preparation.destroy();
       plates.clear();
       thumbs.clear();

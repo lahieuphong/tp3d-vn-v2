@@ -288,3 +288,26 @@
   white-space: pre-line;
   pointer-events: none;
 }
+
+/* The closed doors of a view (atrium-orbit-doors.ts): a second picture in
+   the plate's own box, laid exactly on the plate and shown through the
+   leaves' outlines (clip-path). The box is posed and joined as one picture,
+   so the doors need no pose of their own. A leaf can be chosen
+   (room-door-entry.ts): the backdrop takes no pointer, the leaves do, and
+   only where the outline shows them. */
+.hc-room-orbit-doors {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  cursor: pointer;
+}
+/* The copy and the indicator lie over the doorway (on a phone, over most of
+   it). They take no pointer themselves, so the door under them can be
+   chosen through them; the room's own link still takes its own. */
+.hc-worlds .hc-room-orbit-copy,
+.hc-worlds .hc-room-orbit-indicator {
+  pointer-events: none;
+}
+.hc-worlds .hc-room-orbit-copy a {
+  pointer-events: auto;
+}

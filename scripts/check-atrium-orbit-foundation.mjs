@@ -87,6 +87,7 @@ const cameras = loadStoryMath('atrium-orbit-cameras');
 const progress = loadStoryMath('atrium-orbit-progress');
 const manifest = loadStoryMath('atrium-orbit-manifest');
 const transition = loadStoryMath('atrium-orbit-transition');
+const doorways = loadStoryMath('atrium-orbit-doors');
 const { HOME_PRODUCTION } = loadStoryMath('home-production');
 
 const STATES = ['arrival', 'living', 'bedroom', 'bathroom', 'kitchen'];
@@ -1039,12 +1040,17 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
   }
   for (const room of ROOMS)
     expectedFiles.push(ATRIUM_ORBIT_THUMBNAILS[room].src.split('/').pop());
+  // The closed doors of a room view: one picture for each file of its plate
+  // (atrium-orbit-doors.ts; check:atrium-doors proves them).
+  for (const room of ROOMS)
+    for (const w of COMP.widths)
+      expectedFiles.push(compPlateFile(room, w, '-doors').split('/').pop());
   same(
     readdirSync(new URL('../public/images/home-chapters/', import.meta.url))
       .filter((name) => name.startsWith(`${ASSETS.stem}-`))
       .toSorted((a, b) => a.localeCompare(b)),
     expectedFiles.toSorted((a, b) => a.localeCompare(b)),
-    'only the comp plates and their thumbnails: no other world-atrium-* file',
+    'only the comp plates, their doors and their thumbnails: no other world-atrium-* file',
   );
   // The plates agree. They were four separate drawings: each showed the
   // doorway beside its own at another size, height and slant than that
@@ -2018,6 +2024,7 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
   same(names, [
     'atrium-orbit-cameras.ts',
     'atrium-orbit-controller.ts',
+    'atrium-orbit-doors.ts',
     'atrium-orbit-manifest.ts',
     'atrium-orbit-model.ts',
     'atrium-orbit-preview.css',
@@ -2285,7 +2292,40 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     }
   };
   for (const dir of ['app/', 'components/', 'lib/', 'hooks/']) scan(dir);
-  same(importers, [`${EXPERIENCE}home-story-timeline.ts`]);
+  // The timeline loads them; the room entry reads the doors' outlines. The
+  // entry is the one part that listens and knows time, which is why it is
+  // not one of these modules (their rules above would forbid it). Only the
+  // controller loads it, so it travels in the same lazy chunk.
+  same(importers, [
+    `${EXPERIENCE}home-story-timeline.ts`,
+    `${EXPERIENCE}room-door-entry.ts`,
+  ]);
+  const enterers = [];
+  const seek = (dir) => {
+    for (const entry of readdirSync(new URL(`../${dir}`, import.meta.url), {
+      withFileTypes: true,
+    })) {
+      const path = `${dir}${entry.name}`;
+      if (entry.isDirectory()) seek(`${path}/`);
+      else if (
+        /\.tsx?$/.test(entry.name) &&
+        /from '[^']*room-door-entry'|import\('[^']*room-door-entry'\)/.test(
+          read(path),
+        )
+      )
+        enterers.push(path);
+    }
+  };
+  for (const dir of ['app/', 'components/', 'lib/', 'hooks/']) seek(dir);
+  same(
+    enterers,
+    [`${EXPERIENCE}atrium-orbit-controller.ts`],
+    'only the controller loads the room entry',
+  );
+  assert.match(
+    sources['atrium-orbit-controller.ts'],
+    /import \{ createRoomDoorEntry \} from '\.\/room-door-entry';/,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -2677,6 +2717,7 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
   // The controller's only use of the window: the carry writes the scroll
   // position (recorded here).
   const scrolled = [];
+  const entries = [];
   const controllerModule = (() => {
     const loaded = { exports: {} };
     runInNewContext(
@@ -2694,6 +2735,17 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
         window: { scrollTo: (options) => scrolled.push({ ...options }) },
         require(specifier) {
           if (specifier === './atrium-orbit-preview.css') return {};
+          // Entering a room is another module (the one that listens and
+          // knows time; check:atrium-doors drives it). Here it is a stand-in
+          // that keeps what the controller hands it.
+          if (specifier === './room-door-entry')
+            return {
+              createRoomDoorEntry(host) {
+                const entry = { host, destroyed: 0 };
+                entries.push(entry);
+                return { destroy: () => entry.destroyed++ };
+              },
+            };
           if (specifier === './scene-image')
             return {
               // Decoded at once: the indicator thumbnails are small.
@@ -2758,6 +2810,9 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     return {
       worlds,
       controller,
+      // What the controller handed the room entry.
+      entry: entries.at(-1),
+      links,
       rooms,
       gateway,
       one(name) {
@@ -2877,6 +2932,115 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     same([gone.writes.length, gone.wanted], [0, false]);
     still.controller.destroy();
   }
+  // A room is entered through its door (room-door-entry.ts). The controller
+  // hands the entry the stage, the room links and what is on the stage, and
+  // stands still while it plays: no frame is repainted, no carry runs. The
+  // wide Atrium's own plate comes onto the stage for it (the stage is what
+  // the entry moves), lying exactly on the photograph. Let go, the page's
+  // own frame is drawn again.
+  {
+    const { MOTION } = loadStoryMath('home-motion');
+    const t = progress.buildOrbitTimeline(TIMING, null);
+    const hold = (state) =>
+      t.segments.find((s) => s.kind === 'hold' && s.state === state);
+    const mid = (segment) => (segment.start + segment.end) / 2;
+    const h = harness();
+    const { host } = h.entry;
+    assert.equal(host.worlds, h.worlds);
+    assert.equal(host.stage, h.one('hc-room-orbit-stage'));
+    same(
+      host.links.map((link) => link.dataset.room),
+      ROOMS,
+      'the entry follows the rendered room links',
+    );
+    const stage = () => ({
+      plates: byClass(h.worlds, 'hc-room-orbit-plate')
+        .filter((node) => !node.hidden && !node.children[0].hidden)
+        .map((node) => [node.dataset.plate, [...node.style.values]]),
+      doors: byClass(h.worlds, 'hc-room-orbit-doors')
+        .filter((node) => !node.hidden && !node.parentNode.hidden)
+        .map((node) => [node.dataset.doors, [...node.style.values]]),
+      presence: h.worlds.style.getPropertyValue('--atrium-editorial'),
+    });
+    // In a room: its doors, on its own plate; the copy's room.
+    const living = h.at(mid(hold('living')));
+    same(
+      host.doors().map(({ view, picture }) => [view, picture.dataset.doors]),
+      [['living', 'living']],
+    );
+    same(
+      [host.whole('living'), host.room(), host.reduced(), host.tall()],
+      [true, 'living', false, 1],
+    );
+    same(host.risen(), doorways.doorsRisen(1, ROOMS, false));
+    // Held: the frame on stage stays, wherever the page is taken.
+    const held = stage();
+    host.hold(true);
+    for (const p of [0, mid(hold('bedroom')), 1]) {
+      assert.equal(h.at(p), living, 'the same frame is handed back');
+      same(stage(), held, `nothing repainted at ${p}`);
+    }
+    const written = scrolled.length;
+    assert.equal(
+      h.controller.carry(
+        { scroll: 6000, now: 0, touching: false },
+        { top: 4860, length: 3420 },
+        MOTION.carry,
+      ),
+      false,
+      'no carry while a room is entered',
+    );
+    assert.equal(scrolled.length, written, 'and the page is not written');
+    // Let go: the page's own frame again.
+    host.hold(false);
+    h.at(mid(hold('bedroom')));
+    same(
+      stage().plates.map(([id]) => id),
+      ['bedroom'],
+    );
+    assert.equal(host.room(), 'bedroom');
+    // The wide Atrium at rest: only its doors lie on the photograph. Held,
+    // its plate comes under them, at rest on the photograph's own crop.
+    h.at(0);
+    same(
+      [stage().plates, host.doors().map(({ view }) => view)],
+      [[], ['arrival']],
+    );
+    assert.equal(host.whole('arrival'), false);
+    host.hold(true);
+    same(
+      stage().plates.map(([id]) => id),
+      ['arrival'],
+    );
+    assert.equal(host.whole('arrival'), true);
+    // In the one box, at rest on the photograph's own crop: nothing moves
+    // when it appears.
+    const [leaves] = host.doors();
+    const box = leaves.picture.parentNode;
+    assert.equal(box.dataset.plate, 'arrival');
+    same(
+      ['transform', 'opacity', 'mask-image'].map((name) =>
+        box.style.getPropertyValue(name),
+      ),
+      [
+        `translate(${(-manifest.plateWindowStart('arrival', manifest.plateWindow(1440, 900), 'desktop') * 100).toFixed(3)}%, 0.000%) scale(1.00000)`,
+        '1.0000',
+        'none',
+      ],
+    );
+    host.hold(false);
+    h.at(0);
+    same(stage().plates, [], 'and leaves the photograph alone again');
+    h.atriumIntact();
+    // Home leaving is told to the entry (for a room being entered, that is
+    // its arrival), once.
+    assert.equal(h.entry.destroyed, 0);
+    h.controller.destroy();
+    h.controller.destroy();
+    assert.equal(h.entry.destroyed, 1);
+    host.hold(true);
+    assert.equal(byClass(h.worlds, 'hc-room-orbit-stage').length, 0);
+  }
   const READOUT =
     /DEVELOPMENT PREVIEW|roomOrbitProgress|segment \d|plate missing|Camera data|gateway reveal/;
   const positions = Array.from({ length: 801 }, (_, i) => i / 800);
@@ -2958,6 +3122,15 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     const copy = h.one('hc-room-orbit-copy');
     const indicator = h.one('hc-room-orbit-indicator');
     const title = h.one('hc-room-orbit-title');
+    // A view's box holds its plate's picture, then its doors'.
+    const picture = (plate) => {
+      same(
+        plate.children.map((node) => node.className),
+        ['hc-room-orbit-picture', 'hc-room-orbit-doors'],
+      );
+      assert.equal(plate.children[1].dataset.doors, plate.dataset.plate);
+      return plate.children[0];
+    };
     const snapshot = (p, base = 1) => {
       const frame = h.at(p, base, reduced);
       return {
@@ -2972,7 +3145,7 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
         yield: indicator.style.getPropertyValue('--atrium-indicator'),
         // PASS 6B.0: the plates this position draws.
         plates: byClass(h.worlds, 'hc-room-orbit-plate')
-          .filter((plate) => !plate.hidden)
+          .filter((plate) => !plate.hidden && !picture(plate).hidden)
           .map((plate) => ({
             id: plate.dataset.plate,
             role: plate.getAttribute('data-plate-role'),
@@ -2980,6 +3153,23 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
             transform: plate.style.getPropertyValue('transform'),
             mask: plate.style.getPropertyValue('mask-image'),
             webkitMask: plate.style.getPropertyValue('-webkit-mask-image'),
+          }))
+          .sort((a, b) => STATES.indexOf(a.id) - STATES.indexOf(b.id)),
+        // The closed doors that lie on them: a second picture in the
+        // plate's own box, so they share its pose, its join and its place
+        // in the stack, and add only the leaves' outline.
+        doors: byClass(h.worlds, 'hc-room-orbit-doors')
+          .filter((doors) => !doors.hidden && !doors.parentNode.hidden)
+          .map((doors) => ({
+            id: doors.dataset.doors,
+            role: doors.parentNode.getAttribute('data-plate-role'),
+            opacity: doors.parentNode.style.getPropertyValue('opacity'),
+            transform: doors.parentNode.style.getPropertyValue('transform'),
+            mask: doors.parentNode.style.getPropertyValue('mask-image'),
+            webkitMask:
+              doors.parentNode.style.getPropertyValue('-webkit-mask-image'),
+            clip: doors.style.getPropertyValue('clip-path'),
+            own: [...doors.style.values.keys()],
           }))
           .sort((a, b) => STATES.indexOf(a.id) - STATES.indexOf(b.id)),
       };
@@ -3027,6 +3217,31 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
         `architecture only at base ${base}`,
       );
       same(s.frame, { gateway: 0, gatewayInteractive: false, baseline: 1 });
+      // The doors: none before the Atrium's plate is asked for; then the
+      // wide Atrium's own, lying where its plate would (the photograph
+      // itself is the picture), each leaf as far up as the story has it.
+      // Reduced motion has no fall: its doors are shut.
+      const risen = doorways.doorsRisen(base, ROOMS, reduced);
+      same(s.plates, [], `no plate over the photograph at base ${base}`);
+      same(
+        s.doors,
+        base >= HOME_PRODUCTION.scenePreload &&
+          ROOMS.some((room) => risen[room] < 1)
+          ? [
+              {
+                id: 'arrival',
+                role: 'under',
+                opacity: '1.0000',
+                transform: `translate(${percent(-manifest.plateWindowStart('arrival', window, 'desktop'))}, ${percent(0)}) scale(1.00000)`,
+                mask: 'none',
+                webkitMask: 'none',
+                clip: doorways.doorsClip('arrival', risen, window.height),
+                own: ['clip-path'],
+              },
+            ]
+          : [],
+        `doors at base ${base}`,
+      );
       h.atriumIntact();
     }
     const forward = positions.map((p) => snapshot(p));
@@ -3069,43 +3284,71 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
       // PASS 6B.0: the controller poses exactly the plates of the pure
       // frame, on the plate's own box (percentages), with the soft edge as
       // a mask; the layer on top is the frame's, whatever the direction.
+      const lying = drawnAt(sample).map(([id, role, layer]) => {
+        // A soft edge either way round, and the push's ellipse; two mask
+        // images add up, so the plate shows through either.
+        const parts = [];
+        if (layer.edge)
+          parts.push(
+            layer.edge[0] <= layer.edge[1]
+              ? `linear-gradient(90deg, transparent ${percent(layer.edge[0])}, #000 ${percent(layer.edge[1])})`
+              : `linear-gradient(270deg, transparent ${percent(1 - layer.edge[0])}, #000 ${percent(1 - layer.edge[1])})`,
+          );
+        if (layer.iris) {
+          const { x, y, rx, ry, whole, alpha } = layer.iris;
+          parts.push(
+            `radial-gradient(${percent(rx)} ${percent(ry)} at ${percent(x)} ${percent(y)}, ${alpha >= 1 ? '#000' : `rgba(0, 0, 0, ${alpha.toFixed(4)})`} ${percent(whole)}, transparent 100%)`,
+          );
+        }
+        const mask = parts.length ? parts.join(', ') : 'none';
+        const down = layer.scaleY ?? layer.scale;
+        return {
+          id,
+          role,
+          opacity: layer.opacity.toFixed(4),
+          transform:
+            layer.x === 0 && layer.y === 0 && layer.scale === 1 && down === 1
+              ? 'none'
+              : `translate(${percent(layer.x)}, ${percent(layer.y)}) scale(${
+                  down.toFixed(5) === layer.scale.toFixed(5)
+                    ? layer.scale.toFixed(5)
+                    : `${layer.scale.toFixed(5)}, ${down.toFixed(5)}`
+                })`,
+          mask,
+          webkitMask: mask,
+        };
+      });
+      same(s.plates, lying, `plates at ${p}`);
+      // The doors lie on their plates: the same pose, the same join, the
+      // same place in the stack, and shut. Where the wide Atrium rests with
+      // no plate over the photograph, its doors are drawn all the same.
       same(
-        s.plates,
-        drawnAt(sample).map(([id, role, layer]) => {
-          // A soft edge either way round, and the push's ellipse; two mask
-          // images add up, so the plate shows through either.
-          const parts = [];
-          if (layer.edge)
-            parts.push(
-              layer.edge[0] <= layer.edge[1]
-                ? `linear-gradient(90deg, transparent ${percent(layer.edge[0])}, #000 ${percent(layer.edge[1])})`
-                : `linear-gradient(270deg, transparent ${percent(1 - layer.edge[0])}, #000 ${percent(1 - layer.edge[1])})`,
-            );
-          if (layer.iris) {
-            const { x, y, rx, ry, whole, alpha } = layer.iris;
-            parts.push(
-              `radial-gradient(${percent(rx)} ${percent(ry)} at ${percent(x)} ${percent(y)}, ${alpha >= 1 ? '#000' : `rgba(0, 0, 0, ${alpha.toFixed(4)})`} ${percent(whole)}, transparent 100%)`,
-            );
-          }
-          const mask = parts.length ? parts.join(', ') : 'none';
-          const down = layer.scaleY ?? layer.scale;
-          return {
-            id,
-            role,
-            opacity: layer.opacity.toFixed(4),
-            transform:
-              layer.x === 0 && layer.y === 0 && layer.scale === 1 && down === 1
-                ? 'none'
-                : `translate(${percent(layer.x)}, ${percent(layer.y)}) scale(${
-                    down.toFixed(5) === layer.scale.toFixed(5)
-                      ? layer.scale.toFixed(5)
-                      : `${layer.scale.toFixed(5)}, ${down.toFixed(5)}`
-                  })`,
-            mask,
-            webkitMask: mask,
-          };
-        }),
-        `plates at ${p}`,
+        s.doors,
+        (lying.length
+          ? lying
+          : sample.activeState === 'arrival'
+            ? [
+                {
+                  id: 'arrival',
+                  role: 'under',
+                  opacity: '1.0000',
+                  transform: `translate(${percent(-manifest.plateWindowStart('arrival', window, 'desktop'))}, ${percent(0)}) scale(1.00000)`,
+                  mask: 'none',
+                  webkitMask: 'none',
+                },
+              ]
+            : []
+        ).map((plate) => ({
+          ...plate,
+          clip: doorways.doorsClip(
+            plate.id,
+            doorways.doorsRisen(1, ROOMS, reduced),
+            window.height,
+          ),
+          // Nothing else is written on the doors: the box carries the rest.
+          own: ['clip-path'],
+        })),
+        `doors at ${p}`,
       );
       if (room) {
         const { phrase, counter, label } =
@@ -3820,7 +4063,10 @@ console.log(
     'travelling, its two plates the same pixels on the doorways they share ' +
     'and joined on the pier between; the stage covered at every position on ' +
     'nine screens; exact in reverse; plain changes under reduced motion), ' +
-    'the Atrium in view for the ' +
+    'the closed doors lying on every plate with its pose and its join ' +
+    '(falling as the Atrium arrives, shut through the orbit, the wide ' +
+    "Atrium's drawn on the photograph at rest) and the controller standing " +
+    'still while a room is entered, the Atrium in view for the ' +
     'whole harness (copy shade = approved shade, shown only with the ' +
     'editorial UI), a scroll-driven release to a quiet frame before the ' +
     'sticky stage leaves (exact in reverse), the readout only on explicit ' +

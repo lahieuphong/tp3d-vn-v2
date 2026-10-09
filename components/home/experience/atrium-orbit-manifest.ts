@@ -192,15 +192,23 @@ export type AtriumOrbitPlateSources = {
 };
 
 /** A comp plate's file: the approved Atrium's naming, widest without a
- * suffix. Arrival is the approved Atrium's own file. */
-export function compPlateFile(state: AtriumOrbitStateId, width: number) {
+ * suffix. Arrival is the approved Atrium's own file. `layer` names a picture
+ * that lies on the plate (its closed doors: `-doors`). */
+export function compPlateFile(
+  state: AtriumOrbitStateId,
+  width: number,
+  layer = '',
+) {
   const { base, stem } = ATRIUM_ORBIT_ASSETS;
   const { widths, arrival } = ATRIUM_ORBIT_COMP;
   const name = state === 'arrival' ? arrival : `${stem}-${state}`;
-  return `${base}${name}${width === widths[0] ? '' : `-${width}`}.webp`;
+  return `${base}${name}${layer}${width === widths[0] ? '' : `-${width}`}.webp`;
 }
 
-function compPlateSources(state: AtriumOrbitStateId): AtriumOrbitPlateSources {
+function compPlateSources(
+  state: AtriumOrbitStateId,
+  layer = '',
+): AtriumOrbitPlateSources {
   const { widths, fallbackWidth, intrinsic, sizes } = ATRIUM_ORBIT_COMP;
   // Arrival is a second drawing of the approved Atrium, shown in its place
   // from the frame the camera leaves it. It must be the very file the
@@ -213,12 +221,12 @@ function compPlateSources(state: AtriumOrbitStateId): AtriumOrbitPlateSources {
         {
           media: ATRIUM_ORBIT_COMP.arrivalNarrow,
           type: 'image/webp',
-          srcset: compPlateFile(state, 1280),
+          srcset: compPlateFile(state, 1280, layer),
           sizes,
         },
       ],
       fallback: {
-        src: compPlateFile(state, widths[0]),
+        src: compPlateFile(state, widths[0], layer),
         width: intrinsic[0],
         height: intrinsic[1],
         sizes,
@@ -230,18 +238,32 @@ function compPlateSources(state: AtriumOrbitStateId): AtriumOrbitPlateSources {
         media: null,
         type: 'image/webp',
         srcset: widths
-          .map((w) => `${compPlateFile(state, w)} ${w}w`)
+          .map((w) => `${compPlateFile(state, w, layer)} ${w}w`)
           .join(', '),
         sizes,
       },
     ],
     fallback: {
-      src: compPlateFile(state, fallbackWidth),
+      src: compPlateFile(state, fallbackWidth, layer),
       width: intrinsic[0],
       height: intrinsic[1],
       sizes,
     },
   };
+}
+
+/** The closed doors of a view (atrium-orbit-doors.ts): one transparent
+ * picture the plate's own size, laid on the plate. It has the plate's
+ * naming with `-doors`, its widths and its choice of file, so a leaf is
+ * always as sharp as the plate under it. Comp plates only: a studio plate
+ * brings its own doors, or null here. */
+export function plateDoorSources(
+  state: AtriumOrbitStateId,
+  status = ATRIUM_ORBIT_PLATES,
+): AtriumOrbitPlateSources | null {
+  return status[state].desktop === 'comp'
+    ? compPlateSources(state, '-doors')
+    : null;
 }
 
 /** The <picture> description for one view, or null when its desktop plate

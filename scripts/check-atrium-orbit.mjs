@@ -2107,6 +2107,10 @@ for (const tall of [false, true]) {
       'worlds-orbit.ts',
     ].map((name) => `${EXPERIENCE}${name}`),
   );
+  // The intro no longer renders its decorative top header (5b88eec, the
+  // owner's change): the loader left the list with it. check-site asserts
+  // that header's absence.
+  PASS.add('components/home/intro/home-intro-loader.tsx');
   const walk = (dir) =>
     readdirSync(new URL(`../${dir}`, import.meta.url))
       .sort()
@@ -2126,10 +2130,14 @@ for (const tall of [false, true]) {
     'data/world-building.ts',
   ]
     // PASS 6A's dormant Tier B modules are new files, checked by
-    // check:atrium-orbit-foundation; everything else stays byte-identical.
+    // check:atrium-orbit-foundation, and so is the room entry they load
+    // (room-door-entry.ts, check:atrium-doors); everything else stays
+    // byte-identical.
     .filter(
       (path) =>
-        !PASS.has(path) && !path.startsWith(`${EXPERIENCE}atrium-orbit-`),
+        !PASS.has(path) &&
+        !path.startsWith(`${EXPERIENCE}atrium-orbit-`) &&
+        path !== `${EXPERIENCE}room-door-entry.ts`,
     )
     .map((path) => [
       path,
@@ -2140,10 +2148,15 @@ for (const tall of [false, true]) {
     ]);
   // d8922fdb98a3c952 until STEP 1 took home-motion.ts out of the list, then
   // a0457b72548e0e98 until STEP 2 took breeze-renderer.ts out (each time no
-  // other listed file had changed: the working tree showed only PASS files).
+  // other listed file had changed: the working tree showed only PASS files),
+  // then 31c6ef69310765f3 until the intro's loader left it. That value was
+  // still locked when 5b88eec changed the loader, so this check failed from
+  // that commit on; it was re-derived here with the loader as it was at
+  // 41bd5c9, which gives 31c6ef69310765f3 again: no other listed file had
+  // changed.
   assert.equal(
     digest(files),
-    '31c6ef69310765f3',
+    '249d78a121bb9660',
     'files outside this PASS are unchanged from PASS 15',
   );
 }

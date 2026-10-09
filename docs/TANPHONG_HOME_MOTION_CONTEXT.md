@@ -983,3 +983,17 @@ page carries on to the room by itself. Details, verification and limits:
 - `MOTION.carry`: after 110 ms of rest inside a pan the page is scrolled on, eased, to the middle of the stretch of the room the hand was heading for (520 ms + 1.5 ms per px, at most 1300 ms); a slip of up to 12 px is only put back.
 - This is the one place the homepage writes the scroll position, and the write is the room orbit controller's. The timeline hands it the page position, the time and whether a finger is on the glass (three passive touch listeners), and still never writes it. The hand's own scrolling is not intercepted, delayed or corrected; any movement of the hand ends the carry.
 - Not in the base journey, the push, the release, reduced motion or the portal orbit fallback.
+
+## 45. The rooms stand behind closed doors (2026-10-09, not deployed)
+
+Owner request: the four doors come down as the wide Atrium appears, stay
+shut through the room orbit, and choosing a door opens it and enters the
+room. Details, verification and limits:
+`TANPHONG_ATRIUM_ORBIT_IMPLEMENTATION.md` §15.9.
+
+- **The doors** are drawn into each doorway of each comp plate (walnut battens, the jambs' own material; `work/atrium-orbit/comp-plates/doors.mjs`, outside Git) and laid on the plate as a second picture in the plate's own box. A leaf opens by rising into its lintel: its outline's lower edge is raised.
+- **The fall** is scroll-mapped like everything else: story 0.855 to 0.940, one door after another, where the room orbit shows no copy. Before it, through the pull-back, the rooms are open. Reduced motion: shut, no fall.
+- **Entering** is the one time-driven move in the Atrium: the leaf up, the camera through the doorway, the picture to light, the room's page out of the light, about 1.4 s. It starts from a plain click or tap on a door, on EXPLORE THIS ROOM or on a room label, and ends by following the room link's own route. The room orbit's controller stands still while it plays.
+- **Listeners and writes.** One click listener on the Atrium section (plus `pagehide`, `pageshow` and `popstate` on the window), in `room-door-entry.ts`. No wheel or touch listener, no RAF or timer loop; the Atrium's scroll position is never written. The room's page is put at its top under the cover (the router skips its own reset for some pages, as noted for the World gateway).
+- **The base journey is untouched**: `home-story-timeline.ts` did not change, and `check:lab` and the base-journey digest are as they were.
+- **A correction to the record.** `5b88eec` (the intro's top header removed) changed `home-intro-loader.tsx` while `check:atrium-orbit` still locked that file, so that check failed from that commit on. The lock is re-derived here, with its trail in the check.

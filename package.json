@@ -34,6 +34,7 @@
     "check:studio": "node scripts/check-studio.mjs",
     "check:atrium-orbit": "node scripts/check-atrium-orbit.mjs",
     "check:atrium-orbit-foundation": "node scripts/check-atrium-orbit-foundation.mjs",
+    "check:atrium-doors": "node scripts/check-atrium-doors.mjs",
     "check:atrium-orbit-assets": "node scripts/check-atrium-orbit-assets.mjs",
     "check:motion": "node scripts/check-motion-foundation.mjs"
   },
