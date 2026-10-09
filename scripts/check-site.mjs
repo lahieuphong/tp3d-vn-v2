@@ -56,18 +56,19 @@ while (pending.length) {
     for (const detail of [
       'hi-intro-breeze',
       'hi-intro-slogan',
-      'hi-header',
-      'hi-wordmark',
       'hi-bottom-brand',
       'hi-entry-stone-face',
       'hi-entry-walnut-face',
       'A new breeze',
       'for living',
-      'EST. 2026',
     ]) {
       assert(loader.includes(detail), `Home intro is missing ${detail}`);
     }
-    assert.match(loader, /class="hi-header"[^>]*aria-hidden="true"[^>]*inert/);
+    assert.doesNotMatch(
+      loader,
+      /class="hi-header"|class="hi-wordmark"|EST\. 2026/,
+      'Home: the intro must not render the top header',
+    );
     assert.equal(
       (loader.match(/class="hi-intro-breeze /g) ?? []).length,
       2,

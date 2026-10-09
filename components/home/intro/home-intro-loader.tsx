@@ -5,7 +5,6 @@ import { mountHomeIntro } from './intro-controller';
 import type { CriticalAssetProgress } from './critical-assets';
 import { IntroMonogram } from './intro-monogram';
 import { IntroProgress } from './intro-progress';
-import { IntroHeader } from './intro-header';
 import { IntroBreeze } from './intro-breeze';
 
 /** SSR includes both this presentation overlay and the complete Home. The head
@@ -62,7 +61,6 @@ function IntroPresentation({ onComplete }: { onComplete: () => void }) {
       </div>
       <IntroProgress progress={progress} />
       <p className="hi-bottom-brand">INTERIORS &amp; OBJECTS</p>
-      <IntroHeader />
     </div>
   );
 }
