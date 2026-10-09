@@ -1046,6 +1046,89 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     expectedFiles.toSorted((a, b) => a.localeCompare(b)),
     'only the comp plates and their thumbnails: no other world-atrium-* file',
   );
+  // The plates agree. They were four separate drawings: each showed the
+  // doorway beside its own at another size, height and slant than that
+  // doorway's own plate does, so a pan showed two versions of a doorway and
+  // of its label. The neighbour's own doorway is now laid into the plate,
+  // the pan's shift away (work/atrium-orbit/comp-plates/stitch.mjs, outside
+  // Git). On both doorways of such a pan the two plates are one picture:
+  // what differs is the encoder's noise (about 2 of 255; 36 to 45 before).
+  {
+    const pixels = async (room) =>
+      sharp(
+        fileURLToPath(
+          new URL(`../public${compPlateFile(room, 1672)}`, import.meta.url),
+        ),
+      )
+        .removeAlpha()
+        .raw()
+        .toBuffer();
+    const plate = {};
+    for (const room of ROOMS) plate[room] = await pixels(room);
+    const at = (x, y) => (y * 1672 + x) * 3;
+    const apart = (a, b, shift, [x0, y0, x1, y1]) => {
+      let sum = 0;
+      for (let y = y0; y < y1; y++)
+        for (let x = x0; x < x1; x++)
+          for (let c = 0; c < 3; c++)
+            sum += Math.abs(a[at(x, y) + c] - b[at(x - shift, y) + c]);
+      return sum / ((x1 - x0) * (y1 - y0) * 3);
+    };
+    const shiftOf = (from) =>
+      Math.round(
+        transition.ATRIUM_ORBIT_SHOTS[
+          model.ATRIUM_ORBIT_TRANSITIONS.findIndex((t) => t.from === from)
+        ].shift * 1672,
+      );
+    for (const { doorway, from, to, box } of [
+      {
+        doorway: 'Bedroom',
+        from: 'living',
+        to: 'bedroom',
+        box: [1360, 150, 1660, 650],
+      },
+      {
+        doorway: 'Living',
+        from: 'living',
+        to: 'bedroom',
+        box: [790, 125, 1150, 640],
+      },
+      {
+        doorway: 'Kitchen',
+        from: 'bathroom',
+        to: 'kitchen',
+        box: [1345, 130, 1660, 650],
+      },
+    ]) {
+      const off = apart(plate[from], plate[to], shiftOf(from), box);
+      assert.ok(
+        off < 5,
+        `${from} | ${to}: the ${doorway} doorway is one picture (${off})`,
+      );
+    }
+    // Where a planter stands in front of the neighbouring doorway it cannot
+    // be the neighbour's own drawing. Its label is taken out instead, so no
+    // label is ever seen twice: no ivory ink is left on those fascias.
+    const ink = (pixels, [x0, y0, x1, y1]) => {
+      const marks = [];
+      for (let y = y0; y < y1; y++)
+        for (let x = x0; x < x1; x++) {
+          const i = at(x, y);
+          const low = Math.min(pixels[i], pixels[i + 1], pixels[i + 2]);
+          const high = Math.max(pixels[i], pixels[i + 1], pixels[i + 2]);
+          marks.push([low, high - low]);
+        }
+      const mean = marks.reduce((sum, [low]) => sum + low, 0) / marks.length;
+      return marks.filter(([low, chroma]) => chroma < 58 && low - mean > 45)
+        .length;
+    };
+    for (const { room, box } of [
+      { room: 'bedroom', box: [1440, 150, 1672, 225] }, // "03 Bathroom"
+      { room: 'bathroom', box: [20, 88, 232, 190] }, // "02 Bedroom"
+      { room: 'kitchen', box: [246, 128, 470, 222] }, // "03 Bathroom"
+    ])
+      assert.ok(ink(plate[room], box) < 40, `${room}: no label there`);
+  }
   // Lossless sources and the comps themselves stay out of Git and of public/.
   assert.ok(
     readdirSync(new URL('../public/images/home-chapters/', import.meta.url))
@@ -1269,63 +1352,20 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
       0 < IRIS.join[0] && IRIS.join[0] < IRIS.join[1] && IRIS.join[1] < 0.1,
     );
   }
-  // A pan is matched where its two plates are joined. The plates are
-  // separate drawings, so each tie says how the incoming plate lies on the
-  // outgoing one for one piece of the scene to coincide: the next doorway's
-  // name and number where the join enters, the pier where it rests, the
-  // name and number of the doorway being left where it goes. (A label is
-  // drawn at another size and slant in each view, so its two parts are tied
-  // one by one.) Measured on the pictures, px of 1672 × 941.
+  // A pan is one picture travelling. It carries no fit of one plate to the
+  // other, only how far apart the two lie (a whole number of px of the
+  // 1672 × 941 picture, as the plates were stitched) and where the pier
+  // they share stands.
   for (const shot of SHOTS.slice(1)) {
-    same(Object.keys(shot), ['kind', 'pier', 'ties']);
-    assert.equal(shot.ties.length, 5, 'name, number, pier, name, number');
-    const rests = shot.ties[2];
-    shot.ties.forEach((tie, i) => {
-      if (i) assert.ok(shot.ties[i - 1].at > tie.at, 'right to left');
-    });
-    assert.ok(shot.ties[0].at < 1672 && shot.ties[4].at > 0);
-    // A number stands just left of its name, on the same board.
-    for (const [name, number] of [
-      [shot.ties[0], shot.ties[1]],
-      [shot.ties[3], shot.ties[4]],
-    ]) {
-      assert.ok(name.at - number.at > 80 && name.at - number.at < 160);
-      assert.ok(Math.abs(name.shift - number.shift) < 50, 'one label');
-    }
-    assert.ok(
-      Math.abs(rests.at - shot.pier * 1672) < 1,
-      'the middle tie is the pier the join rests on',
-    );
-    for (const tie of shot.ties) {
-      same(Object.keys(tie), ['at', 'shift', 'high', 'low']);
-      assert.ok(
-        tie.shift / 1672 > 0.3 && tie.shift / 1672 < 0.6,
-        'half a view at a time',
-      );
-      assert.ok(
-        shot.pier > tie.shift / 1672 && shot.pier < 1,
-        'the pier is shared',
-      );
-      for (const plate of [0, 1])
-        assert.ok(
-          0 < tie.high[plate] && tie.high[plate] < 300 && tie.low[plate] > 580,
-          'a height on the fascia and one at the floor',
-        );
-      // Two drawings of one doorway: close in size and height, not equal.
-      const grow = (tie.low[0] - tie.high[0]) / (tie.low[1] - tie.high[1]);
-      assert.ok(grow > 0.9 && grow < 1.1, `stretch down ${grow}`);
-      assert.ok(Math.abs(tie.high[0] - tie.high[1]) < 45, 'moved a little');
-    }
+    same(Object.keys(shot), ['kind', 'shift', 'pier']);
+    assert.ok(shot.shift > 0.3 && shot.shift < 0.6, 'half a view at a time');
+    assert.ok(shot.pier > shot.shift && shot.pier < 1, 'the pier is shared');
   }
-  assert.ok(
-    SEAM.feather > 0.01 && SEAM.feather < 0.04,
-    'a join, not a dissolve',
-  );
-  same(Object.keys(SEAM), ['feather', 'dwell', 'settle']);
-  assert.ok(
-    SEAM.settle > 0 && SEAM.settle < SEAM.dwell[0],
-    'each plate carries its half before the join reaches the pier',
-  );
+  const SHIFT_PX = SHOTS.slice(1).map((shot) => shot.shift * 1672);
+  SHIFT_PX.forEach((px) => near(px, Math.round(px), 'a whole px', 1e-9));
+  same(SHIFT_PX.map(Math.round), [772, 690, 654]);
+  same(Object.keys(SEAM), ['feather', 'dwell']);
+  assert.ok(SEAM.feather > 0 && SEAM.feather < 0.1, 'a join, not a dissolve');
   assert.ok(
     0 < SEAM.dwell[0] && SEAM.dwell[0] < SEAM.dwell[1] && SEAM.dwell[1] < 1,
   );
@@ -1351,12 +1391,11 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
   // How much of the plate is there at one stage position (0 → 1): its box,
   // then what its mask shows. A soft edge (either way round) and an ellipse
   // add up, as two CSS mask images do.
-  const alphaAt = (layer, window, sx, sy = 0.5, endless = false) => {
+  const alphaAt = (layer, window, sx, sy = 0.5) => {
     if (layer.opacity <= 0) return 0;
     const box = extent(layer, window);
     if (sx < box.left - 1e-9 || sx > box.right + 1e-9) return 0;
-    // (`endless`: the mask alone, as if the plate had no top or bottom.)
-    if (!endless && (sy < box.top - 1e-9 || sy > box.bottom + 1e-9)) return 0;
+    if (sy < box.top - 1e-9 || sy > box.bottom + 1e-9) return 0;
     if (!layer.edge && !layer.iris) return layer.opacity;
     const [px, py] = onPlate(layer, window, sx, sy);
     let edge = 0;
@@ -1378,19 +1417,6 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
       iris = alpha * Math.min(1, Math.max(0, (1 - r) / (1 - whole)));
     }
     return layer.opacity * (edge + iris - edge * iris);
-  };
-  // Of what is drawn at one stage position, the incoming plate's share:
-  // the plate on top through its mask, the other one beneath it.
-  const incomingAt = (frame, window, sx, sy, endless = false) =>
-    frame.over === 'to'
-      ? alphaAt(frame.to, window, sx, sy, endless)
-      : (1 - alphaAt(frame.from, window, sx, sy, endless)) *
-        alphaAt(frame.to, window, sx, sy, endless);
-  // Where a pan's join is on the stage (stage widths): the middle of the
-  // soft edge of whichever plate is on top.
-  const joinOf = (frame, window) => {
-    const top = frame.over === 'to' ? frame.to : frame.from;
-    return onStage(top, window, (top.edge[0] + top.edge[1]) / 2, 0.5)[0];
   };
   const VIEWPORTS = [
     [2560, 1080],
@@ -1491,14 +1517,7 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
           // Each end is one view at rest: the hold it joins.
           if (local === 0) same([frame.from, frame.to.opacity], [restFrom, 0]);
           if (local === 1) same([frame.to, frame.from.opacity], [restTo, 0]);
-          // The stage is covered by the two plates alone, everywhere. One
-          // exception, in a pan: the sliver a plate is as it comes or goes
-          // carries the whole fit and is not zoomed for, so where it alone
-          // holds the stage's very side it may stop short of the top or the
-          // bottom. That is a corner of a few px, for a moment (at most
-          // 14 × 30 px of a 2560 × 1080 stage), and only on a stage as wide
-          // as the plate.
-          const panning = orbit && shot.kind === 'pan';
+          // The stage is covered by the two plates alone, everywhere.
           const [under, top] =
             frame.over === 'to'
               ? [frame.from, frame.to]
@@ -1507,52 +1526,18 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
             for (const sy of stageYs) {
               const a = alphaAt(top, window, sx, sy);
               const b = alphaAt(under, window, sx, sy);
-              if (a + (1 - a) * b >= 1 - 1e-9) continue;
               assert.ok(
-                panning &&
-                  (local < 0.25 ? sx > 0.97 : local > 0.75 && sx < 0.03) &&
-                  (sy === 0 || sy === 1),
+                a + (1 - a) * b >= 1 - 1e-9,
                 `${s.from}→${s.to} ${width}×${height} local ${local} at ` +
                   `${sx}, ${sy}: covered ${a + (1 - a) * b}`,
               );
             }
-          if (panning) {
-            // That corner, measured: the columns one plate holds alone,
-            // times how far it stops short there; and where both are, how
-            // far both stop short on the same side.
-            const [a, b] = [
-              extent(frame.from, window),
-              extent(frame.to, window),
-            ];
-            const short = (box) => [
-              Math.max(0, box.top),
-              Math.max(0, 1 - box.bottom),
-            ];
-            const open =
-              Math.max(0, 1 - Math.max(0, a.right)) * Math.max(...short(b)) +
-              Math.max(0, Math.min(1, b.left)) * Math.max(...short(a)) +
-              Math.max(0, Math.min(1, a.right) - Math.max(0, b.left)) *
-                Math.max(
-                  ...short(a).map((gap, i) => Math.min(gap, short(b)[i])),
-                );
-            assert.ok(
-              open < 2.5e-4,
-              `${s.from}→${s.to} ${width}×${height} local ${local}: ` +
-                `${open} of the stage is open`,
-            );
-            if (width / height < 1672 / 941 - 1e-9)
-              assert.ok(open < 1e-12, 'a narrower stage is always covered');
-          }
-          // The plate beneath runs from top to bottom at every position; so
-          // does the one on top, except as that sliver.
           for (const layer of [frame.from, frame.to]) {
             if (layer.opacity <= 0) continue;
-            if (panning && layer === top && (local < 0.25 || local > 0.75))
-              continue;
             const box = extent(layer, window);
             assert.ok(
               box.top <= 1e-9 && box.bottom >= 1 - 1e-9,
-              `${s.from}→${s.to} ${width}×${height} local ${local}: top to bottom`,
+              'top to bottom',
             );
           }
           if (!orbit) {
@@ -1564,47 +1549,49 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
             );
           } else if (local > 0 && local < 1) {
             if (shot.kind === 'pan') {
-              // The plates are joined by a soft edge, carried by the one
-              // on top: the incoming plate through the first half of the
-              // move, the outgoing one through the second. The other is
-              // whole beneath it.
-              assert.equal(frame.over, local < 0.5 ? 'to' : 'from');
-              const [whole, joined] =
-                frame.over === 'to'
-                  ? [frame.from, frame.to]
-                  : [frame.to, frame.from];
+              // One strip: the two plates stay `shift` apart, so the pier
+              // they share stays in one piece; nothing scales or lifts.
+              assert.equal(frame.over, 'to');
+              near(frame.to.x - frame.from.x, shot.shift, 'one strip', 1e-9);
               same(
-                [frame.from.opacity, frame.to.opacity, whole.edge],
-                [1, 1, null],
+                [
+                  frame.from.opacity,
+                  frame.to.opacity,
+                  frame.from.scale,
+                  frame.to.scale,
+                  frame.from.y,
+                  frame.to.y,
+                  frame.from.edge,
+                ],
+                [1, 1, 1, 1, 0, 0, null],
               );
-              // Fitted to each other, the plates share one small zoom and
-              // are stretched down their pictures by a few percent at most.
-              assert.equal(frame.from.scale, frame.to.scale, 'one zoom');
-              // (About 5% on a desktop stage, 6.4% on the widest here.)
+              // Nothing is fitted: neither plate is stretched or sheared.
+              same(
+                [frame.from.scaleY, frame.to.scaleY],
+                [undefined, undefined],
+              );
+              // And the picture only ever travels one way.
+              if (previous && previous.from.opacity > 0)
+                assert.ok(
+                  frame.from.x <= previous.from.x + 1e-12,
+                  `${s.from}→${s.to} ${width}×${height} local ${local}: ` +
+                    'the picture never turns back',
+                );
+              // The join: soft only where both plates exist.
+              const [clear, whole] = frame.to.edge;
               assert.ok(
-                frame.from.scale >= 1 && frame.from.scale < 1.065,
-                `zoom ${frame.from.scale}`,
+                whole >= clear && whole - clear <= 2 * SEAM.feather + 1e-9,
               );
-              for (const layer of [frame.from, frame.to]) {
-                const down = layer.scaleY / layer.scale;
-                assert.ok(down > 0.9 && down < 1.1, `stretch ${down}`);
-              }
-              // The join: soft only where both plates exist. The incoming
-              // plate is whole on its right, the outgoing one on its left.
-              const [clear, solid] = joined.edge;
-              assert.ok(frame.over === 'to' ? solid >= clear : solid < clear);
-              assert.ok(Math.abs(solid - clear) <= 2 * SEAM.feather + 1e-6);
-              assert.ok(Math.min(clear, solid) >= -1e-9);
-              assert.ok(Math.max(clear, solid) <= 1 + 1e-6);
+              assert.ok(clear >= -1e-9 && whole <= 1 - shot.shift + 1e-9);
               // And never wider than what the stage shows beside it: a
               // plate comes into view, and goes, as a soft sliver. (Off the
               // stage, on a narrow one, the join is a line.)
-              const at = joinOf(frame, window);
-              const half = (Math.abs(solid - clear) / 2) * joined.scale;
+              const at = ((clear + whole) / 2 + frame.to.x) / window.width;
               assert.ok(
-                half / window.width <= Math.max(0, Math.min(at, 1 - at)) + 1e-4,
+                (whole - clear) / 2 / window.width <=
+                  Math.max(0, Math.min(at, 1 - at)) + 1e-9,
                 `${s.from}→${s.to} ${width}×${height} local ${local}: the ` +
-                  `join is soft on the stage only (${at} ± ${half / window.width})`,
+                  'join is soft on the stage only',
               );
             } else {
               // The wide plate is whole and unmasked beneath; the next view
@@ -1680,30 +1667,26 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
               assert.ok(
                 Math.abs(frame[key].scale - previous[key].scale) < 0.06,
               );
-              // Nor up or down: a plate's top and bottom edges creep.
-              const [now, before] = [
-                extent(frame[key], window),
-                extent(previous[key], window),
-              ];
-              assert.ok(
-                Math.abs(now.top - before.top) < 0.02 &&
-                  Math.abs(now.bottom - before.bottom) < 0.02,
-                `${s.from}→${s.to} ${width}×${height} local ${local}: ${key} y`,
-              );
             }
+            const [, topNow] =
+              frame.over === 'to'
+                ? [frame.from, frame.to]
+                : [frame.to, frame.from];
+            const [, topBefore] =
+              previous.over === 'to'
+                ? [previous.from, previous.to]
+                : [previous.to, previous.from];
             // A soft edge may travel, so a point is compared with what was
             // near it one position ago: nothing may appear or vanish there
-            // at once. (Which plate is on top may change: what counts is
-            // how much of the incoming plate is drawn. A plate's own top and
-            // bottom are left out here: they creep, as asserted above.)
+            // at once.
             const near4 = [-0.04, -0.02, 0, 0.02, 0.04];
             const near6 = [-0.06, 0, 0.06];
             for (const sx of innerXs)
               for (const sy of stageYs) {
-                const now = incomingAt(frame, window, sx, sy, true);
+                const now = alphaAt(topNow, window, sx, sy);
                 const around = near4.flatMap((dx) =>
                   near6.map((dy) =>
-                    incomingAt(previous, window, sx + dx, sy + dy, true),
+                    alphaAt(topBefore, window, sx + dx, sy + dy),
                   ),
                 );
                 assert.ok(
@@ -1718,85 +1701,22 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
         }
       }
       if (shot.kind === 'pan') {
-        const frameAt = (local) =>
-          orbitTransition({
-            ...inputAt(local, 'forward'),
-            localProgress: local,
-          });
-        const tall = (px) => px / 941 / window.height;
-        // How far apart (px of this stage) the two plates draw one tie's
-        // two heights.
-        const apart = (frame, tie) =>
-          [tie.high, tie.low].map(([outgoing, incoming]) => {
-            const a = onStage(
-              frame.from,
-              window,
-              tie.at / 1672,
-              tall(outgoing),
-            );
-            const b = onStage(
-              frame.to,
-              window,
-              (tie.at - tie.shift) / 1672,
-              tall(incoming),
-            );
-            return [(b[0] - a[0]) * width, (b[1] - a[1]) * height];
-          });
-        const off = (frame, tie) =>
-          Math.max(...apart(frame, tie).flat().map(Math.abs));
-        // Where the join is across the outgoing plate, px of the picture.
-        const joinOn = (frame) =>
-          onPlate(frame.from, window, joinOf(frame, window), 0.5)[0] * 1672;
-        const moving = locals.filter((local) => local > 0 && local < 1);
-        const rests = shot.ties[2];
-        // Through the middle of the move the join rests on the pier, and
-        // there the two drawings agree: the outgoing doorway's lintel and
-        // floor on one side of the pier meet the incoming doorway's on the
-        // other, at one height, in one place. (A narrow stage may not reach
-        // the pier; where it does, the join is on it and the tie holds.)
-        const mid = frameAt(0.5);
-        if (Math.abs(joinOn(mid) - shot.pier * 1672) < 1e-3)
-          assert.ok(
-            off(mid, rests) < 0.5,
-            `${s.from}→${s.to} ${width}×${height}: the two plates agree at ` +
-              `the pier (${apart(mid, rests).join(' | ')})`,
-          );
-        // Wherever the join passes over a tied piece, that piece is drawn
-        // once: the same place, the same height, in both plates.
-        for (const tie of shot.ties) {
-          let hit = null;
-          for (const local of moving) {
-            const frame = frameAt(local);
-            const gap = Math.abs(joinOn(frame) - tie.at);
-            if (hit === null || gap < hit.gap) hit = { gap, frame, local };
-          }
-          // Only where the join really passes over that piece on this stage.
-          if (hit.gap > 4) continue;
-          assert.ok(
-            off(hit.frame, tie) < 3,
-            `${s.from}→${s.to} ${width}×${height} local ${hit.local}: one ` +
-              `piece under the join (${apart(hit.frame, tie).join(' | ')})`,
-          );
-        }
-        // And the fit is whole from the first sliver of the incoming plate
-        // to the last sliver of the outgoing one, not only through the
-        // middle: before the join reaches the first tie, and after it has
-        // passed the last, that tie already and still holds exactly.
-        for (const local of moving) {
-          const frame = frameAt(local);
-          const at = joinOn(frame);
-          for (const tie of [shot.ties[0], shot.ties[4]]) {
-            const beyond =
-              tie === shot.ties[0] ? at >= tie.at - 1e-6 : at <= tie.at + 1e-6;
-            if (beyond)
-              assert.ok(
-                off(frame, tie) < 0.5,
-                `${s.from}→${s.to} ${width}×${height} local ${local}: fitted ` +
-                  `from the first sliver to the last ` +
-                  `(${apart(frame, tie).join(' | ')})`,
-              );
-          }
-        }
+        // The join rests on the pier through the middle of the move, and the
+        // doorway the UI names is the one in the middle of the stage at rest.
+        const mid = orbitTransition({
+          ...inputAt(0.5, 'forward'),
+          localProgress: 0.5,
+        });
+        const start = plateWindowStart(s.from, window, layout);
+        const goal = plateWindowStart(s.to, window, layout);
+        const low = Math.min(start + window.width, goal + shot.shift);
+        const high = Math.max(start + window.width, goal + shot.shift);
+        near(
+          (mid.to.edge[0] + mid.to.edge[1]) / 2 + shot.shift,
+          Math.min(high, Math.max(low, shot.pier)),
+          'the join is on the pier',
+          1e-9,
+        );
       } else {
         // The push ends on the next view alone: the ellipse holds the whole
         // stage in its solid part, at the next view's resting place.
@@ -1845,6 +1765,248 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
 }
 
 // ---------------------------------------------------------------------------
+// 8b. A room change is carried through (owner decision, 2026-10-09). A hand
+// that stops between two rooms left the camera halfway, on a frame that
+// belongs to neither. Once it has rested inside a pan the page itself is
+// scrolled on to the room it was heading for; the hand is never held back,
+// and the moment it moves the page again it has it back.
+// ---------------------------------------------------------------------------
+{
+  const { carryOrbit, ATRIUM_ORBIT_CARRY_IDLE: IDLE, sampleOrbit } = progress;
+  const { buildOrbitTimeline } = progress;
+  const { MOTION } = loadStoryMath('home-motion');
+  const timing = MOTION.carry;
+  same(Object.keys(timing), ['rest', 'edge', 'duration']);
+  same(Object.keys(timing.duration), ['least', 'perPx', 'most']);
+  assert.ok(timing.rest >= 80 && timing.rest <= 200, 'a rest, not a pause');
+  assert.ok(timing.edge >= 4 && timing.edge <= 24);
+  assert.ok(
+    timing.duration.least >= 300 && timing.duration.most <= 1500,
+    'a glide: never a jump, never a wait',
+  );
+  same(IDLE, { at: null, heading: 0, since: 0, run: null });
+  const SHOTS = transition.ATRIUM_ORBIT_SHOTS;
+  const travelled = (index) => SHOTS[index].kind === 'pan';
+  const t = buildOrbitTimeline(TIMING, null);
+  const FRAME = 1000 / 60;
+  for (const [top, length] of [
+    [4860, 3420], // 1440 × 900
+    [3207.2, 3207.2], // a phone: fractional positions
+    [6912, 4104], // 1920 × 1080
+  ]) {
+    const where = { top, length };
+    const px = (share) => top + share * length;
+    const pans = t.segments.filter(
+      (s) => s.kind === 'move' && travelled(s.transition),
+    );
+    assert.equal(pans.length, 3);
+    // One page, one hand: every frame the carry is asked, and what it
+    // writes is where the page is.
+    const page = (scroll) => {
+      const world = { scroll, now: 1000, touching: false, state: IDLE };
+      world.frame = () => {
+        const out = carryOrbit(
+          world.state,
+          { scroll: world.scroll, now: world.now, touching: world.touching },
+          where,
+          t,
+          travelled,
+          timing,
+        );
+        if (out.write !== null) {
+          assert.ok(Number.isInteger(out.write), 'whole px');
+          world.scroll = out.write;
+        }
+        world.state = out.carry;
+        world.now += FRAME;
+        return out;
+      };
+      // The hand moves the page itself.
+      world.hand = (to) => {
+        world.scroll = to;
+        return world.frame();
+      };
+      // Frames until nothing more is wanted; the path the page took.
+      world.rest = (limit = 400) => {
+        const path = [world.scroll];
+        let frames = 0;
+        for (; frames < limit; frames++) {
+          const out = world.frame();
+          path.push(world.scroll);
+          if (!out.active) break;
+        }
+        assert.ok(frames < limit, 'the carry comes to rest');
+        return path;
+      };
+      return world;
+    };
+    const roomAt = (scroll) => {
+      const at = sampleOrbit((scroll - top) / length, t, TIMING);
+      return at.phase === 'move' ? null : at.activeState;
+    };
+    // 1. In a room, in the push and in the release nothing is ever written.
+    for (const s of t.segments) {
+      if (s.kind === 'move' && travelled(s.transition)) continue;
+      for (const share of [0.02, 0.5, 0.98]) {
+        const world = page(px(s.start + share * (s.end - s.start)));
+        for (let i = 0; i < 60; i++) {
+          const out = world.frame();
+          same([out.write, out.active], [null, false], `${s.kind} at rest`);
+        }
+      }
+    }
+    for (const pan of pans) {
+      const [a, b] = [px(pan.start), px(pan.end)];
+      const within = (share) => Math.round(a + share * (b - a));
+      const label = `${pan.from}→${pan.to} at ${top}`;
+      // The page is taken to the middle of the room's hold: from there the
+      // next room is as far going on as the last one is going back.
+      const at = t.segments.indexOf(pan);
+      const [last, next] = [t.segments[at - 1], t.segments[at + 1]];
+      same(
+        [last.kind, last.state, next.kind, next.state],
+        ['hold', pan.from, 'hold', pan.to],
+      );
+      const onward = Math.round(px((next.start + next.end) / 2));
+      const back = Math.round(px((last.start + last.end) / 2));
+      // 2. Heading on: the hand scrolls down into the pan and stops. Nothing
+      // happens while it has rested for less than `rest`; then the page
+      // goes on, one way, with no jump, and lands in the middle of the next
+      // room's hold, on a whole px.
+      {
+        const world = page(a - 40);
+        world.frame();
+        for (const share of [0.1, 0.2, 0.3, 0.4]) world.hand(within(share));
+        const waiting = Math.floor(timing.rest / FRAME) - 1;
+        for (let i = 0; i < waiting; i++) {
+          const out = world.frame();
+          same([out.write, out.active], [null, true], `${label}: it waits`);
+        }
+        const from = world.scroll;
+        const path = world.rest();
+        assert.equal(world.scroll, onward, `${label}: on to the room`);
+        assert.equal(roomAt(world.scroll), pan.to, `${label}: it is that room`);
+        const distance = world.scroll - from;
+        const frames = path.length - 1;
+        const expected = Math.min(
+          timing.duration.most,
+          timing.duration.least + timing.duration.perPx * distance,
+        );
+        for (let i = 1; i < path.length; i++) {
+          assert.ok(path[i] >= path[i - 1], `${label}: one way`);
+          // It sets off at once and eases to rest: never faster than that.
+          assert.ok(
+            path[i] - path[i - 1] <= (2 * distance * FRAME) / expected + 1,
+            `${label}: no jump`,
+          );
+        }
+        assert.ok(
+          Math.abs(frames * FRAME - expected) < 5 * FRAME,
+          `${label}: ${frames} frames for ${expected}ms`,
+        );
+        // And then nothing more: the room is at rest, 0 frames wanted.
+        for (let i = 0; i < 30; i++)
+          same([world.frame().write, world.frame().active], [null, false]);
+      }
+      // 3. Heading back: the hand scrolls up into the pan and stops.
+      {
+        const world = page(b + 40);
+        world.frame();
+        for (const share of [0.9, 0.8, 0.7]) world.hand(within(share));
+        const path = world.rest();
+        assert.equal(world.scroll, back, `${label}: back to the room`);
+        assert.equal(roomAt(world.scroll), pan.from, label);
+        for (let i = 1; i < path.length; i++)
+          assert.ok(path[i] <= path[i - 1], `${label}: one way back`);
+      }
+      // 4. Not known (a page opened or restored inside a pan): the nearer.
+      for (const [share, room, middle] of [
+        [0.3, pan.from, back],
+        [0.7, pan.to, onward],
+      ]) {
+        const world = page(within(share));
+        world.rest();
+        assert.equal(world.scroll, middle, `${label}: the nearer room`);
+        assert.equal(roomAt(world.scroll), room);
+      }
+      // 5. A slip past a room's edge is only put back on that edge,
+      // whichever way the hand was heading.
+      {
+        const world = page(a - 30);
+        world.frame();
+        world.hand(Math.ceil(a) + Math.floor(timing.edge / 2));
+        world.rest();
+        assert.equal(world.scroll, Math.floor(a), `${label}: a slip, back`);
+        const back = page(b + 30);
+        back.frame();
+        back.hand(Math.floor(b) - Math.floor(timing.edge / 2));
+        back.rest();
+        assert.equal(back.scroll, Math.ceil(b), `${label}: a slip, on`);
+      }
+      // 6. The hand takes the page back. While a carry runs, the hand
+      // scrolls the other way: that frame nothing is written, the carry is
+      // over, and once the hand rests again the page goes where it now heads.
+      {
+        const world = page(a - 40);
+        world.frame();
+        world.hand(within(0.3));
+        for (let i = 0; i < Math.ceil(timing.rest / FRAME) + 6; i++)
+          world.frame();
+        assert.ok(world.state.run, `${label}: a carry is under way`);
+        const out = world.hand(world.scroll - 60);
+        same(
+          [out.write, world.state.run],
+          [null, null],
+          `${label}: given back`,
+        );
+        assert.equal(world.state.heading, -1);
+        world.rest();
+        assert.equal(world.scroll, back, `${label}: now back`);
+        // The same way on: still given back at once, then carried on again.
+        const again = page(a - 40);
+        again.frame();
+        again.hand(within(0.3));
+        for (let i = 0; i < Math.ceil(timing.rest / FRAME) + 6; i++)
+          again.frame();
+        const pushed = again.hand(again.scroll + 50);
+        same([pushed.write, again.state.run], [null, null]);
+        again.rest();
+        assert.equal(again.scroll, onward, `${label}: on again`);
+      }
+      // 7. A finger on the glass holds the page: nothing starts under it
+      // however long it rests, a carry under way stops when it lands, and
+      // the rest is counted from when it lifts.
+      {
+        const world = page(a - 40);
+        world.frame();
+        world.touching = true;
+        world.hand(within(0.5));
+        for (let i = 0; i < 120; i++) {
+          const out = world.frame();
+          same([out.write, out.active], [null, false], `${label}: held`);
+        }
+        world.touching = false;
+        const lifted = world.frame();
+        same([lifted.write, lifted.active], [null, true], 'it waits again');
+        for (let i = 0; i < Math.ceil(timing.rest / FRAME) + 4; i++)
+          world.frame();
+        assert.ok(world.state.run, `${label}: carried once the finger lifts`);
+        world.touching = true;
+        const landed = world.frame();
+        same(
+          [landed.write, world.state.run],
+          [null, null],
+          'a finger stops it',
+        );
+        world.touching = false;
+        world.rest();
+        assert.equal(world.scroll, onward, `${label}: then on`);
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 9. Source rules: one scroll owner, no new loop, no invented asset, no
 // other image pipeline, one lazy chunk (the homepage's orbit since STEP 2B;
 // dormant and gated out of production until then).
@@ -1874,10 +2036,10 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     [/requestAnimationFrame|cancelAnimationFrame/, 'no RAF to show plates'],
     [/setTimeout|setInterval/, 'no timers'],
     [/IntersectionObserver|ResizeObserver|MutationObserver/, 'no observers'],
-    [
-      /scrollTo|scrollBy|scrollIntoView|preventDefault|wheel/,
-      'no scroll control',
-    ],
+    // The hand's scrolling is never intercepted (no wheel listener, nothing
+    // prevented). The one write of the scroll position is the carry's,
+    // asserted just below.
+    [/scrollBy|scrollIntoView|preventDefault|wheel/, 'no scroll control'],
     [
       /from 'three'|import\('three'|getContext|<canvas|createElement\('canvas'\)/,
       'no WebGL plates',
@@ -1892,6 +2054,14 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     [/useState|useEffect|'use client'/, 'no React state per frame'],
   ])
     assert.doesNotMatch(code, pattern, why);
+  // A room change is carried through (owner decision, 2026-10-09): the
+  // controller writes the scroll position in one place, at once (the site
+  // smooths anchors globally), and only what the carry decided.
+  assert.equal(code.match(/scrollTo/g).length, 1, 'one write: the carry');
+  assert.match(
+    sources['atrium-orbit-controller.ts'],
+    /if \(next\.write !== null\)\s*window\.scrollTo\(\{ top: next\.write, behavior: 'instant' \}\);/,
+  );
   assert.match(
     sources['atrium-orbit-controller.ts'],
     /import \{ prepareSceneImage, type SceneImagePreparation \} from '\.\/scene-image';/,
@@ -2504,6 +2674,9 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     tree(root)
       .map((node) => node.textContent)
       .join(' ');
+  // The controller's only use of the window: the carry writes the scroll
+  // position (recorded here).
+  const scrolled = [];
   const controllerModule = (() => {
     const loaded = { exports: {} };
     runInNewContext(
@@ -2518,6 +2691,7 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
         exports: loaded.exports,
         console: { warn: () => assert.fail('no camera warning: data is null') },
         document: { createElement: (tag) => new Node(tag) },
+        window: { scrollTo: (options) => scrolled.push({ ...options }) },
         require(specifier) {
           if (specifier === './atrium-orbit-preview.css') return {};
           if (specifier === './scene-image')
@@ -2624,6 +2798,85 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
       },
     };
   };
+  // A room change is carried through: the controller asks the carry and
+  // writes what it decides, at once, in whole px; it gives the page back
+  // when told to (null), when the tab hides, and for good when destroyed.
+  // Under reduced motion there is no pan to carry through.
+  {
+    const { MOTION } = loadStoryMath('home-motion');
+    const where = { top: 4860, length: 3420 };
+    const pan = progress
+      .buildOrbitTimeline(TIMING, null)
+      .segments.find((s) => s.kind === 'move' && s.from === 'living');
+    const inside = Math.round(
+      where.top + (pan.start + 0.4 * (pan.end - pan.start)) * where.length,
+    );
+    const hold = progress
+      .buildOrbitTimeline(TIMING, null)
+      .segments.find((s) => s.kind === 'hold' && s.state === 'bedroom');
+    const room = Math.round(
+      where.top + ((hold.start + hold.end) / 2) * where.length,
+    );
+    const run = (h, { from = 1000, frames = 200, scroll = inside } = {}) => {
+      const start = scrolled.length;
+      let page = scroll;
+      let wanted = true;
+      for (let i = 0; i < frames && wanted; i++) {
+        wanted = h.controller.carry(
+          { scroll: page, now: from + (i * 1000) / 60, touching: false },
+          where,
+          MOTION.carry,
+        );
+        if (scrolled.length > start) page = scrolled.at(-1).top;
+      }
+      return { page, writes: scrolled.slice(start), wanted };
+    };
+    const h = harness();
+    h.at(0.2);
+    // Nothing is written while the hand has only just stopped.
+    const waiting = run(h, { frames: 3 });
+    same([waiting.writes.length, waiting.wanted], [0, true]);
+    // Given back and asked afresh: the rest is counted again, then the page
+    // is carried on to the room (unknown heading: the nearer one is behind
+    // at 0.4, so say the hand came from above the pan first).
+    assert.equal(h.controller.carry(null), false);
+    h.controller.carry(
+      { scroll: inside - 200, now: 0, touching: false },
+      where,
+      MOTION.carry,
+    );
+    const carried = run(h);
+    assert.equal(carried.page, room, 'on to the Bedroom');
+    assert.equal(carried.wanted, false, 'and at rest: no frame wanted');
+    assert.ok(carried.writes.length > 10, 'a glide, not a jump');
+    for (const write of carried.writes) {
+      same(Object.keys(write), ['top', 'behavior']);
+      assert.equal(write.behavior, 'instant');
+      assert.ok(Number.isInteger(write.top));
+    }
+    // Hidden tab: a carry under way is dropped; the page stays put.
+    h.controller.carry(null);
+    h.controller.carry(
+      { scroll: inside - 200, now: 0, touching: false },
+      where,
+      MOTION.carry,
+    );
+    const partial = run(h, { frames: 12 });
+    assert.ok(partial.writes.length > 0 && partial.wanted);
+    h.controller.suspend();
+    const after = run(h, { frames: 3, scroll: partial.page, from: 9000 });
+    assert.equal(after.writes.length, 0, 'dropped: it must rest again first');
+    // Reduced motion: no camera move, so nothing to carry through.
+    const still = harness();
+    still.at(0.2, 1, true);
+    const none = run(still);
+    same([none.writes.length, none.wanted], [0, false]);
+    // Destroyed: never again.
+    h.controller.destroy();
+    const gone = run(h);
+    same([gone.writes.length, gone.wanted], [0, false]);
+    still.controller.destroy();
+  }
   const READOUT =
     /DEVELOPMENT PREVIEW|roomOrbitProgress|segment \d|plate missing|Camera data|gateway reveal/;
   const positions = Array.from({ length: 801 }, (_, i) => i / 800);
@@ -3563,11 +3816,11 @@ console.log(
     'progress domains, gated orbit-mode UI (Arrival hides the room labels; ' +
     'the one WorldGatewayLink returns in late Kitchen; no orbiting room ' +
     'portals; the approved Atrium itself never moved), the orbit on comp ' +
-    'plates (push in from the wide Atrium, then pans joined on the shared ' +
-    'pier and fitted to each other under the join from the first sliver to ' +
-    'the last; the stage covered at every position on nine screens, but for ' +
-    'a corner of a few px as a plate comes or goes; exact in reverse; plain ' +
-    'changes under reduced motion), the Atrium in view for the ' +
+    'plates (push in from the wide Atrium, then pans: one picture ' +
+    'travelling, its two plates the same pixels on the doorways they share ' +
+    'and joined on the pier between; the stage covered at every position on ' +
+    'nine screens; exact in reverse; plain changes under reduced motion), ' +
+    'the Atrium in view for the ' +
     'whole harness (copy shade = approved shade, shown only with the ' +
     'editorial UI), a scroll-driven release to a quiet frame before the ' +
     'sticky stage leaves (exact in reverse), the readout only on explicit ' +

@@ -99,7 +99,7 @@ and rail (12) interleave inside the one stage (comment in
 
 | Question | Answer (from code) |
 | --- | --- |
-| Native browser scroll? | **Yes.** No smoothing library, no wheel/touch interception, no `preventDefault`. |
+| Native browser scroll? | **Yes.** No smoothing library, no wheel/touch interception, no `preventDefault`. One exception since 2026-10-09 (§44): after the hand has let go between two rooms of the room orbit, the page is scrolled on to the room. |
 | Lenis? | **No** (not installed, not imported). |
 | Smooth scroll CSS? | `globals.css:47` sets `scroll-behavior: smooth`; `home-story.css` overrides it with `html:has([data-home-story]) { scroll-behavior: auto }`. |
 | One master timeline? | **Yes** — `createHomeStoryTimeline()` in `home-story-timeline.ts` ("The only scroll owner"). It is a hand-written function, not a GSAP timeline. |
@@ -963,3 +963,23 @@ camera travels to each room's doorway. Details and verification:
 - In this mode the approved "Enter the worlds." copy and the four lintel labels do not show at the Atrium: Arrival is architecture only, and Living is the first room with copy (owner decisions of PASS 6A.5 / 6A.75).
 - Visual activity along the orbit (per 1% = 34px at 1440×900): moves of 30–50 for about 10–12% each, holds of about 240px between them, and a 411px Kitchen hold with the release. The moves are the densest motion on the page; their timing is the clip's and was not retuned.
 
+## 43. The room pans: one picture, and a camera with mass (2026-10-09, not deployed)
+
+Owner report with a screen recording: moving from one room to the next "keeps
+going sideways, very uncomfortable". Details, measurements and limits:
+`TANPHONG_ATRIUM_ORBIT_IMPLEMENTATION.md` §15.7.
+
+- The four room plates are made to agree with each other (the neighbour's own doorway is laid into each plate; outside Git, `work/atrium-orbit/comp-plates/stitch.mjs`). A pan is then one picture travelling: its two plates never move against each other, and nothing is fitted, stretched or zoomed.
+- `MOTION.follow.travel` is a second, heavier setting of the scroll follow, used only while the room orbit's camera travels between two rooms: `tau` 420 ms with a pointer and 260 ms on touch (150 / 70 elsewhere), `floor` 0.008 px per ms (0.09), `epsilon` 0.1 px (0.5). There the picture crosses the stage about two px for each px of scroll, so the journey's own trailing threw it half a room from one wheel notch and its closing tail was a creep that stopped dead.
+- `followScroll` takes that floor and epsilon as optional arguments; with none it is unchanged, and so is every frame of the base journey.
+- The timeline asks the room orbit's controller whether the displayed position is inside a pan (`travelling`). The portal orbit fallback has no pans and trails as before.
+
+## 44. A room change is carried through (2026-10-09, not deployed)
+
+Owner decision: when the hand stops between two rooms of the room orbit, the
+page carries on to the room by itself. Details, verification and limits:
+`TANPHONG_ATRIUM_ORBIT_IMPLEMENTATION.md` §15.8.
+
+- `MOTION.carry`: after 110 ms of rest inside a pan the page is scrolled on, eased, to the middle of the stretch of the room the hand was heading for (520 ms + 1.5 ms per px, at most 1300 ms); a slip of up to 12 px is only put back.
+- This is the one place the homepage writes the scroll position, and the write is the room orbit controller's. The timeline hands it the page position, the time and whether a finger is on the glass (three passive touch listeners), and still never writes it. The hand's own scrolling is not intercepted, delayed or corrected; any movement of the hand ends the carry.
+- Not in the base journey, the push, the release, reduced motion or the portal orbit fallback.

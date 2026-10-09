@@ -33,6 +33,8 @@ const json = (value) =>
     typeof v === 'number' ? Number(v.toFixed(9)) : v,
   );
 const same = (a, b, message) => assert.equal(json(a), json(b), message);
+const near = (a, b, message, epsilon = 1e-9) =>
+  assert.ok(Math.abs(a - b) <= epsilon, `${message}: ${a} vs ${b}`);
 const digest = (value) =>
   createHash('sha256').update(json(value)).digest('hex').slice(0, 16);
 const steps = (from, to, count) =>
@@ -299,8 +301,10 @@ function story({
     { location: { search: tierB ? tierB.search : '?atriumOrbit=0' } },
   );
   let tierBRequests = 0;
+  // The timeline never writes the scroll position. (The room orbit's carry
+  // does, in its controller, which is a double here.)
   window.scrollTo = window.scrollBy = () =>
-    assert.fail('the orbit never corrects native scroll');
+    assert.fail('the timeline never writes the scroll position');
   const document = Object.assign(new Events(), {
     hidden: false,
     readyState: 'complete',
@@ -522,6 +526,8 @@ function story({
   return {
     dispose,
     settle,
+    // One animation frame, for what a move does on the way to rest.
+    step: flush,
     scroll,
     trace,
     root,
@@ -1590,7 +1596,18 @@ for (const tall of [false, true]) {
     };
   };
   const stub = () => {
-    const record = { created: [], updates: [], suspended: 0, destroyed: 0 };
+    const record = {
+      created: [],
+      updates: [],
+      suspended: 0,
+      destroyed: 0,
+      // The stretch of the orbit span this double calls a pan, if any.
+      pan: null,
+      // What the timeline hands the carry each frame, and whether this
+      // double says a frame is still wanted.
+      carries: [],
+      carrying: false,
+    };
     record.module = {
       createAtriumOrbitController(worlds, wake, options) {
         record.created.push({ worlds, wake, options });
@@ -1598,6 +1615,19 @@ for (const tall of [false, true]) {
           update: (input) => {
             record.updates.push({ ...input });
             return tierBFrame(input.roomOrbitProgress);
+          },
+          // Whether the camera is travelling between two rooms there: the
+          // stage then trails the hand by more (MOTION.follow.travel).
+          travelling: (progress) =>
+            record.pan !== null &&
+            progress >= record.pan[0] &&
+            progress < record.pan[1],
+          // A room change is carried through: the real controller decides
+          // and writes the scroll position (check:atrium-orbit-foundation).
+          // This double only records what it is given.
+          carry: (...given) => {
+            record.carries.push(given);
+            return given[0] !== null && record.carrying;
           },
           suspend: () => record.suspended++,
           debug: () => 'stub',
@@ -1661,6 +1691,161 @@ for (const tall of [false, true]) {
     assert.equal(record.updates.at(-1).roomOrbitProgress, 0.5);
     h.dispose();
   }
+  // Where the room orbit's camera travels between two rooms the stage trails
+  // the hand by more, like a camera with mass, and comes to rest without a
+  // creep: the picture crosses the stage about two px for each px of scroll
+  // there. Everywhere else the trailing is the journey's own.
+  {
+    const { tau, travel, frameMs } = MOTION.follow;
+    assert.ok(travel.tau.fine > 2 * tau.fine, 'more mass in a pan');
+    assert.ok(travel.tau.coarse > 2 * tau.coarse);
+    assert.ok(travel.floor < MOTION.follow.floor / 4, 'a slower tail');
+    assert.ok(travel.epsilon < MOTION.follow.epsilon);
+    const record = stub();
+    record.pan = [0.3, 0.4];
+    const h = story({ tierB: { search: '', controller: record.module } });
+    await microtasks();
+    h.settle();
+    const at = (share) => Math.round(h.span() + share * h.orbitSpan());
+    const shown = () => record.updates.at(-1).roomOrbitProgress;
+    const share = (y) => (y - h.span()) / h.orbitSpan();
+    const jump = (from, to) => {
+      h.scroll(at(from));
+      const start = shown();
+      near(start, share(at(from)), 'at rest on the hand', 1e-9);
+      h.window.scrollY = at(to);
+      h.window.emit('scroll');
+      h.step();
+      // The share of the way one frame took.
+      return (shown() - start) / (share(at(to)) - start);
+    };
+    // The double's pointer is fine. Inside the pan: the slower trailing.
+    near(
+      jump(0.32, 0.37),
+      1 - Math.exp(-frameMs / travel.tau.fine),
+      'one frame of a pan',
+      1e-6,
+    );
+    h.settle();
+    near(shown(), share(at(0.37)), 'and it rests on the hand', 1e-9);
+    // In a hold: the journey's own trailing.
+    near(
+      jump(0.5, 0.55),
+      1 - Math.exp(-frameMs / tau.fine),
+      'one frame elsewhere',
+      1e-6,
+    );
+    h.settle();
+    // The last frames before rest in a pan: slower and slower, never a
+    // steady creep that stops dead. (A steady step this small is the tail
+    // closing; it is under a twentieth of a px of scroll per frame.)
+    h.scroll(at(0.31));
+    h.window.scrollY = at(0.39);
+    h.window.emit('scroll');
+    const path = [shown()];
+    for (let i = 0; i < 400 && h.frames.size; i++) {
+      h.step();
+      path.push(shown());
+    }
+    assert.equal(h.frames.size, 0, 'the pan comes to rest');
+    const strides = path
+      .slice(1)
+      .map((value, i) => (value - path[i]) * h.orbitSpan());
+    assert.ok(
+      strides.every((stride) => stride >= 0),
+      'one way',
+    );
+    assert.ok(
+      Math.max(...strides) < 12,
+      `no lurch: ${Math.max(...strides)} px`,
+    );
+    const last = strides.filter((stride) => stride > 0).slice(-12);
+    assert.ok(
+      Math.max(...last) <= travel.floor * frameMs * 1.01 + travel.epsilon,
+      `the tail closes under ${travel.floor * frameMs} px a frame: ${last.join(', ')}`,
+    );
+    assert.ok(path.length * frameMs < 4500, 'and is over in a few seconds');
+    h.dispose();
+  }
+  // A room change is carried through (owner decision, 2026-10-09): once the
+  // hand has rested between two rooms the room orbit scrolls the page on to
+  // the room it was heading for. The timeline only hands it the facts each
+  // frame and keeps frames coming while it asks; it never writes the scroll
+  // position itself (this double's scrollTo fails the check), and it has no
+  // say without the room orbit.
+  {
+    const record = stub();
+    const h = story({ tierB: { search: '', controller: record.module } });
+    await microtasks();
+    h.settle();
+    const top = h.span();
+    const length = h.orbitSpan();
+    const y = Math.round(top + 0.3 * length);
+    // Until the Atrium's picture is ready there is no orbit to carry
+    // through: the page is given back (null). This double decodes it as the
+    // story first reaches it.
+    h.scroll(y - 1);
+    record.carries.length = 0;
+    h.scroll(y);
+    assert.ok(record.carries.length > 0, 'asked on every frame');
+    for (const [hand, where, timing] of record.carries) {
+      same(Object.keys(hand), ['scroll', 'now', 'touching']);
+      same([hand.scroll, hand.touching], [y, false]);
+      same(where, { top, length }, 'the orbit span on the page');
+      same(timing, MOTION.carry, 'the one setting');
+    }
+    assert.ok(
+      record.carries.every(
+        ([hand], i, all) => !i || hand.now > all[i - 1][0].now,
+      ),
+      'on the story clock',
+    );
+    // While the carry wants frames the stage does not come to rest; when it
+    // has none left to ask for, 0 RAF again.
+    record.carrying = true;
+    h.window.scrollY = y + 1;
+    h.window.emit('scroll');
+    for (let i = 0; i < 30; i++) h.step();
+    assert.ok(h.frames.size > 0, 'frames keep coming for the carry');
+    record.carrying = false;
+    h.settle();
+    // A finger on the glass: the carry is told, and told when it lifts.
+    record.carries.length = 0;
+    h.window.emit('touchstart', { touches: { length: 1 } });
+    h.settle();
+    assert.equal(record.carries.at(-1)[0].touching, true, 'held');
+    h.window.emit('touchend', { touches: { length: 0 } });
+    h.settle();
+    assert.equal(record.carries.at(-1)[0].touching, false, 'let go');
+    h.window.emit('touchstart', { touches: { length: 2 } });
+    h.window.emit('touchend', { touches: { length: 1 } });
+    h.settle();
+    assert.equal(record.carries.at(-1)[0].touching, true, 'one finger left');
+    h.window.emit('touchcancel', { touches: { length: 0 } });
+    h.settle();
+    assert.equal(record.carries.at(-1)[0].touching, false);
+    // Reduced motion has no pan: the page is given back (null) every frame.
+    record.carries.length = 0;
+    h.setReduced(true);
+    h.scroll(Math.round(h.span() + 0.3 * h.orbitSpan()));
+    assert.ok(record.carries.length > 0);
+    assert.ok(
+      record.carries.every(([hand]) => hand === null),
+      'given back',
+    );
+    h.dispose();
+    assert.equal(h.listenerCount(), 0, 'the touch listeners are removed too');
+  }
+  // The touch listeners only watch (passive); nothing is prevented and no
+  // wheel is listened to: the hand's scrolling stays the browser's.
+  assert.match(
+    timelineSource,
+    /for \(const type of \['touchstart', 'touchend', 'touchcancel'\] as const\)\s*window\.addEventListener\(type, touch, \{ passive: true \}\);/,
+  );
+  assert.doesNotMatch(
+    timelineSource,
+    /addEventListener\(\s*['"]wheel|preventDefault/,
+  );
   {
     const h = story({ tierB: { search: '', controller: null } });
     h.settle();

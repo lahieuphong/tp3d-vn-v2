@@ -489,7 +489,7 @@ labels over the doorways and the breeze line.
 | Status | `ATRIUM_ORBIT_PLATES[view].desktop = 'comp'` (not `'available'`); no portrait view |
 | Files | `public/images/home-chapters/world-atrium-<room>[-1280\|-720].webp` (1672 wide without a suffix), as the approved Atrium plate; `world-atrium-<room>-preview.webp` (192 px, the room's doorway) for the indicator |
 | Arrival | the approved Atrium's own files (`worlds-atrium*.webp`), drawn as a plate only while the camera leaves it |
-| Sources | outside Git: `work/atrium-orbit/comp-plates/` (`source/` the comps, `clean/` the cut-out PNGs, `clean.py` the OpenCV script that makes them) |
+| Sources | outside Git: `work/atrium-orbit/comp-plates/` (`source/` the comps, `clean/` the cut-out PNGs, `clean.py` the OpenCV script that makes them; since §15.7 also `stitch.mjs` and `stitched/`, the plates made to agree, which are what the runtime files are encoded from) |
 | Readout | still reports "production plate missing (comp plate shown)" for every view |
 
 **A plate is a box.** Every plate is a box of the plate's ratio that covers
@@ -517,7 +517,9 @@ comps are separate pictures, not one scene. Studio plates from one camera
 rig remove that.
 
 Both shots were matched later: the push on the doorway (§15.5), the pans
-under the join (§15.6). The numbers in this section are PASS 6B.0's.
+first by fitting one plate to the other under the join (§15.6), then by
+making the plates themselves agree (§15.7, which is what runs). The numbers
+in this section are PASS 6B.0's.
 
 `orbitTransition` is pure: the same position draws the same frame in either
 direction (`over` and `lead` come from the frame, never from the travel
@@ -615,6 +617,10 @@ middle, where the Living view holds it.
 
 ### 15.6 The pans are fitted under the join
 
+**Replaced by §15.7 (2026-10-09).** The fit below made the doorways coincide
+under the join, but only by moving the two plates against each other all the
+way through a pan. Kept as the record of what was tried and why it failed.
+
 Owner report, 2026-10-08, with four frames: between two rooms the doorways
 did not agree either, "one high, one low", and a label showed twice.
 
@@ -652,6 +658,112 @@ percentile (18.4 ms with the CPU slowed four times).
 - On a stage as wide as the plate (16:9 and wider), a sliver alone holds the stage's very side and can stop short of the top or bottom: a corner of about 14 × 30 px at most at 2560 × 1080, for a moment, where the approved Atrium behind shows.
 
 Plates rendered from one camera rig remove all three.
+
+### 15.7 The pans are one picture travelling
+
+Owner report, 2026-10-09, with a screen recording: moving to another room
+"keeps going sideways, very uncomfortable"; asked for another way to change
+room that makes sense and still keeps the doorways matched.
+
+**What the recording showed** (tracked frame by frame, left and right part of
+the picture apart, at 60 frames a second):
+
+| | In the recording (§15.6) | Now |
+| --- | --- | --- |
+| Left and right part of the picture | up to 18 px a frame apart in speed; the right part crept 6 px a frame for 11 frames while the left stood still | the same speed on every frame |
+| Up and down | jolts of 6 to 8 px a frame as a pan began | none |
+| Size | zoomed in 5% and back, not evenly | none |
+| Fastest | 58 px a frame from one flick of the wheel | 10 to 30 px a frame from the same kind of flick |
+| Coming to rest | a steady creep, then a dead stop | slower and slower to nothing |
+
+**Cause.** §15.6 matched the doorways by fitting one plate to the other
+wherever the join was. The plates are separate drawings, so that fit is
+different at every place (five ties a pan, up to 90 px apart), and following
+it moved the plates against each other: the awkward sideways slide. It also
+could never be exact: the same doorway is drawn with another fascia height,
+slant and label in each plate, which no shift or stretch of a whole plate
+undoes. Separately, the stage trailed the hand as closely in a pan as
+anywhere else, although the picture crosses the stage about two px for each
+px of scroll there.
+
+**Now.**
+
+- **The plates agree** (`work/atrium-orbit/comp-plates/stitch.mjs`, outside Git, writes the runtime files). Where a plate shows the doorway beside its own in the clear, that doorway is now the neighbour's own drawing of it, moved across by the pan's shift: the fascia with its label and the opening down to the sill. The host keeps its own ceiling, pier and floor. Living carries the Bedroom doorway, Bedroom the Living doorway, Bathroom the Kitchen doorway. On those doorways the two plates of a pan are the same pixels (difference 0 in the masters, about 2 of 255 in the WebP files; 36 to 45 before).
+- **Where a planter stands in front of the neighbouring doorway** (Bedroom's right, Bathroom's left, Kitchen's left) it cannot be the neighbour's drawing. Only its label is taken out there, so a label is never seen twice. Those three plates no longer show that neighbour's name behind the tree.
+- **A pan is one picture travelling** (`atrium-orbit-transition.ts`, `pan`). Both plates move together, `shift` apart (772, 690 and 654 px of the 1672-wide picture), and never against each other. Nothing is fitted, stretched or zoomed, and the plate order never changes. The join enters, rests on the pier and leaves as before, and is soft (0.035 of a plate) only where the stage shows both plates.
+- **The picture is paced evenly** through a pan (`editorial` instead of the steeper `travel`): no rush through the middle.
+- **The stage trails the hand by more in a pan** (`MOTION.follow.travel`: 0.42 s with a pointer, 0.26 s on touch, against 0.15 s and 0.07 s elsewhere), like a camera with mass, and its tail closes slowly and near enough to end unseen. The controller says where a pan is (`travelling`); everywhere else the follow is the journey's own.
+
+**Verified** (production-equivalent build). `check:atrium-orbit-foundation`
+asserts on nine viewports that the two plates stay exactly `shift` apart,
+are never scaled or moved down, only travel one way, and cover the stage at
+every position; and that the plate files agree on the three grafted
+doorways and carry no label on the three planter sides. `check:atrium-orbit`
+asserts the slower trailing inside a pan and the journey's own outside it.
+Real frames of a wheel flick through Living → Bedroom at 1680 × 887: both
+parts of the picture move the same distance on every frame, nothing moves up
+or down. No sharpness step between like frames and no flash through the
+three pans (390 × 844 at device resolution); frames 16.7 ms apart at the
+median, 17.8 to 18.2 ms at the 95th percentile, 18.9 ms with the CPU slowed
+four times.
+
+**Limits.**
+
+- A pan rested wherever the hand stopped, also halfway between two rooms. Living → Bedroom is one coherent picture at every such place. In Bedroom → Bathroom and Bathroom → Kitchen a planter stands on the other side of the pier in the next plate, so partway through, the join passes over it and shows part of a rock or a tree fading. (§15.8: the page no longer rests there. Those frames are now only seen in motion, or under a finger that holds the page.)
+- The ceiling beam above a doorway and the floor below its sill are still each plate's own, so the join is a soft change there while it crosses them.
+- The room pictures changed at rest on wide screens: the neighbouring doorway at the edge is now drawn as in its own room (larger, with its own label), and the three labels behind planters are gone.
+
+Plates rendered from one camera rig would make the last two unnecessary.
+
+### 15.8 A room change is carried through
+
+Owner decision, 2026-10-09 (asked after §15.7, answered "I agree"): when the
+hand stops between two rooms, the page carries on to the next room by
+itself, so the camera never rests halfway.
+
+**What it does.** Once the hand has rested inside a pan for 110 ms, the page
+itself is scrolled on, eased, to the room it was heading for: the next room
+when scrolling down, the previous one when scrolling up, the nearer one when
+that is not known. It is taken to the middle of that room's stretch, so the
+next room is as far away going on as the last one is going back. The stage
+follows that scroll as it follows any scroll (§15.7), so the camera glides
+to the room and stops there.
+
+**What it never does.**
+
+- It never holds the hand back, slows it or prevents anything: there is no wheel listener and no `preventDefault`. The moment the hand moves the page again, the carry is over and the page is the hand's.
+- It never moves the page under a finger: while one rests on the glass nothing starts, and one landing during a carry stops it (three passive touch listeners in the timeline only tell it so).
+- It does not act in a room, in the push from the wide Atrium (still scrubbed), in the release, under reduced motion, or on the fallback URL (`?atriumOrbit=0`).
+- A hand that slips up to 12 px past a room's edge is only put back on that edge.
+
+**Where it lives.**
+
+| | |
+| --- | --- |
+| The decision | `carryOrbit` in `atrium-orbit-progress.ts`: a pure step from the state it is given, where the page is and whether a finger holds it, to what to write this frame |
+| The one write | `atrium-orbit-controller.ts`, `carry`: `window.scrollTo({ top, behavior: 'instant' })`, whole px |
+| The facts | `home-story-timeline.ts` hands the controller the page position, the time and the finger on every frame, and keeps frames coming while it asks. The timeline itself never writes the position |
+| The setting | `MOTION.carry` in `home-motion.ts`: `rest` 110 ms, `edge` 12 px, `duration` 520 ms + 1.5 ms per px, at most 1300 ms |
+
+This is the one exception to "native scroll is never corrected" (STEP 1). The
+source rules say so exactly: one `scrollTo` in the orbit modules, none in the
+timeline, no wheel listener, nothing prevented.
+
+**Verified** (production-equivalent build, 1680 × 887 unless said).
+
+- Flicks of four wheel notches from Living: the page rests on Bedroom, Bathroom, Kitchen in turn, one plate drawn each time; flicks back rest on Bathroom, Bedroom, Living.
+- One flick, real frames: the picture moves for 1.1 s, 18 px a frame at its fastest (58 in the owner's recording), both parts of it the same on every frame, never back, nothing up or down.
+- A wheel the other way during a carry takes the page back at once; it then rests on the room behind.
+- Touch (390 × 844 and 820 × 1180): the page does not move under a resting finger for 1.5 s; when it lifts, the page goes on to the room; a flick lands on the room its momentum reached.
+- Reduced motion and the fallback URL: the scroll position is never written.
+- Frames 16.7 ms apart at the median, 17.5 ms at the 95th percentile (17.9 ms on a phone with the CPU slowed four times); no flash, no sharpness step.
+- `check:atrium-orbit-foundation` drives the decision frame by frame on three page sizes (rest, direction, the nearer room, a slip, the hand taking the page back, a finger) and the controller's write; `check:atrium-orbit` asserts what the timeline hands over and that it never writes.
+
+**Limits.**
+
+- Scrolling inside a room's stretch still shows nothing new (as before); the next room starts after about half that stretch from where the carry leaves the page.
+- A page restored in the middle of a pan (left mid-glide, then Back) is shown there for a moment and then carried to the nearer room.
+- The carry cannot tell fingers resting on a trackpad from a hand that has let go: it starts after 110 ms without movement, and gives way as soon as they move.
 
 ## 16. Studio handoff and delivery intake (PASS 6A.9)
 

@@ -6,8 +6,9 @@ export const MOTION = {
   // TP3D STEP 1 — the pinned stage shows a position that trails the hand and
   // comes to rest on it. Scroll arrives in steps (wheel notches, uneven
   // frames) and a stage that samples it raw repeats every step in every
-  // layer. Native scroll is never intercepted, delayed or corrected: the
-  // page and the sticky stage move natively, and only what the stage draws
+  // layer. Native scroll is never intercepted, delayed or corrected (the
+  // one exception is `carry` below, after the hand has let go): the page
+  // and the sticky stage move natively, and only what the stage draws
   // eases. `tau` is the trailing time in ms (0 = raw); touch stays closer to
   // the finger. The tail closes at `floor` px per ms instead of fading for
   // ever, a stalled frame advances as one `maxFrameMs` frame (slower, never
@@ -18,6 +19,30 @@ export const MOTION = {
     epsilon: 0.5,
     maxFrameMs: 34,
     frameMs: 1000 / 60,
+    // While the room orbit's camera travels from one room to the next (a
+    // pan) the whole picture crosses the stage, about two px of it for each
+    // px of scroll. Trailing the hand as closely as elsewhere, one wheel
+    // notch threw it half a room in a few frames, and the closing tail
+    // (`floor`) was a visible creep that then stopped dead. There the stage
+    // trails by more, like a camera with mass, and its tail closes slowly
+    // enough, and near enough (`epsilon`), to end unseen.
+    travel: { tau: { fine: 420, coarse: 260 }, floor: 0.008, epsilon: 0.1 },
+  },
+  // A room change is carried through (owner decision, 2026-10-09). A hand
+  // that stops between two rooms of the room orbit left the camera halfway,
+  // on a frame that belongs to neither room. Once it has rested there for
+  // `rest` ms the page itself scrolls on to the room it was heading for (to
+  // the middle of that room's stretch), setting off at once and easing to
+  // rest in `least` ms plus `perPx` for each px to go (at most `most`), and
+  // the stage follows as it follows any scroll. Within `edge` px of a room
+  // the page is only put back on its edge. This is the one case where the
+  // page's scroll position is written: the hand's own scrolling is never
+  // intercepted, delayed or corrected, and the moment it moves the page
+  // again, or a finger rests on the glass, the carry is over.
+  carry: {
+    rest: 110,
+    edge: 12,
+    duration: { least: 520, perPx: 1.5, most: 1300 },
   },
   // TP3D STEP 2 — pacing: how much of the scroll distance each stretch of
   // the story is given. [story progress the stretch ends at, weight]; weight
@@ -292,17 +317,20 @@ export function storyPacing(table: Pace | null) {
  * where the pinned stage starts to leave: the follow is never further behind
  * than the room left before it, so the journey is complete when the stage
  * moves. `shown: null` (first paint, restore, intro) and `tau: 0` (reduced
- * motion) take the native position as it is. */
+ * motion) take the native position as it is. `floor` is the slowest the tail
+ * closes, in px per ms, and `epsilon` how near (px) it ends on the target. */
 export function followScroll(
   shown: number | null,
   native: number,
   elapsed: number,
   tau: number,
   limit = Infinity,
+  floor: number = MOTION.follow.floor,
+  epsilon: number = MOTION.follow.epsilon,
 ) {
   const target = Math.min(native, limit);
   if (shown === null || !tau) return { value: target, active: false };
-  const { floor, epsilon, maxFrameMs, frameMs } = MOTION.follow;
+  const { maxFrameMs, frameMs } = MOTION.follow;
   const frame = Math.min(elapsed > 0 ? elapsed : frameMs, maxFrameMs);
   const gap = target - shown;
   const distance = Math.abs(gap);

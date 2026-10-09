@@ -44,7 +44,10 @@ import {
 
 /** The only scroll owner. All scene layers sample one displayed progress, the
  * native position followed by MOTION.follow; no camera clock, scroll
- * correction, per-frame React state or independent scene trigger. */
+ * correction, per-frame React state or independent scene trigger. (The room
+ * orbit carries a room change through by scrolling the page on to the room
+ * once the hand has let go: MOTION.carry. This timeline hands it the facts;
+ * the write is the orbit controller's.) */
 export function createHomeStoryTimeline(
   root: HTMLElement,
   breeze?: BreezeDriver,
@@ -218,6 +221,9 @@ export function createHomeStoryTimeline(
   // position as it is: first paint, restore, intro, a tab that was hidden.
   let shown: number | null = null;
   let followTime = 0;
+  // A finger on the glass holds the page: the room orbit never carries it
+  // on while one is down (MOTION.carry).
+  let touching = false;
   // TP3D STEP 2 — scroll distance ↔ story progress (MOTION.pace).
   const pacing = storyPacing(MOTION.pace);
   let atmosphericCrossing = false;
@@ -405,20 +411,45 @@ export function createHomeStoryTimeline(
     if (disposed || document.hidden) return;
     if (needsMeasure) measure();
     const intro = document.documentElement.hasAttribute('data-home-intro');
-    const native = intro ? 0 : window.scrollY;
     const still = reduced.matches;
+    // A room change is carried through: once the hand has rested between
+    // two rooms the room orbit scrolls the page on to the room it was
+    // heading for (MOTION.carry), and the stage follows it as any scroll.
+    // Only the room orbit does this, and only it writes the position.
+    const carrying =
+      !intro && !still && sceneImage === 'ready' && geometry.orbit > 0
+        ? (roomOrbit?.carry(
+            { scroll: window.scrollY, now, touching },
+            { top: geometry.top + geometry.span, length: geometry.orbit },
+            MOTION.carry,
+          ) ?? false)
+        : (roomOrbit?.carry(null) ?? false);
+    if (carrying) schedule();
+    const native = intro ? 0 : window.scrollY;
     // The one input of the whole journey: every layer below samples this
     // displayed position, so they trail the hand together and rest together.
     // Layout facts (has the stage left, is the header past the story) keep
     // reading the native position.
+    // Where the room orbit's camera is travelling between two rooms, the
+    // stage trails by more (MOTION.follow.travel).
+    const pointer = finePointer.matches ? 'fine' : 'coarse';
+    const travelling =
+      shown !== null &&
+      geometry.orbit > 0 &&
+      !!roomOrbit?.travelling(
+        (shown - geometry.top - geometry.span) / geometry.orbit,
+      );
+    const trail = travelling ? MOTION.follow.travel : MOTION.follow;
     const follow = followScroll(
       intro || document.documentElement.hasAttribute('data-home-restoring')
         ? null
         : shown,
       native,
       followTime ? now - followTime : 0,
-      still ? 0 : MOTION.follow.tau[finePointer.matches ? 'fine' : 'coarse'],
+      still ? 0 : trail.tau[pointer],
       geometry.top + geometry.span + geometry.orbit,
+      trail.floor,
+      trail.epsilon,
     );
     const scroll = (shown = follow.value);
     followTime = follow.active ? now : 0;
@@ -916,12 +947,18 @@ export function createHomeStoryTimeline(
     render();
     if (skyBridge?.wantsTime()) request();
   };
+  const touch = (event: TouchEvent) => {
+    touching = event.touches.length > 0;
+    schedule();
+  };
   const observer = new ResizeObserver(resize);
   for (const node of [sequence, stage, header])
     if (node) observer.observe(node);
   window.addEventListener('scroll', schedule, { passive: true });
   window.addEventListener('resize', resize, { passive: true });
   window.addEventListener('pageshow', restore);
+  for (const type of ['touchstart', 'touchend', 'touchcancel'] as const)
+    window.addEventListener(type, touch, { passive: true });
   document.addEventListener('visibilitychange', visibility);
   reduced.addEventListener('change', resize);
   finePointer.addEventListener('change', resize);
@@ -994,6 +1031,8 @@ export function createHomeStoryTimeline(
     window.removeEventListener('scroll', schedule);
     window.removeEventListener('resize', resize);
     window.removeEventListener('pageshow', restore);
+    for (const type of ['touchstart', 'touchend', 'touchcancel'] as const)
+      window.removeEventListener(type, touch);
     document.removeEventListener('visibilitychange', visibility);
     reduced.removeEventListener('change', resize);
     finePointer.removeEventListener('change', resize);

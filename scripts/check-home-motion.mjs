@@ -150,8 +150,11 @@ for (const [width, height] of [
   }
 }
 // TP3D STEP 1 — the scroll follow. What the stage shows trails the hand and
-// rests on it; native scroll itself is never touched (the timeline has no
-// wheel/touch listener and never calls scrollTo: check:atrium-orbit).
+// rests on it; the hand's own scrolling is never touched (the timeline has
+// no wheel listener, prevents nothing and never calls scrollTo:
+// check:atrium-orbit). Since 2026-10-09 the room orbit may scroll the page on
+// to a room once the hand has let go between two rooms (MOTION.carry; its
+// controller is the only writer: check:atrium-orbit-foundation).
 {
   const { tau, floor, epsilon, maxFrameMs, frameMs } = MOTION.follow;
   assert.equal('scrub' in MOTION, false, 'the follow replaces scrub: 0');
@@ -317,6 +320,60 @@ for (const [width, height] of [
     const up = followScroll(limit, limit - 300, frameMs, tau.fine, limit);
     assert.ok(up.active && up.value < limit && up.value > limit - 300);
   }
+}
+// Where the room orbit's camera travels between two rooms the same follow
+// runs with more mass (MOTION.follow.travel): a longer trail, a slower tail,
+// a nearer end. There the picture crosses the stage about two px for each px
+// of scroll, so the journey's own tail (1.5 px of scroll a frame, then
+// nothing) was a creep of several px a frame that stopped dead.
+{
+  const { tau, floor, epsilon, frameMs, travel } = MOTION.follow;
+  assert.deepEqual(Object.keys(travel), ['tau', 'floor', 'epsilon']);
+  assert.ok(
+    travel.tau.fine >= 300 && travel.tau.fine <= 600,
+    'a camera with mass, not a lag',
+  );
+  assert.ok(
+    travel.tau.coarse >= 2 * tau.coarse && travel.tau.coarse < travel.tau.fine,
+    'touch stays closer to the finger there too',
+  );
+  assert.ok(travel.floor * frameMs > travel.epsilon, 'the floor clears it');
+  const path = (trail, t) => {
+    let shown = 0;
+    const strides = [];
+    for (let i = 0; i < 4000; i++) {
+      const next = followScroll(
+        shown,
+        400,
+        frameMs,
+        t,
+        Infinity,
+        trail.floor,
+        trail.epsilon,
+      );
+      strides.push(next.value - shown);
+      shown = next.value;
+      if (!next.active) break;
+    }
+    assert.equal(shown, 400, 'it rests on the hand');
+    return strides;
+  };
+  const camera = path(travel, travel.tau.fine);
+  const journey = path({ floor, epsilon }, tau.fine);
+  assert.ok(camera[0] < 400 / 20, 'a notch is never thrown in one frame');
+  assert.ok(journey[0] > 2 * camera[0]);
+  // The strides only shrink (the last one lands on the hand).
+  for (let i = 1; i < camera.length - 1; i++)
+    assert.ok(camera[i] <= camera[i - 1] + 1e-9, `stride ${i} shrinks`);
+  assert.ok(
+    camera.at(-1) <= travel.floor * frameMs + travel.epsilon + 1e-9,
+    'and it ends on a stride too small to see',
+  );
+  assert.ok(
+    journey.at(-2) > 8 * camera.at(-2),
+    'where the journey would creep',
+  );
+  assert.ok(camera.length * frameMs < 4000, 'over in a few seconds');
 }
 // TP3D STEP 2 — pacing. The pace table decides how much of the scroll
 // distance each stretch of the story gets; it never changes the story.

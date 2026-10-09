@@ -1103,8 +1103,14 @@ for (const source of [...LAB_FILES.map(code), html]) {
     // (check:home). STEP 2 adds the pace table (`pace`, storyPacing: how
     // much of the scroll distance each stretch of the story gets) and starts
     // the Atrium pull-back while the last cloud clears (`camera.start` 0.695,
-    // from 0.72 / 0.715); check:home locks what else stayed PASS 04.
-    'components/home/experience/home-motion.ts': '9cdc957baf4118e5',
+    // from 0.72 / 0.715); check:home locks what else stayed PASS 04. The
+    // follow gains a second, heavier setting (`follow.travel`) for where the
+    // room orbit's camera travels between two rooms; the journey's own
+    // follow, and every value the Lab reads, are unchanged (check:home).
+    // `carry` is the setting of the room orbit's carry (owner decision,
+    // 2026-10-09: a hand that stops between two rooms is taken on to the
+    // room); only the room orbit reads it (check:atrium-orbit-foundation).
+    'components/home/experience/home-motion.ts': 'f47424e681d934cf',
     // TP3D PASS — Atrium room orbit appends its own span after the approved
     // journey; the bridge writes the Lab maps are unchanged (check:atrium-orbit).
     // TP3D PASS 6A adds only the dormant Tier B hook (development / preview
@@ -1126,8 +1132,13 @@ for (const source of [...LAB_FILES.map(code), html]) {
     // STEP 2B: the room orbit (the Tier B controller, a lazy chunk) is the
     // homepage's orbit at every URL but ?atriumOrbit=0, no longer a preview
     // behind a build flag; the settled Atrium holds while it loads
-    // (check:atrium-orbit).
-    'components/home/experience/home-story-timeline.ts': '773c67f4ce4cdca1',
+    // (check:atrium-orbit). Where that orbit's camera travels between two
+    // rooms the timeline asks the follow for its heavier setting; it trails
+    // as before everywhere else (check:atrium-orbit). It also hands that
+    // orbit where the page is on every frame, and whether a finger holds it
+    // (three passive touch listeners), so the orbit can carry a room change
+    // through; the timeline itself still never writes the scroll position.
+    'components/home/experience/home-story-timeline.ts': '4eb6586d847ff10e',
     'components/home/experience/continuous-breeze.tsx': '80f5ac52eee64916',
     // STEP 2: the cloth travels between its two reading poses instead of
     // fading out and returning in the other; both poses are unchanged.

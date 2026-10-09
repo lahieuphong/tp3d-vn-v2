@@ -10,7 +10,8 @@ import { editorial, span } from './home-motion';
 
 /** TP3D PASS 6A — Tier B room orbit progress. Pure and stateless: every
  * value derives from the scroll position alone, so reverse scrolling,
- * restoration and landing mid-orbit need no history.
+ * restoration and landing mid-orbit need no history. (The one thing with a
+ * past is the carry at the end of this file, and its state is handed in.)
  *
  * Two separate normalised domains, never one value that runs past 1:
  *   baseStoryProgress  0 → 1 over the approved journey's own span
@@ -254,6 +255,125 @@ export function sampleOrbit(
     localTransitionProgress: segment.kind === 'move' ? local : 0,
     holdProgress: segment.kind === 'hold' ? local : 0,
     releaseProgress: segment.kind === 'release' ? local : 0,
+  };
+}
+
+/** A room change is carried through (owner decision, 2026-10-09).
+ *
+ * The picture drawn is still a pure function of the scroll position. But a
+ * hand that stops between two rooms left the camera halfway, on a frame that
+ * belongs to neither. So once the hand has rested inside a move that is
+ * travelled (a pan), the page itself is scrolled on to the room it was
+ * heading for, and the camera follows as it follows any scroll. Nothing is
+ * taken from the hand: it is never held back or slowed, and the moment it
+ * moves the page again the carry is over.
+ *
+ * This is that decision as a pure step: the state it was given, where the
+ * page is now, and what to do this frame. Where the page is written is the
+ * controller's one line. */
+export type AtriumOrbitCarry = {
+  /** Where the page was last seen, or was put by the carry (null: not yet). */
+  at: number | null;
+  /** The way the hand last moved the page itself: 1 down, -1 up, 0 unknown. */
+  heading: number;
+  /** When the hand last moved it, or let go of it (ms). */
+  since: number;
+  /** A carry under way: from where, to which room, since when, how long. */
+  run: { from: number; to: number; start: number; duration: number } | null;
+};
+
+export const ATRIUM_ORBIT_CARRY_IDLE: AtriumOrbitCarry = {
+  at: null,
+  heading: 0,
+  since: 0,
+  run: null,
+};
+
+export type AtriumOrbitCarryTiming = {
+  /** How long the hand must have rested before the page is carried (ms). */
+  rest: number;
+  /** A hand this near a room's own position is put back on it, whichever
+   * way it was heading (px): a slip, not a room change. */
+  edge: number;
+  /** The carry lasts `least` ms plus `perPx` for each px to go, at most
+   * `most`. */
+  duration: { least: number; perPx: number; most: number };
+};
+
+/** The hand's own movement differs from the carry's by a px or more. */
+const CARRY_SLACK = 0.75;
+
+export function carryOrbit(
+  carry: AtriumOrbitCarry,
+  hand: { scroll: number; now: number; touching: boolean },
+  /** The orbit span on the page: where it begins and how long it is (px). */
+  where: { top: number; length: number },
+  timeline: AtriumOrbitTimeline,
+  travelled: (transition: number) => boolean,
+  timing: AtriumOrbitCarryTiming,
+): { carry: AtriumOrbitCarry; write: number | null; active: boolean } {
+  const { scroll, now, touching } = hand;
+  let { heading, since, run } = carry;
+  // Whose movement was it? Anything but the carry's own last step is the
+  // hand's: it has the page back, and says which way it is heading.
+  if (carry.at === null) since = now;
+  else if (Math.abs(scroll - carry.at) > CARRY_SLACK) {
+    heading = Math.sign(scroll - carry.at);
+    since = now;
+    run = null;
+  }
+  // A finger on the glass holds the page, moving or not.
+  if (touching) {
+    since = now;
+    run = null;
+  }
+  // The move the hand has stopped in, and the room it should rest on: the
+  // one it was heading for, or the nearer one when that is not known. The
+  // page is taken to the middle of that room's hold (a whole px), so the
+  // next room is as far away going on as the last one is going back. A
+  // slip is only put back on the room's edge.
+  const middle = (room: AtriumOrbitSegment | undefined, edge: number) =>
+    room?.kind === 'hold'
+      ? Math.round(where.top + ((room.start + room.end) / 2) * where.length)
+      : edge;
+  let to: number | null = null;
+  timeline.segments.forEach((segment, index) => {
+    if (segment.kind !== 'move' || !travelled(segment.transition)) return;
+    const start = where.top + segment.start * where.length;
+    const end = where.top + segment.end * where.length;
+    if (scroll <= start + 0.5 || scroll >= end - 0.5) return;
+    if (scroll - start <= timing.edge) to = Math.floor(start);
+    else if (end - scroll <= timing.edge) to = Math.ceil(end);
+    else if (heading !== 0 ? heading > 0 : scroll - start >= end - scroll)
+      to = middle(timeline.segments[index + 1], Math.ceil(end));
+    else to = middle(timeline.segments[index - 1], Math.floor(start));
+  });
+  if (!run && to !== null && !touching && now - since >= timing.rest) {
+    const { least, perPx, most } = timing.duration;
+    run = {
+      from: scroll,
+      to,
+      start: now,
+      duration: Math.min(most, least + perPx * Math.abs(to - scroll)),
+    };
+  }
+  let write: number | null = null;
+  if (run) {
+    const t = clamp01((now - run.start) / run.duration);
+    // It sets off at once and eases to rest (the stage's own trailing
+    // rounds the start): a hand that has only just stopped is not left
+    // waiting for the page to gather speed.
+    write =
+      t >= 1
+        ? run.to
+        : Math.round(run.from + (run.to - run.from) * (1 - (1 - t) ** 2));
+    if (t >= 1) run = null;
+  }
+  return {
+    carry: { at: write ?? scroll, heading, since, run },
+    write: write !== null && write !== scroll ? write : null,
+    // A frame is wanted while a carry runs, or is waited for.
+    active: run !== null || (to !== null && !touching),
   };
 }
 

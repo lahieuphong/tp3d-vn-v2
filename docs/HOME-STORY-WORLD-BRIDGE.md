@@ -89,7 +89,9 @@ Intro presentation/controller remain unchanged. A minimal bootstrap decision
 fix restores the requested policy: document reload plays Intro and resets to
 the initial scene; back/forward keeps native restoration.
 The story driver itself never calls scrollTo, prevents wheel defaults, snaps, or
-corrects focus scrolling. Native history restoration is sampled synchronously on
+corrects focus scrolling. (Since 2026-10-09 the room orbit, in its own
+controller, scrolls the page on to a room once the hand has let go between two
+rooms: `TANPHONG_ATRIUM_ORBIT_IMPLEMENTATION.md` §15.8.) Native history restoration is sampled synchronously on
 mount/pageshow before the restoration cover is released.
 
 Removed: camera crop/pull-back/inertia, lens occlusion geometry, dynamic cloth

@@ -34,7 +34,9 @@ responsive values, departure roles, physical ratios, source framing, light,
 UI timing and mass limits. Existing PASS 2 constants remain in its frame module.
 
 There is one native story progress and one existing master RAF owner. Browser
-scroll is never intercepted or delayed. Since STEP 1 the stage shows a position
+scroll is never intercepted or delayed. (One thing writes the scroll position,
+since 2026-10-09: the room orbit carries a room change through after the hand
+has let go, `TANPHONG_ATRIUM_ORBIT_IMPLEMENTATION.md` §15.8.) Since STEP 1 the stage shows a position
 that trails the native one and rests on it (`MOTION.follow`, 150ms with a
 pointer, 70ms on touch, none under reduced motion); every layer samples that one
 displayed progress. See `TANPHONG_HOME_MOTION_CONTEXT.md` §40.

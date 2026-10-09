@@ -22,14 +22,18 @@ import {
   ATRIUM_ORBIT_TIMING_REDUCED,
   atriumEditorial,
   atriumGateway,
+  ATRIUM_ORBIT_CARRY_IDLE,
   atriumRelease,
   buildOrbitTimeline,
+  carryOrbit,
   planPlates,
   sampleOrbit,
+  type AtriumOrbitCarryTiming,
   type AtriumOrbitDirection,
   type AtriumOrbitSample,
 } from './atrium-orbit-progress';
 import {
+  ATRIUM_ORBIT_SHOTS,
   plateRest,
   plateTransitionInput,
   selectPlateTransition,
@@ -259,6 +263,7 @@ export function createAtriumOrbitController(
   let transition = selectPlateTransition(false);
   let direction: AtriumOrbitDirection = 'forward';
   let lastRoomOrbitProgress: number | null = null;
+  let carried = ATRIUM_ORBIT_CARRY_IDLE;
   let sample: AtriumOrbitSample = sampleOrbit(0, timeline, timing);
   let held: AtriumOrbitStateId | null = null;
   let shown: AtriumOrbitStateId | null = null;
@@ -613,9 +618,52 @@ export function createAtriumOrbitController(
       paintDiagnostic();
       return frame;
     },
-    /** Hidden tab: nothing is promoted, so there is nothing to drop. */
+    /** Is the camera travelling between two rooms at this place of the
+     * orbit span (a pan)? The timeline lets the stage trail the hand by more
+     * there (MOTION.follow.travel). */
+    travelling(roomOrbitProgress: number) {
+      if (destroyed || reduced) return false;
+      const at = sampleOrbit(roomOrbitProgress, timeline, timing);
+      return (
+        at.phase === 'move' &&
+        at.transitionIndex !== null &&
+        ATRIUM_ORBIT_SHOTS[at.transitionIndex]?.kind === 'pan'
+      );
+    },
+    /** A room change is carried through (carryOrbit): once the hand has
+     * rested between two rooms, the page is scrolled on to the room it was
+     * heading for, and the camera follows it there. `hand` is where the page
+     * is now and whether a finger holds it; null gives the page back at
+     * once (the intro, reduced motion, a picture not ready). Returns whether
+     * another frame is wanted. This is the one place the homepage writes the
+     * scroll position; the hand's own scrolling is never touched. */
+    carry(
+      hand: { scroll: number; now: number; touching: boolean } | null,
+      where?: { top: number; length: number },
+      timing?: AtriumOrbitCarryTiming,
+    ) {
+      if (destroyed || reduced || !hand || !where || !timing) {
+        carried = ATRIUM_ORBIT_CARRY_IDLE;
+        return false;
+      }
+      const next = carryOrbit(
+        carried,
+        hand,
+        where,
+        timeline,
+        (index) => ATRIUM_ORBIT_SHOTS[index]?.kind === 'pan',
+        timing,
+      );
+      carried = next.carry;
+      if (next.write !== null)
+        window.scrollTo({ top: next.write, behavior: 'instant' });
+      return next.active;
+    },
+    /** Hidden tab: nothing is promoted, so there is nothing to drop. A
+     * carry under way is dropped: the page stays where it is. */
     suspend() {
       moving = false;
+      carried = ATRIUM_ORBIT_CARRY_IDLE;
     },
     debug() {
       const s = sample;
