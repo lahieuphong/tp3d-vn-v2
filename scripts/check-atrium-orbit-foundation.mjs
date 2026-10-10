@@ -2067,6 +2067,7 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     'atrium-orbit-model.ts',
     'atrium-orbit-preview.css',
     'atrium-orbit-progress.ts',
+    'atrium-orbit-sky.ts',
     'atrium-orbit-transition.ts',
   ]);
   const sources = Object.fromEntries(
@@ -2330,40 +2331,46 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     }
   };
   for (const dir of ['app/', 'components/', 'lib/', 'hooks/']) scan(dir);
-  // The timeline loads them; the room entry reads the doors' outlines. The
-  // entry is the one part that listens and knows time, which is why it is
-  // not one of these modules (their rules above would forbid it). Only the
-  // controller loads it, so it travels in the same lazy chunk.
+  // The timeline loads them. Two modules read them without being of them,
+  // because the rules above would forbid what they do: the room entry
+  // (the doors' outlines; it listens, and plays the entry in time) and the
+  // oculus's living sky (the sky's place and clock; it holds the WebGL
+  // canvas). Only the controller loads either, so both travel in the same
+  // lazy chunk.
   same(importers, [
     `${EXPERIENCE}home-story-timeline.ts`,
+    `${EXPERIENCE}oculus-sky.ts`,
     `${EXPERIENCE}room-door-entry.ts`,
   ]);
-  const enterers = [];
-  const seek = (dir) => {
-    for (const entry of readdirSync(new URL(`../${dir}`, import.meta.url), {
-      withFileTypes: true,
-    })) {
-      const path = `${dir}${entry.name}`;
-      if (entry.isDirectory()) seek(`${path}/`);
-      else if (
-        /\.tsx?$/.test(entry.name) &&
-        /from '[^']*room-door-entry'|import\('[^']*room-door-entry'\)/.test(
-          read(path),
-        )
-      )
-        enterers.push(path);
-    }
-  };
-  for (const dir of ['app/', 'components/', 'lib/', 'hooks/']) seek(dir);
-  same(
-    enterers,
-    [`${EXPERIENCE}atrium-orbit-controller.ts`],
-    'only the controller loads the room entry',
-  );
-  assert.match(
-    sources['atrium-orbit-controller.ts'],
-    /import \{ createRoomDoorEntry \} from '\.\/room-door-entry';/,
-  );
+  for (const [module, what] of [
+    ['room-door-entry', 'createRoomDoorEntry'],
+    ['oculus-sky', 'createOculusSky'],
+  ]) {
+    const loaders = [];
+    const use = new RegExp(
+      `from '[^']*/${module}'|import\\('[^']*/${module}'\\)`,
+    );
+    const seek = (dir) => {
+      for (const entry of readdirSync(new URL(`../${dir}`, import.meta.url), {
+        withFileTypes: true,
+      })) {
+        const path = `${dir}${entry.name}`;
+        if (entry.isDirectory()) seek(`${path}/`);
+        else if (/\.tsx?$/.test(entry.name) && use.test(read(path)))
+          loaders.push(path);
+      }
+    };
+    for (const dir of ['app/', 'components/', 'lib/', 'hooks/']) seek(dir);
+    same(
+      loaders,
+      [`${EXPERIENCE}atrium-orbit-controller.ts`],
+      `only the controller loads ${module}`,
+    );
+    assert.match(
+      sources['atrium-orbit-controller.ts'],
+      new RegExp(`import \\{ ${what} \\} from '\\./${module}';`),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -2756,6 +2763,7 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
   // position (recorded here).
   const scrolled = [];
   const entries = [];
+  const skies = [];
   const controllerModule = (() => {
     const loaded = { exports: {} };
     runInNewContext(
@@ -2782,6 +2790,36 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
                 const entry = { host, destroyed: 0 };
                 entries.push(entry);
                 return { destroy: () => entry.destroyed++ };
+              },
+            };
+          // The oculus's living sky is another module too (it holds the
+          // WebGL canvas; check:oculus-sky drives it). Here: a stand-in that
+          // records what it is told, and is as ready as a test makes it.
+          if (specifier === './oculus-sky')
+            return {
+              createOculusSky(host, wake) {
+                const sky = {
+                  host,
+                  wake,
+                  state: 'idle',
+                  on: false,
+                  prepared: [],
+                  placed: [],
+                  ticks: [],
+                  suspended: 0,
+                  destroyed: 0,
+                };
+                skies.push(sky);
+                return {
+                  state: () => sky.state,
+                  prepare: (tier) => sky.prepared.push(tier),
+                  place: (...given) => sky.placed.push(given),
+                  tick: (now) => sky.ticks.push(now),
+                  wantsTime: () => sky.on,
+                  suspend: () => sky.suspended++,
+                  destroy: () => sky.destroyed++,
+                  debug: () => 'sky stand-in',
+                };
               },
             };
           if (specifier === './scene-image')
@@ -2834,6 +2872,7 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
       '.hc-atrium-rooms a[data-room]': links,
     };
     let wakes = 0;
+    const made = skies.length;
     const controller = controllerModule.createAtriumOrbitController(
       worlds,
       () => wakes++,
@@ -2850,6 +2889,9 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
       controller,
       // What the controller handed the room entry.
       entry: entries.at(-1),
+      // The oculus skies this controller has made (none, or one).
+      skies: () => skies.slice(made),
+      wakes: () => wakes,
       links,
       rooms,
       gateway,
@@ -2858,13 +2900,19 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
         assert.equal(found.length, 1, name);
         return found[0];
       },
-      at: (roomOrbitProgress, baseStoryProgress = 1, reduced = false) =>
+      // `screen` is what the timeline says of the screen: the Atrium in
+      // view, a fine pointer, no Save-Data, unless a test says otherwise.
+      at: (roomOrbitProgress, baseStoryProgress = 1, reduced = false, screen) =>
         controller.update({
           baseStoryProgress,
           roomOrbitProgress,
           width: 1440,
           height: 900,
           reduced,
+          visible: true,
+          fine: true,
+          saveData: false,
+          ...screen,
         }),
       // The Atrium photograph and its camera are never touched: no style,
       // no attribute, no `hidden`; the backdrop only gains the plate stage.
@@ -3079,6 +3127,162 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     host.hold(true);
     assert.equal(byClass(h.worlds, 'hc-room-orbit-stage').length, 0);
   }
+  // The oculus's living sky (owner request, 2026-10-10; atrium-orbit-sky.ts,
+  // oculus-sky.ts). The controller makes it once the story reaches the
+  // reading hold, never under reduced motion or Save-Data; lays its canvas
+  // and the plate's foreground in the wide Atrium's box, after the plate and
+  // the doors, so nothing else lies over the canvas; shows both only once
+  // the sky is ready (the painted sky until then), wherever that box lies;
+  // tells the sky when it is on stage with the Atrium in view; and hands on
+  // the frames it is given. It writes nothing else for it.
+  {
+    const sky = loadStoryMath('atrium-orbit-sky');
+    const t = progress.buildOrbitTimeline(TIMING, null);
+    const mid = (segment) => (segment.start + segment.end) / 2;
+    const push = t.segments.find(
+      (s) => s.kind === 'move' && s.from === 'arrival',
+    );
+    const living = t.segments.find(
+      (s) => s.kind === 'hold' && s.state === 'living',
+    );
+    const styles = (node) => Object.fromEntries(node.style.values);
+    const parts = (h) =>
+      byClass(h.worlds, 'hc-room-orbit-sky').length +
+      byClass(h.worlds, 'hc-room-orbit-oculus').length;
+    const { prepareAt } = sky.ATRIUM_ORBIT_SKY;
+    for (const { why, reduced, screen } of [
+      { why: 'reduced motion', reduced: true, screen: {} },
+      { why: 'Save-Data', reduced: false, screen: { saveData: true } },
+    ]) {
+      const h = harness();
+      for (const base of [prepareAt, 0.7, 0.9, 1])
+        h.at(0, base, reduced, screen);
+      h.at(mid(push), 1, reduced, screen);
+      same([h.skies().length, parts(h)], [0, 0], `${why}: the painted sky`);
+      h.controller.destroy();
+    }
+    const h = harness();
+    h.at(0, prepareAt - 0.005);
+    same([h.skies().length, parts(h)], [0, 0], 'not before the reading hold');
+    h.at(0, prepareAt);
+    for (const base of [0.5, 0.7, 1]) h.at(0, base);
+    assert.equal(h.skies().length, 1, 'made once');
+    const [live] = h.skies();
+    assert.ok(live.prepared.length >= 1);
+    for (const tier of live.prepared) assert.equal(tier, 'full');
+    // In the wide Atrium's box, after the plate and its doors.
+    const box = byClass(h.worlds, 'hc-room-orbit-plate').find(
+      (node) => node.dataset.plate === 'arrival',
+    );
+    same(
+      box.children.map((node) => node.className),
+      [
+        'hc-room-orbit-picture',
+        'hc-room-orbit-doors',
+        'hc-room-orbit-sky',
+        'hc-room-orbit-oculus',
+      ],
+    );
+    const [, , host, front] = box.children;
+    assert.equal(live.host, host, 'the canvas fills the placed element');
+    // Each placed by its own box on the plate, and by nothing else.
+    same(
+      styles(host),
+      Object.fromEntries(sky.oculusPlace(sky.ATRIUM_ORBIT_OCULUS.box)),
+    );
+    same(
+      styles(front),
+      Object.fromEntries(sky.oculusPlace(sky.oculusFrontBox())),
+    );
+    // The foreground's files: the backdrop's own choice of two.
+    const [source, image] = front.children;
+    same(
+      [
+        source.media,
+        source.dataset.srcset,
+        image.dataset.src,
+        image.width,
+        image.height,
+      ],
+      [
+        '(max-width: 1199px)',
+        '/images/home-chapters/worlds-atrium-oculus-1280.webp',
+        '/images/home-chapters/worlds-atrium-oculus.webp',
+        sky.oculusFrontBox()[2],
+        sky.oculusFrontBox()[3],
+      ],
+    );
+    // Until the sky is ready the painted sky shows: both parts hidden, the
+    // sky told it is off stage, no frame wanted.
+    same(
+      [host.hidden, front.hidden, live.placed.at(-1)[0]],
+      [true, true, false],
+    );
+    assert.equal(h.controller.wantsTime(), false);
+    // Ready: on, where the wide Atrium's box lies; as wide as the canvas is
+    // drawn there.
+    live.state = 'ready';
+    h.at(0, 0.9);
+    same([box.hidden, host.hidden, front.hidden], [false, false, false]);
+    same(live.placed.at(-1), [true, sky.oculusSkyWidth(1440, 900), 'full']);
+    near(
+      sky.oculusSkyWidth(1440, 900),
+      ((900 * 1672) / 941) * (sky.ATRIUM_ORBIT_OCULUS.box[2] / 1672),
+      'its share of the plate box',
+    );
+    // The Atrium out of view (the stage leaving, the bridge not there yet):
+    // still laid out, but off stage, so its clock stops.
+    h.at(0, 0.9, false, { visible: false });
+    same([host.hidden, live.placed.at(-1)[0]], [false, false]);
+    // A coarse pointer or a narrow screen: the lighter sky.
+    h.at(0, 1, false, { fine: false });
+    assert.equal(live.placed.at(-1)[2], 'light');
+    // With the plate through the push; gone in a room.
+    h.at(mid(push));
+    same(
+      [box.hidden, host.hidden, front.hidden, live.placed.at(-1)[0]],
+      [false, false, false, true],
+    );
+    h.at(mid(living));
+    same(
+      [box.hidden, host.hidden, front.hidden, live.placed.at(-1)[0]],
+      [true, true, true, false],
+    );
+    // Reduced motion switched on: the painted sky again.
+    h.at(0, 1, true);
+    same(
+      [host.hidden, front.hidden, live.placed.at(-1)[0]],
+      [true, true, false],
+    );
+    h.at(0, 1);
+    same(
+      [host.hidden, front.hidden, live.placed.at(-1)[0]],
+      [false, false, true],
+    );
+    // The doors are untouched by it, and under it in the box.
+    assert.equal(box.children[1].hidden, false);
+    // Frames: handed on as given; wanted only while the sky says so.
+    h.controller.tick(1234.5);
+    same(live.ticks, [1234.5]);
+    assert.equal(h.controller.wantsTime(), false);
+    live.on = true;
+    assert.equal(h.controller.wantsTime(), true);
+    // While a room is entered the controller stands still, but the sky's
+    // frames go on (it is still on screen under the entry).
+    h.entry.host.hold(true);
+    h.controller.tick(1250);
+    same([live.ticks.length, h.controller.wantsTime()], [2, true]);
+    h.entry.host.hold(false);
+    // A hidden tab stops its clock; Home leaving releases it, once.
+    h.controller.suspend();
+    assert.equal(live.suspended, 1);
+    h.atriumIntact();
+    h.controller.destroy();
+    h.controller.destroy();
+    assert.equal(live.destroyed, 1);
+    h.controller.tick(9999);
+    same([live.ticks.length, h.controller.wantsTime()], [2, false]);
+  }
   const READOUT =
     /DEVELOPMENT PREVIEW|roomOrbitProgress|segment \d|plate missing|Camera data|gateway reveal/;
   const positions = Array.from({ length: 801 }, (_, i) => i / 800);
@@ -3160,11 +3364,18 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
     const copy = h.one('hc-room-orbit-copy');
     const indicator = h.one('hc-room-orbit-indicator');
     const title = h.one('hc-room-orbit-title');
-    // A view's box holds its plate's picture, then its doors'.
+    // A view's box holds its plate's picture, then its doors'; the wide
+    // Atrium's also, after them, the oculus's sky and its foreground (made
+    // once the story reaches the reading hold; none under reduced motion).
     const picture = (plate) => {
+      const names = plate.children.map((node) => node.className);
+      same(names.slice(0, 2), ['hc-room-orbit-picture', 'hc-room-orbit-doors']);
       same(
-        plate.children.map((node) => node.className),
-        ['hc-room-orbit-picture', 'hc-room-orbit-doors'],
+        names.slice(2),
+        plate.dataset.plate === 'arrival' && !reduced && names.length > 2
+          ? ['hc-room-orbit-sky', 'hc-room-orbit-oculus']
+          : [],
+        `${plate.dataset.plate}: nothing else in the box`,
       );
       assert.equal(plate.children[1].dataset.doors, plate.dataset.plate);
       return plate.children[0];
@@ -4100,7 +4311,9 @@ console.log(
     'the closed doors lying on every plate with its pose and its join ' +
     '(shut from the first sight of the Atrium to the end of the orbit, the wide ' +
     "Atrium's drawn on the photograph at rest) and the controller standing " +
-    'still while a room is entered, the Atrium in view for the ' +
+    "still while a room is entered, the oculus's living sky placed in the " +
+    "wide Atrium's box under its own foreground (never under reduced " +
+    'motion or Save-Data), the Atrium in view for the ' +
     'whole harness (copy shade = approved shade, shown only with the ' +
     'editorial UI), a scroll-driven release to a quiet frame before the ' +
     'sticky stage leaves (exact in reverse), the readout only on explicit ' +

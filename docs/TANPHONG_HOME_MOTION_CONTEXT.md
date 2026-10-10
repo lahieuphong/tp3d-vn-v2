@@ -1007,3 +1007,16 @@ and limits: `TANPHONG_ATRIUM_ORBIT_IMPLEMENTATION.md` §15.10.
 - A change of one picture: the Kitchen plate's right end is the Living plate's left end, mirrored (`work/atrium-orbit/comp-plates/stitch.mjs`, outside Git). Nothing left of plate column 1218 changed.
 - The Kitchen view now shows one door; the Living leaf that lay on its right end is gone from the door data and from the door picture.
 - No motion, timing, listener or scroll behaviour changed. The homepage's runtime code differs only in the Kitchen entry of `ATRIUM_ORBIT_DOORS`.
+
+## 47. The oculus's sky is alive (2026-10-10, not deployed)
+
+Owner request: the clouds in the oculus over the wide Atrium are to be a
+Three.js sky that is always moving, with depth. Details, verification and
+limits: `TANPHONG_ATRIUM_ORBIT_IMPLEMENTATION.md` §15.11.
+
+- **What is new on the page.** A small canvas over the wide plate's painted sky, drawn by one shader on one quad (`oculus-sky.ts`), and over it the plate's own foreground there, cut out, so the clouds pass behind the leaves. Both are the room orbit's and lie in the wide Atrium's plate box.
+- **§4, "Render loop", is superseded in one place.** The one RAF owner has a third ambient client: while the oculus's living sky is on stage (the wide Atrium in view) a frame is asked for every frame, and a frame of sky is drawn at most 30 times a second. Such a frame runs no narrative work. In a room, before the Atrium, with the stage gone or the tab hidden, nothing is scheduled, as before.
+- **§13, "One WebGL context exists", is superseded.** There are two: the atmosphere's, and this sky's (one opaque quad, no texture, `low-power`, `failIfMajorPerformanceCaveat`). Both use the one lazy Three.js chunk; the sky asks for it at story 0.42, after the atmosphere has (0.12).
+- **Time-driven motion in the story (§6)** gains this sky: integrated from the frame owner's timestamps, like the atmosphere's ambient air; never the camera, never a scroll position.
+- **Reduced motion and Save-Data** keep the painted sky; nothing is made.
+- **The timeline** changed in three small places (it hands the room orbit each frame, keeps frames coming while the orbit wants them, and tells it three facts about the screen). The base journey writes what it wrote before; `check:lab` re-pins the file with its trail.

@@ -301,6 +301,17 @@
   pointer-events: auto;
   cursor: pointer;
 }
+/* The oculus's living sky (atrium-orbit-sky.ts), in the wide Atrium's box:
+   the element a small canvas fills, over the plate's painted sky, and the
+   plate's own foreground there as a small picture over it. The controller
+   places both (shares of the box's width, so they are the same place on the
+   picture on every stage). */
+.hc-room-orbit-sky,
+.hc-room-orbit-oculus {
+  position: absolute;
+  top: 0;
+}
+
 /* The copy and the indicator lie over the doorway (on a phone, over most of
    it). They take no pointer themselves, so the door under them can be
    chosen through them; the room's own link still takes its own. */

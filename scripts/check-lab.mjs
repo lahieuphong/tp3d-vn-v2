@@ -1138,7 +1138,13 @@ for (const source of [...LAB_FILES.map(code), html]) {
     // orbit where the page is on every frame, and whether a finger holds it
     // (three passive touch listeners), so the orbit can carry a room change
     // through; the timeline itself still never writes the scroll position.
-    'components/home/experience/home-story-timeline.ts': '4eb6586d847ff10e',
+    // The oculus's living sky (owner request, 2026-10-10) is that orbit's:
+    // the one frame owner hands the orbit each frame's timestamp and keeps
+    // frames coming while the orbit says its sky is on stage, and the orbit
+    // is told whether the Atrium is in view, the pointer fine and Save-Data
+    // on. Nothing of the story is rendered on such a frame, and the base
+    // journey writes what it wrote before (check:atrium-orbit).
+    'components/home/experience/home-story-timeline.ts': '6a85b57c4eafc075',
     'components/home/experience/continuous-breeze.tsx': '80f5ac52eee64916',
     // STEP 2: the cloth travels between its two reading poses instead of
     // fading out and returning in the other; both poses are unchanged.

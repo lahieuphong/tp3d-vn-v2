@@ -250,7 +250,9 @@ export function createHomeStoryTimeline(
     request();
   };
   // The one RAF owner. Ambient frames continue only while the atmosphere is
-  // alive on screen or Scene 1 pointer depth is still easing; a resting story
+  // alive on screen, Scene 1 pointer depth is still easing, or the oculus's
+  // living sky is on stage over the wide Atrium (the room orbit's; it draws
+  // one small canvas and nothing else). Anywhere else a resting story
   // schedules nothing.
   function step(now: number) {
     frame = 0;
@@ -261,7 +263,13 @@ export function createHomeStoryTimeline(
       if (debug) debug.textContent = debugLine();
     }
     heroDepth.tick(now);
-    if (skyBridge?.wantsTime() || heroDepth.wantsTime()) request();
+    roomOrbit?.tick(now);
+    if (
+      skyBridge?.wantsTime() ||
+      heroDepth.wantsTime() ||
+      roomOrbit?.wantsTime()
+    )
+      request();
   }
   const skyBridge = skyHost
     ? createAtmosphericSkyBridge(skyHost, schedule)
@@ -563,6 +571,11 @@ export function createHomeStoryTimeline(
         width: geometry.width,
         height: geometry.height,
         reduced: still,
+        // What the oculus's living sky needs to know: is the Atrium in
+        // view, and what may this screen have.
+        visible: bridge.scene3Visible && pinned,
+        fine: finePointer.matches,
+        saveData,
       }) ?? null;
     const ivory = past ? 0 : bridge.headerIvory;
     const theme = ivory === 1 ? 'dark' : ivory > 0 ? 'bridge' : 'light';
@@ -945,7 +958,7 @@ export function createHomeStoryTimeline(
     shown = null;
     followTime = 0;
     render();
-    if (skyBridge?.wantsTime()) request();
+    if (skyBridge?.wantsTime() || roomOrbit?.wantsTime()) request();
   };
   const touch = (event: TouchEvent) => {
     touching = event.touches.length > 0;

@@ -266,6 +266,40 @@ export function plateDoorSources(
     : null;
 }
 
+/** The wide Atrium's foreground over its oculus (atrium-orbit-sky.ts): what
+ * crosses the sky on the plate, cut out, to lie over the living sky. A small
+ * picture of `size` plate px, not a whole plate: the plate's naming with
+ * `-oculus`, and the two files the approved backdrop chooses between (the
+ * full plate's scale, and the 1280 file's). The wide Atrium's comp plate
+ * only: no other view shows the sky. */
+export function plateOculusSources(
+  state: AtriumOrbitStateId,
+  size: readonly [number, number],
+  status = ATRIUM_ORBIT_PLATES,
+): AtriumOrbitPlateSources | null {
+  if (state !== 'arrival' || status[state].desktop !== 'comp') return null;
+  const { widths, arrivalNarrow } = ATRIUM_ORBIT_COMP;
+  // The files are chosen by the backdrop's own breakpoint and the picture
+  // is placed by its box: no width descriptor is involved.
+  const sizes = '100vw';
+  return {
+    sources: [
+      {
+        media: arrivalNarrow,
+        type: 'image/webp',
+        srcset: compPlateFile(state, 1280, '-oculus'),
+        sizes,
+      },
+    ],
+    fallback: {
+      src: compPlateFile(state, widths[0], '-oculus'),
+      width: size[0],
+      height: size[1],
+      sizes,
+    },
+  };
+}
+
 /** The <picture> description for one view, or null when its desktop plate
  * is missing (no partial or substituted plate). A missing portrait view
  * falls back to the desktop plate's crop. */

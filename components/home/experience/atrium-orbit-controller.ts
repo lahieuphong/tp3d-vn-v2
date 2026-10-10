@@ -14,6 +14,7 @@ import {
   atriumOrbitReadiness,
   atriumOrbitRecord,
   plateDoorSources,
+  plateOculusSources,
   plateOrientation,
   plateSources,
   plateWindow,
@@ -42,6 +43,16 @@ import {
   selectPlateTransition,
   type PlateLayer,
 } from './atrium-orbit-transition';
+import {
+  ATRIUM_ORBIT_OCULUS,
+  ATRIUM_ORBIT_SKY,
+  oculusFrontBox,
+  oculusPlace,
+  oculusSkyTier,
+  oculusSkyWidth,
+  type OculusSkyTier,
+} from './atrium-orbit-sky';
+import { createOculusSky } from './oculus-sky';
 import { createRoomDoorEntry } from './room-door-entry';
 import { prepareSceneImage, type SceneImagePreparation } from './scene-image';
 import './atrium-orbit-preview.css';
@@ -103,8 +114,18 @@ import './atrium-orbit-preview.css';
  * outlines; the box is what is posed and joined. The doors are shut
  * wherever the Atrium shows; a door is opened only by choosing it, which is
  * how a room is entered (room-door-entry.ts: the one part of this that
- * knows time, and that listens). While a room is being entered this controller stands
- * still. */
+ * listens). While a room is being entered this controller stands still.
+ *
+ * The oculus's sky is alive (owner request, 2026-10-10; atrium-orbit-sky.ts).
+ * The wide Atrium's box carries two more things, after its plate and its
+ * doors: a small canvas where the plate's painted sky is, and over it the
+ * plate's own foreground there (the branches, the dome's ribs, the rim),
+ * so the clouds pass behind the leaves. A browser draws what lies over a
+ * canvas apart from the rest of the page, and what is drawn apart is a
+ * little softer while the camera is magnified: so nothing else lies over
+ * the canvas, and the foreground picture is no larger than it must be. This controller only places them and says
+ * when they are on stage; the canvas is drawn by oculus-sky.ts, from the
+ * frames the story's one frame owner hands on through `tick`. */
 
 export type AtriumOrbitInput = {
   /** 0 → 1 over the approved journey's own span (the timeline's p). */
@@ -114,6 +135,12 @@ export type AtriumOrbitInput = {
   width: number;
   height: number;
   reduced: boolean;
+  /** The Atrium is in view: drawn by the bridge, its stage still pinned. */
+  visible: boolean;
+  /** A fine pointer, and the reader's Save-Data preference: what the
+   * oculus's living sky is allowed (atrium-orbit-sky.ts). */
+  fine: boolean;
+  saveData: boolean;
 };
 
 /** What the timeline needs back: the World gateway's reveal (0 → 1) and what
@@ -144,7 +171,19 @@ type Picture = {
 };
 /** A view on the stage: the box that takes its pose and its join, its plate
  * in that box, and the closed doors that lie on the plate (null: none). */
-type Plate = Picture & { box: HTMLElement; doors: Picture | null };
+type Plate = Picture & {
+  box: HTMLElement;
+  doors: Picture | null;
+  sky: Sky | null;
+};
+/** The oculus's living sky on the wide Atrium's plate: the element its
+ * canvas fills, the sky itself, and the plate's foreground that lies over
+ * it. */
+type Sky = {
+  host: HTMLElement;
+  live: ReturnType<typeof createOculusSky>;
+  front: Picture;
+};
 type Thumb = {
   image: HTMLImageElement;
   preparation: SceneImagePreparation;
@@ -289,6 +328,9 @@ export function createAtriumOrbitController(
   let moving = false;
   // A room is being entered: the picture is the entry's until it lets go.
   let entering = false;
+  // What this screen's oculus sky may be, and whether the Atrium is in view.
+  let skyTier: OculusSkyTier = 'off';
+  let atriumVisible = false;
   let lastDiagnostic = '';
   let presence = 0;
   const rest: AtriumOrbitFrame = {
@@ -369,9 +411,29 @@ export function createAtriumOrbitController(
       ? draw(box, 'hc-room-orbit-doors', leaves, priority)
       : null;
     if (doors) doors.picture.dataset.doors = id;
-    const entry: Plate = Object.assign(own, { box, doors });
+    const entry: Plate = Object.assign(own, { box, doors, sky: null });
     plates.set(id, entry);
     return entry;
+  };
+  /** The oculus's living sky, made on first need (never under reduced
+   * motion or Save-Data): the canvas's place on the plate, and over it the
+   * plate's foreground there. They come last in the box, so the plate and
+   * its doors are not over the canvas. */
+  const sky = (entry: Plate, id: AtriumOrbitStateId) => {
+    if (entry.sky) return entry.sky;
+    const region = oculusFrontBox();
+    const sources = plateOculusSources(id, [region[2], region[3]]);
+    if (!sources) return null;
+    const host = element('div', 'hc-room-orbit-sky');
+    host.hidden = true;
+    for (const [name, value] of oculusPlace(ATRIUM_ORBIT_OCULUS.box))
+      property(host, name, value);
+    add(entry.box, host);
+    const front = draw(entry.box, 'hc-room-orbit-oculus', sources, 'low');
+    for (const [name, value] of oculusPlace(region))
+      property(front.picture, name, value);
+    entry.sky = { host, front, live: createOculusSky(host, wake) };
+    return entry.sky;
   };
   /** Decoded, doors and all: a plate is not shown with its rooms open while
    * its doors are still on their way (doors that failed are done without). */
@@ -515,8 +577,26 @@ export function createAtriumOrbitController(
         entry.doors?.state === 'ready'
           ? (plateLayer ?? (id === 'arrival' ? resting : null))
           : null;
+      // The living sky lies on its plate too, and the plate's foreground
+      // over it: both, or the painted sky as it is.
+      const air =
+        entry.sky &&
+        skyTier !== 'off' &&
+        entry.sky.front.state === 'ready' &&
+        entry.sky.live.state() === 'ready'
+          ? (plateLayer ?? (id === 'arrival' ? resting : null))
+          : null;
+      if (entry.sky) {
+        for (const node of [entry.sky.host, entry.sky.front.picture])
+          if (node.hidden !== !air) node.hidden = !air;
+        entry.sky.live.place(
+          !!air && atriumVisible,
+          oculusSkyWidth(viewport.width, viewport.height),
+          skyTier === 'off' ? 'light' : skyTier,
+        );
+      }
       // The box's pose: its plate's, or where that plate would lie.
-      const layer = plateLayer ?? leaves;
+      const layer = plateLayer ?? leaves ?? air;
       if (entry.box.hidden !== !layer) entry.box.hidden = !layer;
       if (!layer) continue;
       if (entry.picture.hidden !== !plateLayer)
@@ -688,6 +768,13 @@ export function createAtriumOrbitController(
       }
       viewport.width = input.width;
       viewport.height = input.height;
+      skyTier = oculusSkyTier(
+        input.width,
+        input.fine,
+        input.reduced,
+        input.saveData,
+      );
+      atriumVisible = input.visible;
       attr(worlds, 'data-atrium-layout', atriumOrbitLayout(input.width));
       const { baseStoryProgress, roomOrbitProgress } = input;
       if (
@@ -706,6 +793,15 @@ export function createAtriumOrbitController(
       });
       for (const id of plan.required) plate(id, 'auto');
       for (const id of plan.warm) plate(id, 'low');
+      // The oculus's sky is made ready in the reading hold, where nothing
+      // on the stage moves; never where it is not allowed.
+      const wide = plates.get('arrival');
+      if (
+        wide &&
+        skyTier !== 'off' &&
+        baseStoryProgress >= ATRIUM_ORBIT_SKY.prepareAt
+      )
+        sky(wide, 'arrival')?.live.prepare(skyTier);
       show(paintPlates());
       // The World gateway follows the same shown state (one authority).
       const state = shown ?? sample.activeState;
@@ -774,11 +870,21 @@ export function createAtriumOrbitController(
         window.scrollTo({ top: next.write, behavior: 'instant' });
       return next.active;
     },
+    /** A frame from the story's one frame owner: the oculus's sky moves
+     * on. Nothing else here knows time. */
+    tick(now: number) {
+      if (!destroyed) plates.get('arrival')?.sky?.live.tick(now);
+    },
+    /** True only while the oculus's living sky is on stage. */
+    wantsTime: () =>
+      !destroyed && !!plates.get('arrival')?.sky?.live.wantsTime(),
     /** Hidden tab: nothing is promoted, so there is nothing to drop. A
-     * carry under way is dropped: the page stays where it is. */
+     * carry under way is dropped: the page stays where it is; the sky's
+     * clock stops. */
     suspend() {
       moving = false;
       carried = ATRIUM_ORBIT_CARRY_IDLE;
+      plates.get('arrival')?.sky?.live.suspend();
     },
     debug() {
       const s = sample;
@@ -792,7 +898,9 @@ export function createAtriumOrbitController(
         (id) =>
           `${id.slice(0, 3)}:${ATRIUM_ORBIT_PLATES[id].desktop === 'missing' ? 'missing' : (plates.get(id)?.state ?? 'idle')}`,
       ).join(' ');
-      return `Tier B ${mode} · roomOrbit ${s.roomOrbitProgress.toFixed(4)} · ${s.activeState} (${step}) · ${direction} · UI ${shown} · plates ${assets} · cameras ${cameras.status} · ${timeline.weighting} · gateway ${frame.gateway.toFixed(3)} · editorial ${presence.toFixed(3)}${moving ? ' · blending' : ''}`;
+      const air =
+        plates.get('arrival')?.sky?.live.debug() ?? `oculus sky ${skyTier}`;
+      return `Tier B ${mode} · roomOrbit ${s.roomOrbitProgress.toFixed(4)} · ${s.activeState} (${step}) · ${direction} · UI ${shown} · plates ${assets} · cameras ${cameras.status} · ${timeline.weighting} · gateway ${frame.gateway.toFixed(3)} · editorial ${presence.toFixed(3)}${moving ? ' · blending' : ''} · ${air}`;
     },
     destroy() {
       if (destroyed) return;
@@ -802,6 +910,8 @@ export function createAtriumOrbitController(
       for (const entry of plates.values()) {
         entry.preparation.destroy();
         entry.doors?.preparation.destroy();
+        entry.sky?.front.preparation.destroy();
+        entry.sky?.live.destroy();
       }
       for (const entry of thumbs.values()) entry.preparation.destroy();
       plates.clear();

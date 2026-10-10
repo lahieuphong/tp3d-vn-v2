@@ -582,7 +582,12 @@ for (const { selectors } of shellRules)
       .filter((file) =>
         /from ['"]three['"]|import\(['"]three['"]\)/.test(read(file)),
       ),
-    ['components/home/experience/atmospheric-sky-renderer.ts'],
+    // The atmosphere, and since 2026-10-10 the oculus's living sky over the
+    // wide Atrium (check:oculus-sky): both homepage, both the one lazy chunk.
+    [
+      'components/home/experience/atmospheric-sky-renderer.ts',
+      'components/home/experience/oculus-sky.ts',
+    ],
     '35. Three.js stays on the homepage',
   );
   for (const file of [

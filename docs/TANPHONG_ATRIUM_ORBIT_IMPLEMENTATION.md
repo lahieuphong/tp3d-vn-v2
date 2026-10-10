@@ -15,7 +15,8 @@ begins and ends (§15.3). STEP 2B (2026-10-08, owner decision) makes this
 orbit, on its comp plates, the homepage's orbit (§15.4). Since 2026-10-09
 (owner decision) the rooms stand behind closed doors, and a room is entered
 by choosing its door (§15.9). Since 2026-10-10 the Kitchen view ends on the
-Living view's planter (§15.10).** None of the
+Living view's planter (§15.10), and the oculus's sky over the wide Atrium is
+alive (§15.11).** None of the
 approved render plates and no camera data exist yet. Until STEP 2B the
 production homepage ran the approved Scene 3 with the portal orbit
 (`aa9ae55`) and Tier B code loaded only in development or a preview build,
@@ -80,6 +81,7 @@ loaded, the portal orbit stands down (`orbitEnabled && !roomOrbit`).
 | `atrium-orbit-transition.ts` | The transition extension point (`PlateTransition`), occluder hints, and the provisional cut. |
 | `atrium-orbit-controller.ts` | The dev / preview shell: plate stage, editorial block, indicator, diagnostic. |
 | `atrium-orbit-doors.ts` | The closed doors (§15.9): each doorway's outline on each plate, the one outline the leaves show through, and which door lies under a place. Pure, like the rest, and it knows neither time nor the story position: a door is shut unless the entry raises it. |
+| `atrium-orbit-sky.ts` | The oculus's living sky, the still part (§15.11): where the sky is on the wide plate, the box of the foreground picture that lies over it, who gets a living sky, and the numbers of its look and clock. Pure. |
 | `atrium-orbit-preview.css` | Shell styles, loaded only with the controller. |
 
 All are in `components/home/experience/`. The only file that loads them is
@@ -88,7 +90,9 @@ reference. `room-door-entry.ts` (§15.9), in the same folder, reads the
 doors' outlines and is loaded by the controller alone, so it travels in the
 same lazy chunk. It is deliberately not one of these modules: it is the one
 part that listens and knows time, which the rules these modules are checked
-against forbid.
+against forbid. The same holds for `oculus-sky.ts` and
+`oculus-sky-shaders.ts` (§15.11): they hold the WebGL canvas of the oculus's
+sky, read `atrium-orbit-sky.ts`, and are loaded by the controller alone.
 
 ## 3. Component architecture
 
@@ -329,6 +333,7 @@ No client asset references the controller or its stylesheet (checked after
 | --- | --- |
 | `check:atrium-orbit-foundation` | Model (exactly four public rooms, Arrival with no public UI, Living the first public state), camera validation (random rigs, every error and warning, junk never throws), weighting, timeline, sampler (forward = reverse = landing; clamped domain), preload, manifest (WebP only, all missing, no stand-ins in `public/`, no plate path outside the manifest), transition reversibility, orbit-mode CSS scoped to the preview attribute, the two progress domains in the timeline source, source rules (no listener / RAF / timer / observer / second pipeline / live region) |
 | `check:atrium-doors` | The closed doors (§15.9): the outlines (inside their plates, never overlapping, a doorway shown by two plates carrying one leaf the pan's shift across, the wide Atrium's Living battens lying on the Living view's under the push), the one clip (exactly the leaves when shut, nothing when risen, a fixed number of points), which door lies under a place, no fall (the door data knows no story position; the controller writes every door shut and only the entry raises one), the door pictures (one for each plate file, the plate's size, clear off the leaves, a borrowed leaf the same pixels as its own), and the real `room-door-entry.ts` in a DOM double: one click listener, plain activations only, what is played, the room link's own route followed once, and every way out (a modified click, a second choice, reduced motion, a door off stage, a document that leaves, a route that never comes). |
+| `check:oculus-sky` | The oculus's living sky (§15.11): where it is on the plate (the canvas's box, the opening, the foreground picture's box, the shares it is placed by), who gets one (never reduced motion or Save-Data), its clock (a stalled frame one step, a long gap none) and drawing buffer (the screen's density within a tier's limit and a pixel budget), the foreground picture's two files (clear where the sky was, whole on the ring, ribs and leaves, fading out at their ends, the plate's own picture where they are whole), the shader's source (no texture, bounded loops, two sheets at two speeds), and the real `oculus-sky.ts` against a stand-in for Three.js: one lazy import and one modest context, no clock, timer, observer or frame of its own, time from the frames it is given, paused off stage and in a hidden tab, eased in when ready late, released once, and the painted sky for good on every failure. |
 | `check:atrium-orbit-assets` | Manual, never part of the build or of another check: the studio delivery intake (§16). The foundation check exercises it on synthetic deliveries in the OS temp folder. |
 | `check:atrium-orbit` | The timeline hook in its DOM double: gate shut in production, `?atriumOrbit=1` required, base journey identical, portal orbit stands down, both progress domains within 0 → 1 with the orbit only after the base story ends, wake, suspend, destroy, late import, failed import |
 
@@ -918,6 +923,121 @@ from the left, like the vase in the Kitchen plate.
 - The leaf shadows that the tree casts on the Living plate's pier are not carried over: the Kitchen pier keeps its own light.
 - On desktop the story rail's two inactive labels (01 ARRIVAL, 02 PERSPECTIVE, drawn at 30%) now lie on the rock's lit face and are hard to read there, as they already are over the tree in the Bedroom view. "03 WORLDS" reads.
 - Not seen: Safari, Firefox, a real phone or tablet.
+
+### 15.11 The oculus's sky is alive
+
+Owner request, 2026-10-10, with two frames of the live site (the wide
+Atrium, and its oculus close up): the clouds in the oculus are a still;
+make them a Three.js sky whose clouds are always moving, so that it looks
+real and has depth.
+
+**What it does.** Over the wide Atrium the clouds in the oculus drift and
+re-form, all the time, behind the branches, the dome's ribs and the rim. It
+is the same sky wherever that view shows: in the sky hold and the pull-back
+of the base journey (which begin inside the oculus), at rest on the wide
+Atrium, and through the push onto Living until the Living view has taken
+the frame. The room views show no sky and have none.
+
+**How it is built: three layers in the wide Atrium's box.**
+
+| Layer (bottom to top) | What |
+| --- | --- |
+| The plate | As before: the approved photograph at rest, its second drawing while it travels. Its painted sky is still in it, underneath. |
+| The doors | As before (§15.9). |
+| The sky | A canvas over the plate's sky: 760 × 228 px of the 1672 × 941 plate, at its top. One Three.js quad with one shader; no texture, model, light or render target. |
+| The foreground | What crosses the sky on the plate, cut out of the plate: the two crowns of leaves, the ribs, the rail, the ring. A small picture (792 × 249) laid over the canvas, so the clouds pass behind the leaves. |
+
+**The clouds** (`oculus-sky-shaders.ts`). The canvas is looked through as
+the opening is: a camera pitched up 40°, the canvas's height a few degrees
+of sky. The clouds lie on two level sheets above it, so a cloud is smaller
+and slower low in the opening and larger and quicker high in it; the far
+sheet is thin and slow and the near one, the cumulus, passes under it
+nearly twice as fast on screen. That is the depth. A cloud is a broad mass
+heaped into rounded tops and frayed at its edge, each part drifting and
+changing at its own rate, so it keeps re-forming as it passes and nothing
+ever loops. It is lit from the upper left, as the plate is, with its far
+side and its heart in its own shade. The four colours are the plate's own
+sky, measured in the opening.
+
+**The foreground picture** (`work/atrium-orbit/comp-plates/oculus.mjs`,
+outside Git, writes `worlds-atrium-oculus[-1280].webp`, 61 and 55 kB).
+Inside the opening's outline a pixel is sky by its colour (sky and cloud are
+cool or white and bright; leaves, bronze and stone are warm). A pixel that
+is part sky, a leaf's edge, keeps only its own share, with the old sky taken
+out of its colour, so no rim of the painted sky is left around a leaf. What
+is sky is read on the lossless master; the picture's colours are the served
+plate's own, so that laid over the plate it is the plate. It is whole over
+the canvas and 6 px more and then fades to nothing over 10 px: two
+encodings of one plate still differ by a shade, and a hard end showed as a
+line around the box.
+
+**Who draws the frames.** The sky has no clock, timer or animation frame of
+its own. The story's one frame owner (`home-story-timeline.ts`) hands the
+room orbit each frame's timestamp and keeps frames coming while the orbit
+says its sky is on stage; the sky's time is the sum of those gaps. So it
+stops by itself in a hidden tab, in a room, before the Atrium and once the
+stage has left, and nothing of the story is rendered again for it. At most
+30 frames of sky a second (24 on the lighter tier). This is the third
+client of that frame owner, beside the atmosphere and the hero's pointer
+depth, and the one place where the page is no longer at rest while the
+reader is: on the wide Atrium, one small canvas is redrawn.
+
+**Who gets it.**
+
+| | |
+| --- | --- |
+| Reduced motion, Save-Data | The painted sky. Nothing is made, and Three.js is not asked for. |
+| 1200 px and a fine pointer | Full: 30 frames a second, the screen's density up to 2, five octaves. |
+| Narrower, or a coarse pointer | Lighter: 24 frames a second, density up to 1.5, four octaves. |
+| Any | Never more than 1,000,000 px (1527 × 458 at 1680 × 887, DPR 2). |
+| No hardware WebGL, a lost context, a shader that does not link, Three.js not arriving | The painted sky, for good on that visit. The canvas is removed and its context released. |
+
+It is made ready in the reading hold (story 0.42), where nothing on the
+stage moves, with the Three.js chunk the atmosphere has already asked for,
+and holds one WebGL context of its own (the page's second), released when
+Home unmounts. Ready before the Atrium comes into view, it is simply there;
+ready only after, it comes in over the painted sky in 0.9 s.
+
+**Why the layers are in that order.** A browser draws what lies over a
+canvas apart from the rest of the page. Measured on the first arrangement
+(the canvas under the doors, the foreground a picture of the whole plate):
+with the camera magnified in the pull-back the door leaves were drawn a
+little softer than on the deployed build (their blocks differed, the
+photograph's did not), which is the kind of change that showed as a snap at
+the end of the pull-back before (§15.3). So the canvas and its foreground
+come last in the box, and the foreground is no larger than it must be:
+nothing else lies over the canvas.
+
+**Where it lives.**
+
+| | |
+| --- | --- |
+| Where the sky is, who gets one, its look and clock | `atrium-orbit-sky.ts`: pure, px of the plate, PROVISIONAL like the comps. `ATRIUM_ORBIT_SKY.speed` is the one number for how fast the air moves; `cover` for how clear the sky is |
+| The canvas | `oculus-sky.ts` (the Three.js module) and `oculus-sky-shaders.ts` |
+| Placing it, and saying when it is on stage | `atrium-orbit-controller.ts` |
+| The frames | `home-story-timeline.ts`: `roomOrbit.tick(now)`, `roomOrbit.wantsTime()`, and three facts in `update` (the Atrium in view, a fine pointer, Save-Data) |
+| The foreground's file names | `atrium-orbit-manifest.ts`, `plateOculusSources` |
+
+**Verified** (production-equivalent build; headless Chromium with a
+hardware WebGL context, Apple M2).
+
+- 1680 × 887 at DPR 2, 1440 × 900, 2560 × 1080, 820 × 1180 and 390 × 844: the sky on, placed on the plate's own sky, the leaves in front of it; frames two and three seconds apart show the clouds moved and changed.
+- From the clouds of the crossing to the push, at rest on twelve positions: the atmosphere's clouds give way to this sky, the camera pulls back out of it, and it travels with the plate through the push.
+- Frames asked for a second: 60 on the wide Atrium, 0 in a room, 0 back in Scene 1.
+- Reduced motion: no sky element and no Three.js request. `?atriumOrbit=0`: none. No hardware WebGL (the default headless shell): the painted sky, no error.
+- Drawn the same as before where it should be: at rest and at four camera magnifications inside the pull-back, the photograph and the doors are pixel for pixel what the deployed build draws. The foreground picture differs from the photograph under it by 0.3 to 1.9 of 255 (a second lossy encoding of the same pixels); magnified four times, the two cannot be told apart. Its fine detail is within 4% of the photograph's inside the pull-back, so nothing steps as the camera settles.
+- Frame pacing at 1680 × 887, DPR 2, against the deployed build: 16.7 ms at the median and 17.5 ms at the 95th percentile at rest on the wide Atrium, through the pull-back and through the push, on both.
+- `check:oculus-sky`, `check:atrium-orbit-foundation` and `check:atrium-orbit` as in §12; 22 deliberate breakages of the controller, the frame owner, the sky module, its data and its shader were each caught.
+
+**Limits.**
+
+- The clouds are drawn by a shader. They were judged on screen against the plate's painted clouds, not against a render; their look, their speed and how much of the sky they cover are three numbers to tune after review.
+- Measured on one machine (Apple M2) in headless Chromium. Not seen: Safari, Firefox, a real phone or tablet, an older or integrated graphics card, battery use. A resting reader on the wide Atrium now has a canvas redrawn 30 times a second.
+- In the base journey's sky hold and the start of the pull-back the camera is magnified up to six times, and so is this canvas: its clouds are soft there, as the photograph's were.
+- Through the push the wide plate is widened more than it is heightened (§15.5), and the sky with it, as the painted one was.
+- The light on the floor and the walls does not move with the clouds: the plate's leaf shadows are a still.
+- The first frames of the crossing still show the atmosphere's own clouds; where they clear, this sky's clouds are others. No attempt is made to carry one into the other.
+- Until the sky is ready, and wherever it is not allowed, the painted clouds show: a different sky from the living one. A sky that is ready late replaces it over 0.9 s.
 
 ## 16. Studio handoff and delivery intake (PASS 6A.9)
 

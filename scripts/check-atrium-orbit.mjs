@@ -1607,6 +1607,10 @@ for (const tall of [false, true]) {
       // double says a frame is still wanted.
       carries: [],
       carrying: false,
+      // The oculus's living sky: the frames handed on, and whether this
+      // double says the sky is on stage (it then wants time).
+      ticks: [],
+      sky: false,
     };
     record.module = {
       createAtriumOrbitController(worlds, wake, options) {
@@ -1629,6 +1633,8 @@ for (const tall of [false, true]) {
             record.carries.push(given);
             return given[0] !== null && record.carrying;
           },
+          tick: (now) => record.ticks.push(now),
+          wantsTime: () => record.sky,
           suspend: () => record.suspended++,
           debug: () => 'stub',
           destroy: () => record.destroyed++,
@@ -1936,11 +1942,25 @@ for (const tall of [false, true]) {
     same(portals(), early, 'the portals stand down under Tier B');
     assert.equal(h.worlds.getAttribute('data-room-orbit'), null);
     assert.equal(h.worlds.getAttribute('data-orbit-room'), null);
+    // Sampled values, and since the oculus's living sky three facts about
+    // the screen: is the Atrium in view, is the pointer fine, does the
+    // reader save data. No time, no element, nothing to call back.
     same(
       Object.keys(record.updates.at(-1)).sort(),
-      ['baseStoryProgress', 'height', 'reduced', 'roomOrbitProgress', 'width'],
+      [
+        'baseStoryProgress',
+        'fine',
+        'height',
+        'reduced',
+        'roomOrbitProgress',
+        'saveData',
+        'visible',
+        'width',
+      ],
       'the controller receives sampled values only',
     );
+    for (const value of Object.values(record.updates.at(-1)))
+      assert.ok(['number', 'boolean'].includes(typeof value));
     // PASS 6A.75: ENTER THE WORLD returns only in the later part of the
     // Kitchen hold, eased by roomOrbitProgress, and is interactive once
     // whole. PASS 6A.96: it then settles out in the final release, together
@@ -2055,6 +2075,78 @@ for (const tall of [false, true]) {
     record.created[0].wake();
     assert.equal(h.rafCalls(), before + 1);
     h.settle();
+    // The oculus's living sky (owner request, 2026-10-10) is the room
+    // orbit's, and a third client of the one frame owner beside the
+    // atmosphere and the hero's pointer depth. The timeline tells the orbit
+    // whether the Atrium is in view and what this screen may have, hands it
+    // every frame's timestamp, and keeps frames coming only while the orbit
+    // says its sky is on stage. Such a frame is not a story frame: nothing
+    // of the story is rendered again.
+    {
+      const at = (y) => {
+        h.scroll(Math.round(y));
+        return record.updates.at(-1);
+      };
+      const wide = at(span);
+      same(
+        [wide.visible, typeof wide.fine, wide.saveData],
+        [true, 'boolean', false],
+        'the Atrium is in view; the screen is described',
+      );
+      assert.equal(at(span * 0.2).visible, false, 'Scene 1: not in view');
+      assert.equal(
+        at(span + orbitSpan * 0.5).visible,
+        true,
+        'the rooms: in view',
+      );
+      // Past the orbit the stage leaves with the page: no longer pinned.
+      assert.equal(at(span + orbitSpan * 1.6).visible, false, 'stage leaving');
+      at(span);
+      const ticks = record.ticks.length;
+      assert.ok(ticks > 0, 'every frame is handed on');
+      for (const now of record.ticks) assert.equal(typeof now, 'number');
+      // At rest with no sky on stage: nothing runs.
+      assert.equal(h.frames.size, 0);
+      // The sky comes on stage (it wakes the story once, as a plate does).
+      record.sky = true;
+      record.created[0].wake();
+      assert.equal(h.frames.size, 1);
+      h.step();
+      const rendered = record.updates.length;
+      const handed = record.ticks.length;
+      for (let i = 1; i <= 90; i++) {
+        assert.equal(
+          h.frames.size,
+          1,
+          'a frame is wanted while it is on stage',
+        );
+        h.step();
+        assert.equal(record.ticks.length, handed + i, 'and handed on');
+      }
+      assert.ok(
+        record.ticks.at(-1) > record.ticks.at(-2),
+        "with the frame owner's own timestamps",
+      );
+      assert.equal(
+        record.updates.length,
+        rendered,
+        'a sky frame renders nothing of the story',
+      );
+      // A hidden tab: no frame; back again, the sky goes on.
+      h.document.hidden = true;
+      h.document.emit('visibilitychange');
+      assert.equal(h.frames.size, 0, 'hidden: nothing is asked for');
+      h.document.hidden = false;
+      h.document.emit('visibilitychange');
+      assert.equal(h.frames.size, 1);
+      h.step();
+      assert.equal(h.frames.size, 1, 'it goes on');
+      // Off stage (a room, or the story before it): the story is at rest.
+      record.sky = false;
+      h.step();
+      assert.equal(h.frames.size, 0, 'off stage: 0 RAF');
+      record.suspended = 0;
+    }
     h.document.hidden = true;
     h.document.emit('visibilitychange');
     assert.equal(record.suspended, 1, 'a hidden tab suspends Tier B');
@@ -2130,14 +2222,19 @@ for (const tall of [false, true]) {
     'data/world-building.ts',
   ]
     // PASS 6A's dormant Tier B modules are new files, checked by
-    // check:atrium-orbit-foundation, and so is the room entry they load
-    // (room-door-entry.ts, check:atrium-doors); everything else stays
-    // byte-identical.
+    // check:atrium-orbit-foundation, and so are the modules they load: the
+    // room entry (room-door-entry.ts, check:atrium-doors) and the oculus's
+    // living sky (oculus-sky.ts and its shaders, check:oculus-sky).
+    // Everything else stays byte-identical.
     .filter(
       (path) =>
         !PASS.has(path) &&
         !path.startsWith(`${EXPERIENCE}atrium-orbit-`) &&
-        path !== `${EXPERIENCE}room-door-entry.ts`,
+        ![
+          'room-door-entry.ts',
+          'oculus-sky.ts',
+          'oculus-sky-shaders.ts',
+        ].includes(path.slice(EXPERIENCE.length)),
     )
     .map((path) => [
       path,
