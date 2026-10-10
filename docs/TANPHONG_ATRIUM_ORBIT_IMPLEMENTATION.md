@@ -14,7 +14,8 @@ stops the picture snapping sharper as the pull-back ends and as each move
 begins and ends (§15.3). STEP 2B (2026-10-08, owner decision) makes this
 orbit, on its comp plates, the homepage's orbit (§15.4). Since 2026-10-09
 (owner decision) the rooms stand behind closed doors, and a room is entered
-by choosing its door (§15.9).** None of the
+by choosing its door (§15.9). Since 2026-10-10 the Kitchen view ends on the
+Living view's planter (§15.10).** None of the
 approved render plates and no camera data exist yet. Until STEP 2B the
 production homepage ran the approved Scene 3 with the portal orbit
 (`aa9ae55`) and Tier B code loaded only in development or a preview build,
@@ -868,6 +869,55 @@ own.
 - Before the Atrium becomes interactive (the base story's own gate, story 0.895) a door cannot be chosen, though the doorways are in view and shut from about 0.77 on. At 1440 × 900 the camera comes to rest (0.88) 64 px of scroll before that gate, and has been moving slowly (from 0.85) for about 250 px before it.
 - Not measured: Safari, Firefox, a real phone or tablet. The pictures are drawn at the comp plates' size (1672 px wide), so a leaf is as soft as its plate when the camera closes in.
 - No hover response on a door beyond the pointer cursor.
+
+### 15.10 The Kitchen view ends on the Living view's planter
+
+Owner request, 2026-10-10, with four frames of the live site: the Living
+view and its left end (the olive tree and the rock, "very OK"); the Kitchen
+view, which "has the Living room at its end", and that end close up (the
+Living doorway again, beside a bare pier). Asked that this space be the tree
+as in the Living view, so that the two agree.
+
+**How it was read.** The request can be read two ways. Built: the right end
+of the Kitchen view is the tree, in place of the Living doorway that stood
+there. The other reading keeps that doorway in view beside the tree; with
+the tree standing where the Living plate has it, the doorway is behind it
+either way.
+
+**What changed: one picture.** The Kitchen plate's right end
+(`work/atrium-orbit/comp-plates/stitch.mjs`, `planter`; outside Git, writes
+the runtime files). No runtime code moves anything differently.
+
+- The Kitchen plate's right end is the Living plate's left end, mirrored: column x of the Kitchen plate is column 1820 − x of the Living plate. That lays the pier left of the Living doorway (375 to 557) on the pier right of the Kitchen doorway (1263 to 1445); they are the same width.
+- **Beyond the pier the Kitchen plate is the Living plate**: its fluted jamb, the wall behind the tree, the tree, the rock, the rim. The plate's own drawing of the Living doorway, and its "01 Living" label, are gone from there.
+- **The pier stays the Kitchen plate's own**, with its own light. The Living plate's sprays of leaves are keyed off their stone (they are dark and olive, the stone is lit) and laid over it, each leaf with the stone behind it taken out.
+- **The bed right of the rock** (shrubs, pebbles, the rim and its end) is drawn at half its width, so the planter ends at about x = 1218: clear of the Kitchen doorway, of its jamb and of the floor that leads to it. At full width it would have reached x = 1012, across the pool's edge.
+- **Nothing left of column 1218 changed** in the lossless master: the Kitchen doorway, its label, its jamb and the floor before it are pixel for pixel what they were. (The WebP files differ slightly everywhere, as an encoder's do when part of a picture changes.)
+- **The Kitchen view shows one door.** `ATRIUM_ORBIT_DOORS.kitchen` no longer lists a Living leaf, and the view's door picture is redrawn without it. Nothing on the planter can be chosen.
+
+**Why mirrored.** Left to right the Living plate's end reads wall, jamb,
+pier, doorway; the Kitchen plate's end reads pier, jamb, doorway. Mirrored,
+the two have the same order, so the pier lies on the pier and the tree leans
+in from the frame's edge, as it does in the Living view. The rock is then lit
+from the left, like the vase in the Kitchen plate.
+
+**Verified** (production-equivalent build, headless Chromium).
+
+- 1680 × 887 at DPR 2 (the owner's screen): the Kitchen hold with its copy, the late hold with the gateway, and the quiet frame of the release. The indicator and the gateway sit on the rock's shaded foot and the rim, and read as before.
+- 1440 × 900 and 2560 × 1080: the same end; 820 × 1180: the sprays and the planter's end at the stage's right edge; 390 × 844: unchanged (the window does not reach the plate's end).
+- The pan from the Bathroom, frames in flight from a wheel flick: the planter comes on with the Kitchen plate, as one picture.
+- Clicks on the tree, the rock and the leaves over the pier do nothing; the Kitchen door still enters `/spaces/kitchen` (1.66 s).
+- `check:atrium-orbit-foundation`: beyond the pier the two plate files are one picture, mirrored (2.0 of 255 apart; 41 before), no label ink is left behind the tree, and the pier is not the Living plate's (46 apart). `check:atrium-doors`: the Kitchen view shows one door, and four places on the planter are no door.
+
+**Limits.**
+
+- It is one tree drawn twice: the Living view's left end and the Kitchen view's right end are the same picture, mirrored. The two are never on the stage together (no pan joins Kitchen to Living).
+- The Kitchen view no longer shows that Living lies beyond it.
+- The bed's shrubs are half as wide as in the Living view. Judged on screen at the sizes above, not measured.
+- The planter covers the lower right of the floor, and with it the last sweep of the breeze line, which now runs behind it.
+- The leaf shadows that the tree casts on the Living plate's pier are not carried over: the Kitchen pier keeps its own light.
+- On desktop the story rail's two inactive labels (01 ARRIVAL, 02 PERSPECTIVE, drawn at 30%) now lie on the rock's lit face and are hard to read there, as they already are over the tree in the Bedroom view. "03 WORLDS" reads.
+- Not seen: Safari, Firefox, a real phone or tablet.
 
 ## 16. Studio handoff and delivery intake (PASS 6A.9)
 

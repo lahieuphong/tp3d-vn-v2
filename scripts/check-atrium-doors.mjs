@@ -145,8 +145,9 @@ const OPEN = Object.fromEntries(ROOMS.map((room) => [room, 1]));
 // 2. Where a room view shows the doorway beside its own, that leaf is the
 // neighbour's own, the pan's shift across: the two plates of a pan carry one
 // leaf, as they carry one doorway (the plates were made to agree, §15.7).
-// The Kitchen view's Living doorway is its own drawing: the Atrium is round
-// and no pan joins the two.
+// The Kitchen view shows its own door alone: its right end is the Living
+// view's planter (§15.10), where the plate's own drawing of the Living
+// doorway stood before.
 // ---------------------------------------------------------------------------
 {
   const shift = (index) => {
@@ -203,6 +204,25 @@ const OPEN = Object.fromEntries(ROOMS.map((room) => [room, 1]));
       ['bathroom', 'kitchen'],
     ],
   );
+  // The Kitchen view ends on the Living view's olive tree and rock (owner
+  // request, 2026-10-10): no leaf is drawn over them, and nothing behind
+  // them can be chosen.
+  same(
+    ATRIUM_ORBIT_DOORS.kitchen.map((door) => door.room),
+    ['kitchen'],
+    'the Kitchen view shows one door',
+  );
+  for (const [x, y] of [
+    [1560, 300],
+    [1620, 420],
+    [1500, 250],
+    [1350, 300],
+  ])
+    assert.equal(
+      doorAt('kitchen', x / W, y / H),
+      null,
+      'the planter is no door',
+    );
 }
 
 // ---------------------------------------------------------------------------

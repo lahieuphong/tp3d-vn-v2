@@ -1134,6 +1134,44 @@ const { ATRIUM_ORBIT_TIMING: TIMING, ATRIUM_ORBIT_TIMING_REDUCED: REDUCED } =
       { room: 'kitchen', box: [246, 128, 470, 222] }, // "03 Bathroom"
     ])
       assert.ok(ink(plate[room], box) < 40, `${room}: no label there`);
+    // The Kitchen plate ends on the Living view's planter (owner request,
+    // 2026-10-10). Left of its doorway the Living plate shows an olive tree
+    // and a rock, their branches across the jamb and the pier; the Kitchen
+    // plate showed that same side of the Living doorway bare. Beyond the
+    // pier right of the Kitchen doorway (x = 1445) the Kitchen plate is now
+    // the Living plate's left end, mirrored about x = 910: one picture
+    // (what differs is the encoder's noise, about 2 of 255; 41 before). The plate's own drawing of the
+    // Living doorway and its label are gone from there.
+    {
+      const MIRROR = 1820;
+      const [x0, y0, x1, y1] = [1452, 20, 1668, 930];
+      let sum = 0;
+      for (let y = y0; y < y1; y++)
+        for (let x = x0; x < x1; x++)
+          for (let c = 0; c < 3; c++)
+            sum += Math.abs(
+              plate.kitchen[at(x, y) + c] - plate.living[at(MIRROR - x, y) + c],
+            );
+      const off = sum / ((x1 - x0) * (y1 - y0) * 3);
+      assert.ok(
+        off < 5,
+        `kitchen | living: the planter is one picture, mirrored (${off})`,
+      );
+      assert.ok(
+        ink(plate.kitchen, [1540, 90, 1672, 180]) < 40,
+        'kitchen: no "01 Living" label behind the tree',
+      );
+      // The pier between the two stays the Kitchen plate's own: it is not
+      // the Living plate's pier, mirrored (their light falls differently).
+      let pier = 0;
+      for (let y = 450; y < 560; y++)
+        for (let x = 1275; x < 1380; x++)
+          for (let c = 0; c < 3; c++)
+            pier += Math.abs(
+              plate.kitchen[at(x, y) + c] - plate.living[at(MIRROR - x, y) + c],
+            );
+      assert.ok(pier / (105 * 110 * 3) > 12, "the Kitchen plate's own pier");
+    }
   }
   // Lossless sources and the comps themselves stay out of Git and of public/.
   assert.ok(
@@ -4056,7 +4094,8 @@ console.log(
     'portals; the approved Atrium itself never moved), the orbit on comp ' +
     'plates (push in from the wide Atrium, then pans: one picture ' +
     'travelling, its two plates the same pixels on the doorways they share ' +
-    'and joined on the pier between; the stage covered at every position on ' +
+    'and joined on the pier between; the Kitchen plate ending on the Living ' +
+    "view's planter, mirrored; the stage covered at every position on " +
     'nine screens; exact in reverse; plain changes under reduced motion), ' +
     'the closed doors lying on every plate with its pose and its join ' +
     '(shut from the first sight of the Atrium to the end of the orbit, the wide ' +

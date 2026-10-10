@@ -300,25 +300,11 @@ export const ATRIUM_ORBIT_DOORS: Record<
     { room: 'bathroom', ...OWN.bathroom },
     borrowed('kitchen', 'kitchen', shift(3)),
   ],
-  kitchen: [
-    { room: 'kitchen', ...OWN.kitchen },
-    // The Atrium is round: past the Kitchen stands the Living doorway again,
-    // this plate's own drawing of it.
-    {
-      room: 'living',
-      top: [
-        [1518, 212],
-        [1557, 201.6],
-        [1595, 190.7],
-        [1634, 179.5],
-        [1672, 167.8],
-      ],
-      sill: [
-        [1518, 606],
-        [1672, 633],
-      ],
-    },
-  ],
+  // The Kitchen view ends on the Living view's planter (its olive tree and
+  // rock, laid mirrored on the plate's right end: owner request, 2026-10-10;
+  // work/atrium-orbit/comp-plates/stitch.mjs). The plate's own drawing of the
+  // Living doorway stood there before; this view now shows one door.
+  kitchen: [{ room: 'kitchen', ...OWN.kitchen }],
 };
 
 /** A leaf's outline on its plate, cut where the plate ends: its two sides

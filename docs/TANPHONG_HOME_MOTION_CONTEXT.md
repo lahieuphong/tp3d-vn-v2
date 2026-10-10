@@ -996,3 +996,14 @@ through the room orbit, and choosing a door opens it and enters the room. Detail
 - **Listeners and writes.** One click listener on the Atrium section (plus `pagehide`, `pageshow` and `popstate` on the window), in `room-door-entry.ts`. No wheel or touch listener, no RAF or timer loop; the Atrium's scroll position is never written. The room's page is put at its top under the cover (the router skips its own reset for some pages, as noted for the World gateway).
 - **The base journey is untouched**: `home-story-timeline.ts` did not change, and `check:lab` and the base-journey digest are as they were.
 - **A correction to the record.** `5b88eec` (the intro's top header removed) changed `home-intro-loader.tsx` while `check:atrium-orbit` still locked that file, so that check failed from that commit on. The lock is re-derived here, with its trail in the check.
+
+## 46. The Kitchen view ends on the Living view's planter (2026-10-10, not deployed)
+
+Owner request: the Kitchen view's right end, which showed the Living doorway
+again beside a bare pier, is to be the olive tree and the rock that stand at
+the Living view's left end. Details, how the request was read, verification
+and limits: `TANPHONG_ATRIUM_ORBIT_IMPLEMENTATION.md` §15.10.
+
+- A change of one picture: the Kitchen plate's right end is the Living plate's left end, mirrored (`work/atrium-orbit/comp-plates/stitch.mjs`, outside Git). Nothing left of plate column 1218 changed.
+- The Kitchen view now shows one door; the Living leaf that lay on its right end is gone from the door data and from the door picture.
+- No motion, timing, listener or scroll behaviour changed. The homepage's runtime code differs only in the Kitchen entry of `ATRIUM_ORBIT_DOORS`.
